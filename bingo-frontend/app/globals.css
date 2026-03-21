@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+.font-arcade {
+  font-family: var(--font-press-start), var(--font-geist-mono), monospace;
+}
