@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Usuario {
+  id              Int        @id @default(autoincrement())
+  nombre          String
+  codigo          String     @unique
+  tipo            String
+  cartillas       Cartilla[]
+  firmasHechas    Firma[]    @relation("Firmador")
+  firmasRecibidas Firma[]    @relation("Firmado")
+}
+
+model Cartilla {
+  id            Int               @id @default(autoincrement())
+  participant   Usuario           @relation(fields: [participantId], references: [id])
+  participantId Int
+  completo      Boolean           @default(false)
+  casillas      RelacionCasilla[]
+  firmas        Firma[]
+}
+
+model Casilla {
+  id        Int               @id @default(autoincrement())
+  numero    Int               @unique
+  pregunta  String
+  cartillas RelacionCasilla[]
+  firmas    Firma[]
+}
+
+model RelacionCasilla {
+  id         Int      @id @default(autoincrement())
+  cartilla   Cartilla @relation(fields: [cartillaId], references: [id])
+  cartillaId Int
+  casilla    Casilla  @relation(fields: [casillaId], references: [id])
+  casillaId  Int
+
+  @@unique([cartillaId, casillaId])
+}
+
+model Firma {
+  id           Int      @id @default(autoincrement())
+  cartilla     Cartilla @relation(fields: [cartillaId], references: [id])
+  cartillaId   Int
+  casilla      Casilla  @relation(fields: [casillaId], references: [id])
+  casillaId    Int
+  firmadoPor   Usuario  @relation("Firmador", fields: [firmadoPorId], references: [id])
+  firmadoPorId Int
+  firmadoA     Usuario  @relation("Firmado", fields: [firmadoAId], references: [id])
+  firmadoAId   Int
+
+  @@unique([cartillaId, firmadoPorId, firmadoAId])
+}
