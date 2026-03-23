@@ -212,8 +212,8 @@ const MainView = ({ playerName, playerCode }: MainViewProps) => {
           <div className="mt-7 rounded-2xl border-2 border-[#3CE0B8] bg-[#0D3AA8] px-4 py-4 text-center">
             <p className="text-sm text-[#B7FFEB]">Estado: EN ESPERA</p>
             <p className="mt-2 text-xs leading-relaxed text-white">
-              Ya completaste tu bingo. Mantente cerca del staff para la validacion
-              final y entrega de premio.
+              Ya completaste tu bingo. Mantente cerca del staff para la
+              validacion final y entrega de premio.
             </p>
           </div>
         )}
@@ -236,7 +236,7 @@ const MainView = ({ playerName, playerCode }: MainViewProps) => {
                 onChange={(event) =>
                   setCodeInput(event.target.value.toUpperCase())
                 }
-                placeholder="Ingresa codigo (AB12)"
+                placeholder="Ingresa codigo"
                 className="w-full bg-transparent text-base uppercase text-[#1F73C9] outline-none placeholder:text-[#6784C4]"
                 maxLength={4}
               />
