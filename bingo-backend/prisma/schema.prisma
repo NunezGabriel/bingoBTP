@@ -27,6 +27,8 @@ model Cartilla {
   participant   Usuario           @relation(fields: [participantId], references: [id])
   participantId Int
   completo      Boolean           @default(false)
+  ronda         Ronda     @relation(fields: [rondaId], references: [id])
+  rondaId       Int
   casillas      RelacionCasilla[]
   firmas        Firma[]
 }
@@ -61,4 +63,13 @@ model Firma {
   firmadoAId   Int
 
   @@unique([cartillaId, firmadoPorId, firmadoAId])
+}
+
+model Ronda {
+  id        Int       @id @default(autoincrement())
+  nombre    String
+  activa    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  cartillas Cartilla[]
 }

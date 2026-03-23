@@ -25,9 +25,15 @@ async function main() {
 
   const cartilla = await prisma.cartilla.create({
     data: {
-      participantId: user.id
+      participantId: user.id,
+      rondaId: ronda.id
+
     }
   });
+
+  const ronda = await prisma.ronda.create({
+    data: { nombre: 'Ronda 1' }
+});
 
   // 🔗 asignar casillas
   const todasCasillas = await prisma.casilla.findMany();

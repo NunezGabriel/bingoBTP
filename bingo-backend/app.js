@@ -8,7 +8,9 @@ app.use(express.json());
 const firmaRoutes = require('./routes/firmaRoutes');
 const cartillaRoutes = require('./routes/cartillaRoutes');
 const rankingRoutes = require('./routes/rankingRoutes');
+const rondaRoutes = require('./routes/rondaRoutes');
 
+app.use('/api/rondas', rondaRoutes);
 app.use('/api/firmas', firmaRoutes);
 app.use('/api/cartillas', cartillaRoutes);
 app.use('/api/ranking', rankingRoutes);

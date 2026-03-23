@@ -112,6 +112,15 @@ async function firmarCasilla(req, res) {
 
     const resultado = casiGanadores.filter(c => c.firmas.length === 7);
 
+    //9. Validar ronda activa
+    const rondaActiva = await prisma.ronda.findFirst({
+        where: { activa: true }
+    });
+
+    if (!rondaActiva || cartilla.rondaId !== rondaActiva.id) {
+        return res.status(400).json({ error: 'Cartilla fuera de ronda activa' });
+    }
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error interno' });
