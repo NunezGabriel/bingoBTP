@@ -5,10 +5,10 @@ const cors = require('cors');
 app.use(cors());
 app.use(express.json());
 
-const firmaRoutes = require('./routes/firmaRoutes');
-const cartillaRoutes = require('./routes/cartillaRoutes');
-const rankingRoutes = require('./routes/rankingRoutes');
-const rondaRoutes = require('./routes/rondaRoutes');
+const firmaRoutes = require('./src/routes/firmaRoutes');
+const cartillaRoutes = require('./src/routes/cartillaRoutes');
+const rankingRoutes = require('./src/routes/rankingRoutes');
+const rondaRoutes = require('./src/routes/rondaRoutes');
 
 app.use('/api/rondas', rondaRoutes);
 app.use('/api/firmas', firmaRoutes);
