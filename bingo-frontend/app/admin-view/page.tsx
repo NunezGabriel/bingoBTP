@@ -5,6 +5,7 @@ import {
   crearNuevaRondaAdmin,
   finalizarRondaAdmin,
   loginPorCodigo,
+  obtenerMiSesion,
   obtenerProgresoAdmin,
 } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -24,10 +25,24 @@ export default function AdminViewPage() {
 
   async function tryLoadAdminData() {
     try {
-      const progress = await obtenerProgresoAdmin();
-      setData(progress);
+      const sessionUser = await obtenerMiSesion();
+      if (sessionUser.tipo !== "ADMIN") {
+        return;
+      }
+
       setIsAdmin(true);
       setError("");
+
+      try {
+        const progress = await obtenerProgresoAdmin();
+        setData(progress);
+      } catch (e) {
+        if (isNoActiveRoundError(e)) {
+          setData(null);
+          return;
+        }
+        throw e;
+      }
     } catch {
       // Si no hay sesión admin, queda en vista de login.
     }
@@ -42,9 +57,17 @@ export default function AdminViewPage() {
         setError("Ese codigo no pertenece a una cuenta ADMIN");
         return;
       }
-      const progress = await obtenerProgresoAdmin();
-      setData(progress);
       setIsAdmin(true);
+      try {
+        const progress = await obtenerProgresoAdmin();
+        setData(progress);
+      } catch (e) {
+        if (isNoActiveRoundError(e)) {
+          setData(null);
+          return;
+        }
+        throw e;
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo ingresar");
     } finally {
@@ -158,5 +181,13 @@ export default function AdminViewPage() {
       </section>
     </main>
   );
+}
+
+function isNoActiveRoundError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const message = error.message.toLowerCase();
+  return message.includes("no hay ronda activa") || message.includes("error 404");
 }
 

@@ -53,46 +53,80 @@ async function crearNuevaRondaAdmin(req, res) {
       return res.status(400).json({ error: "No hay suficientes casillas para crear cartillas" });
     }
 
-    const payload = await prisma.$transaction(async (tx) => {
-      await tx.ronda.updateMany({
-        where: { activa: true },
-        data: { activa: false },
-      });
+    const payload = await prisma.$transaction(
+      async (tx) => {
+        await tx.ronda.updateMany({
+          where: { activa: true },
+          data: { activa: false },
+        });
 
-      const ronda = await tx.ronda.create({
-        data: {
-          nombre: `Ronda ${Date.now()}`,
-          activa: true,
-        },
-      });
-
-      for (const participant of participants) {
-        const cartilla = await tx.cartilla.create({
+        const ronda = await tx.ronda.create({
           data: {
-            participantId: participant.id,
-            rondaId: ronda.id,
-            completo: false,
+            nombre: `Ronda ${Date.now()}`,
+            activa: true,
           },
         });
 
-        const sample = pickRandom(casillas, 9);
-        await tx.relacionCasilla.createMany({
-          data: sample.map((c) => ({
-            cartillaId: cartilla.id,
-            casillaId: c.id,
-          })),
-        });
-      }
+        for (const participant of participants) {
+          const sample = pickRandom(casillas, 9);
+          const existingCartilla = await tx.cartilla.findFirst({
+            where: { participantId: participant.id },
+            orderBy: { id: "desc" },
+          });
+          let cartilla;
 
-      return {
-        ronda,
-        totalParticipantes: participants.length,
-      };
-    });
+          if (existingCartilla) {
+            await tx.firma.deleteMany({
+              where: { cartillaId: existingCartilla.id },
+            });
+            await tx.relacionCasilla.deleteMany({
+              where: { cartillaId: existingCartilla.id },
+            });
+
+            cartilla = await tx.cartilla.update({
+              where: { id: existingCartilla.id },
+              data: {
+                rondaId: ronda.id,
+                completo: false,
+              },
+            });
+          } else {
+            cartilla = await tx.cartilla.create({
+              data: {
+                participantId: participant.id,
+                rondaId: ronda.id,
+                completo: false,
+              },
+            });
+          }
+
+          await tx.relacionCasilla.createMany({
+            data: sample.map((c) => ({
+              cartillaId: cartilla.id,
+              casillaId: c.id,
+            })),
+          });
+        }
+
+        return {
+          ronda,
+          totalParticipantes: participants.length,
+        };
+      },
+      {
+        maxWait: 10000,
+        timeout: 60000,
+      },
+    );
 
     return res.json(payload);
   } catch (error) {
-    console.error("Error creando nueva ronda admin:", error);
+    console.error("Error creando nueva ronda admin:", {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack,
+    });
     return res.status(500).json({ error: "Error creando ronda" });
   }
 }
