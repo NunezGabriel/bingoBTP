@@ -1,14 +1,20 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+require("dotenv").config();
+const { PrismaClient } = require("@prisma/client");
+const { PrismaPg } = require("@prisma/adapter-pg");
+const { Pool } = require("pg");
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
 
   // 👤 usuarios
   await prisma.usuario.createMany({
     data: [
-      { nombre: 'Ana', codigo: 'A1', tipo: 'participant' },
-      { nombre: 'Luis', codigo: 'L1', tipo: 'participant' },
-      { nombre: 'Marta', codigo: 'M1', tipo: 'participant' }
+      { nombre: "Ana", codigo: "AN12", tipo: "PARTICIPANT" },
+      { nombre: "Luis", codigo: "LU77", tipo: "PARTICIPANT" },
+      { nombre: "Marta", codigo: "MA88", tipo: "PARTICIPANT" }
     ]
   });
 
@@ -23,17 +29,16 @@ async function main() {
   // 🎟️ cartilla
   const user = await prisma.usuario.findFirst();
 
+  const ronda = await prisma.ronda.create({
+    data: { nombre: "Ronda 1" }
+  });
+
   const cartilla = await prisma.cartilla.create({
     data: {
       participantId: user.id,
       rondaId: ronda.id
-
     }
   });
-
-  const ronda = await prisma.ronda.create({
-    data: { nombre: 'Ronda 1' }
-});
 
   // 🔗 asignar casillas
   const todasCasillas = await prisma.casilla.findMany();
@@ -47,9 +52,12 @@ async function main() {
     });
   }
 
-  console.log('🌱 Seed completado');
+  console.log("Seed completado");
 }
 
 main()
   .catch(e => console.error(e))
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+    await pool.end();
+  });

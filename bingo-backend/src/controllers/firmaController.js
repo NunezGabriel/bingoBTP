@@ -1,4 +1,4 @@
-const prisma = require('../prismaClient');
+const prisma = require("../prismaClient");
 
 async function firmarCasilla(req, res) {
   const { cartilla_id, casilla_id, codigo_firmador, codigo_destino } = req.body;
@@ -14,12 +14,12 @@ async function firmarCasilla(req, res) {
     });
 
     if (!firmador || !destino) {
-      return res.status(404).json({ error: 'Usuario no válido' });
+      return res.status(404).json({ error: "Usuario no valido" });
     }
 
     // 2. no auto-firma
     if (firmador.id === destino.id) {
-      return res.status(400).json({ error: 'No puedes firmarte a ti mismo' });
+      return res.status(400).json({ error: "No puedes firmarte a ti mismo" });
     }
 
     // 3. validar que la casilla pertenece a la cartilla
@@ -37,17 +37,15 @@ async function firmarCasilla(req, res) {
     }
 
     // 4. verificar si ya está firmada
-    const yaFirmada = await prisma.firma.findUnique({
+    const yaFirmada = await prisma.firma.findFirst({
       where: {
-        cartillaId_casillaId: {
-          cartillaId: cartilla_id,
-          casillaId: casilla_id
-        }
+        cartillaId: cartilla_id,
+        casillaId: casilla_id,
       }
     });
 
     if (yaFirmada) {
-      return res.status(400).json({ error: 'Casilla ya firmada' });
+      return res.status(400).json({ error: "Casilla ya firmada" });
     }
 
     // 5. crear firma
@@ -67,7 +65,7 @@ async function firmarCasilla(req, res) {
 
     // 🔥 ALERTA: casi ganador
     if (totalFirmas === 8) {
-      console.log('🔥 ESTA CARTILLA ESTÁ A 1 DE GANAR');
+      console.log("Cartilla a 1 de ganar");
     }
 
     // 🏆 ganador
@@ -82,47 +80,29 @@ async function firmarCasilla(req, res) {
 
     res.json({ ok: true, progreso: totalFirmas });
 
-    //7. Ranking por firmas hechas
-
-    const ranking = await prisma.firma.groupBy({
-        by: ['firmadoPorId'],
-        _count: {
-            firmadoPorId: true
-        },
-        orderBy: {
-            _count: {
-            firmadoPorId: 'desc'
-            }
-        }
-    });
-
-    //8. Casi ganadores (7 firmas)
-
-    const casiGanadores = await prisma.cartilla.findMany({
-        where: {
-            completo: false,
-            firmas: {
-            some: {}
-            }
-        },
-        include: {
-            firmas: true
-        }
-    });
-
-    const resultado = casiGanadores.filter(c => c.firmas.length === 7);
-
-    //9. Validar ronda activa
+    // 7. validar ronda activa de la cartilla firmada
     const rondaActiva = await prisma.ronda.findFirst({
-        where: { activa: true }
+      where: { activa: true }
     });
+
+    const cartilla = await prisma.cartilla.findUnique({
+      where: { id: cartilla_id }
+    });
+
+    if (!cartilla) {
+      return res.status(404).json({ error: "Cartilla no encontrada" });
+    }
 
     if (!rondaActiva || cartilla.rondaId !== rondaActiva.id) {
-        return res.status(400).json({ error: 'Cartilla fuera de ronda activa' });
+      return res.status(400).json({ error: "Cartilla fuera de ronda activa" });
     }
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error interno' });
+    res.status(500).json({ error: "Error interno" });
   }
 }
+
+module.exports = {
+  firmarCasilla,
+};

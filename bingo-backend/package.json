@@ -5,24 +5,28 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "generate": "node node_modules/prisma/build/index.js generate",
+    "seed": "node prisma/seed.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "express-session": "^1.18.1",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
     "prisma": "^7.5.0"
   },
   "prisma": {
-  "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js"
+  }
 }
-}
-
