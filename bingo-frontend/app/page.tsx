@@ -2,30 +2,25 @@
 
 import MainView from "@/views/mainView";
 import StartView from "@/views/startView";
-import { useState } from "react";
-
-const randomCode = () => {
-  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const first = letters[Math.floor(Math.random() * letters.length)];
-  const second = letters[Math.floor(Math.random() * letters.length)];
-  const number = Math.floor(Math.random() * 100).toString().padStart(2, "0");
-  return `${first}${second}${number}`;
-};
+import { useGame } from "@/context/GameContext";
 
 export default function Home() {
-  const [playerName, setPlayerName] = useState("");
-  const [playerCode, setPlayerCode] = useState("");
-  const [hasStarted, setHasStarted] = useState(false);
+  const { user, cartilla, loading, error, registerWithName, signCell, changeUser } =
+    useGame();
 
-  const handleStart = (name: string) => {
-    setPlayerName(name);
-    setPlayerCode(randomCode());
-    setHasStarted(true);
-  };
-
-  if (!hasStarted) {
-    return <StartView onStart={handleStart} />;
+  if (!user || !cartilla) {
+    return <StartView onStart={registerWithName} loading={loading} errorMessage={error} />;
   }
 
-  return <MainView playerName={playerName} playerCode={playerCode} />;
+  return (
+    <MainView
+      cartilla={cartilla}
+      playerName={user.nombre}
+      playerCode={user.codigo}
+      onSignCell={signCell}
+      onChangeUser={changeUser}
+      errorMessage={error}
+      loading={loading}
+    />
+  );
 }

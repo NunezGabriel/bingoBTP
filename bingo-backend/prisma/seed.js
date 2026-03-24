@@ -7,52 +7,58 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+const PREGUNTAS = [
+  "Encuentra a alguien con quien intercambiar contacto profesional",
+  "Encuentra a alguien que busque socios para un proyecto",
+  "Encuentra a alguien que quiera aprender algo que tu sabes",
+  "Encuentra a alguien que pueda ensenarte algo util",
+  "Encuentra a alguien con experiencia laboral",
+  "Encuentra a alguien que quiera emprender",
+  "Encuentra a alguien con una idea de negocio",
+  "Encuentra a alguien que haya participado en un proyecto real",
+  "Encuentra a alguien que quiera trabajar en el extranjero",
+  "Encuentra a alguien que quiera liderar equipos",
+  "Encuentra a alguien que sepa programar",
+  "Encuentra a alguien que domine Excel o analisis de datos",
+  "Encuentra a alguien que haya usado inteligencia artificial",
+  "Encuentra a alguien interesado en startups",
+  "Encuentra a alguien que prefiera datos sobre creatividad o viceversa",
+  "Encuentra a alguien que haya trasnochado por estudios",
+  "Encuentra a alguien que procrastino hoy",
+  "Encuentra a alguien que haya fingido entender algo",
+  "Encuentra a alguien que se considere desorganizado",
+  "Encuentra a alguien que ame el cafe",
+  "Encuentra a alguien que te cuente su mayor error profesional",
+  "Encuentra a alguien que te diga su meta este ano",
+  "Encuentra a alguien que cambiaria de carrera",
+  "Encuentra a alguien que te de un consejo profesional",
+  "Encuentra a alguien con quien harias un proyecto hoy mismo",
+];
+
 async function main() {
+  // Limpia todo lo relacionado a partidas/casillas para arrancar en limpio.
+  await prisma.firma.deleteMany();
+  await prisma.relacionCasilla.deleteMany();
+  await prisma.cartilla.deleteMany();
+  await prisma.usuario.deleteMany();
+  await prisma.ronda.deleteMany();
+  await prisma.casilla.deleteMany();
 
-  // 👤 usuarios
-  await prisma.usuario.createMany({
-    data: [
-      { nombre: "Ana", codigo: "AN12", tipo: "PARTICIPANT" },
-      { nombre: "Luis", codigo: "LU77", tipo: "PARTICIPANT" },
-      { nombre: "Marta", codigo: "MA88", tipo: "PARTICIPANT" }
-    ]
+  await prisma.casilla.createMany({
+    data: PREGUNTAS.map((pregunta, index) => ({
+      numero: index + 1,
+      pregunta,
+    })),
   });
 
-  // 🔢 casillas
-  const casillas = await prisma.casilla.createMany({
-    data: Array.from({ length: 9 }, (_, i) => ({
-      numero: i + 1,
-      pregunta: `Pregunta ${i + 1}`
-    }))
-  });
-
-  // 🎟️ cartilla
-  const user = await prisma.usuario.findFirst();
-
-  const ronda = await prisma.ronda.create({
-    data: { nombre: "Ronda 1" }
-  });
-
-  const cartilla = await prisma.cartilla.create({
+  await prisma.ronda.create({
     data: {
-      participantId: user.id,
-      rondaId: ronda.id
-    }
+      nombre: "Ronda Inicial",
+      activa: true,
+    },
   });
 
-  // 🔗 asignar casillas
-  const todasCasillas = await prisma.casilla.findMany();
-
-  for (const c of todasCasillas) {
-    await prisma.relacionCasilla.create({
-      data: {
-        cartillaId: cartilla.id,
-        casillaId: c.id
-      }
-    });
-  }
-
-  console.log("Seed completado");
+  console.log(`Seed completado: ${PREGUNTAS.length} casillas cargadas.`);
 }
 
 main()

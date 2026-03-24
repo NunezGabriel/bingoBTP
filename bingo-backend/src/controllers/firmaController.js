@@ -4,13 +4,35 @@ async function firmarCasilla(req, res) {
   const { cartilla_id, casilla_id, codigo_firmador, codigo_destino } = req.body;
 
   try {
+    const sessionUser = req.session?.user;
+    if (!sessionUser) {
+      return res.status(401).json({ error: "no autenticado" });
+    }
+
     // 1. validar usuarios por código
-    const firmador = await prisma.usuario.findUnique({
-      where: { codigo: codigo_firmador }
-    });
+    const [firmador, cartilla] = await Promise.all([
+      prisma.usuario.findUnique({
+        where: { codigo: String(codigo_firmador || "").trim().toUpperCase() },
+      }),
+      prisma.cartilla.findUnique({
+        where: { id: Number(cartilla_id) },
+      }),
+    ]);
+
+    if (!cartilla) {
+      return res.status(404).json({ error: "Cartilla no encontrada" });
+    }
+
+    if (cartilla.participantId !== sessionUser.id) {
+      return res.status(403).json({ error: "Cartilla no autorizada" });
+    }
+
+    const destinoCodigo = String(
+      codigo_destino || sessionUser.codigo || "",
+    ).trim().toUpperCase();
 
     const destino = await prisma.usuario.findUnique({
-      where: { codigo: codigo_destino }
+      where: { codigo: destinoCodigo }
     });
 
     if (!firmador || !destino) {
@@ -26,8 +48,8 @@ async function firmarCasilla(req, res) {
     const existeRelacion = await prisma.relacionCasilla.findUnique({
       where: {
         cartillaId_casillaId: {
-          cartillaId: cartilla_id,
-          casillaId: casilla_id
+          cartillaId: Number(cartilla_id),
+          casillaId: Number(casilla_id),
         }
       }
     });
@@ -39,8 +61,8 @@ async function firmarCasilla(req, res) {
     // 4. verificar si ya está firmada
     const yaFirmada = await prisma.firma.findFirst({
       where: {
-        cartillaId: cartilla_id,
-        casillaId: casilla_id,
+        cartillaId: Number(cartilla_id),
+        casillaId: Number(casilla_id),
       }
     });
 
@@ -48,54 +70,56 @@ async function firmarCasilla(req, res) {
       return res.status(400).json({ error: "Casilla ya firmada" });
     }
 
-    // 5. crear firma
+    const yaUsoCodigoEnEstaCartilla = await prisma.firma.findFirst({
+      where: {
+        cartillaId: Number(cartilla_id),
+        firmadoPorId: firmador.id,
+      },
+    });
+
+    if (yaUsoCodigoEnEstaCartilla) {
+      return res
+        .status(400)
+        .json({ error: "Ese codigo ya fue usado en otra casilla" });
+    }
+
+    // 5. validar ronda activa de la cartilla
+    const rondaActiva = await prisma.ronda.findFirst({
+      where: { activa: true },
+    });
+    if (!rondaActiva || cartilla.rondaId !== rondaActiva.id) {
+      return res.status(400).json({ error: "Cartilla fuera de ronda activa" });
+    }
+
+    // 6. crear firma
     await prisma.firma.create({
       data: {
-        cartillaId: cartilla_id,
-        casillaId: casilla_id,
+        cartillaId: Number(cartilla_id),
+        casillaId: Number(casilla_id),
         firmadoPorId: firmador.id,
         firmadoAId: destino.id
       }
     });
 
-    // 6. contar progreso
+    // 7. contar progreso
     const totalFirmas = await prisma.firma.count({
-      where: { cartillaId: cartilla_id }
+      where: { cartillaId: Number(cartilla_id) }
     });
 
-    // 🔥 ALERTA: casi ganador
-    if (totalFirmas === 8) {
-      console.log("Cartilla a 1 de ganar");
-    }
+    // 8. marcar cartilla completa al llenar todas las casillas
+    const totalCasillas = await prisma.relacionCasilla.count({
+      where: { cartillaId: Number(cartilla_id) },
+    });
 
-    // 🏆 ganador
-    if (totalFirmas === 9) {
+    if (totalFirmas >= totalCasillas) {
       await prisma.cartilla.update({
-        where: { id: cartilla_id },
-        data: { completo: true }
+        where: { id: Number(cartilla_id) },
+        data: { completo: true },
       });
-
-      return res.json({ ganador: true });
+      return res.json({ ganador: true, progreso: totalFirmas });
     }
 
-    res.json({ ok: true, progreso: totalFirmas });
-
-    // 7. validar ronda activa de la cartilla firmada
-    const rondaActiva = await prisma.ronda.findFirst({
-      where: { activa: true }
-    });
-
-    const cartilla = await prisma.cartilla.findUnique({
-      where: { id: cartilla_id }
-    });
-
-    if (!cartilla) {
-      return res.status(404).json({ error: "Cartilla no encontrada" });
-    }
-
-    if (!rondaActiva || cartilla.rondaId !== rondaActiva.id) {
-      return res.status(400).json({ error: "Cartilla fuera de ronda activa" });
-    }
+    return res.json({ ok: true, progreso: totalFirmas });
 
   } catch (error) {
     console.error(error);

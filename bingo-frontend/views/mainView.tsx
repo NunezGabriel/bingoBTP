@@ -2,92 +2,53 @@
 
 import confetti from "canvas-confetti";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Cartilla } from "@/lib/api";
 
 type MainViewProps = {
+  cartilla: Cartilla;
   playerName: string;
   playerCode: string;
+  errorMessage?: string;
+  onSignCell: (casillaId: number, codigoFirmador: string) => Promise<void>;
+  onChangeUser: () => Promise<void>;
+  loading?: boolean;
 };
 
-type QuestionItem = {
-  id: number;
-  text: string;
-};
-
-const QUESTIONS: QuestionItem[] = [
-  { id: 1, text: "Alguna vez deployeaste una app en Vercel?" },
-  { id: 2, text: "Tienes mascota?" },
-  { id: 3, text: "Usas GitHub todos los dias?" },
-  { id: 4, text: "Has trabajado con React o Next.js?" },
-  { id: 5, text: "Tomas cafe mientras programas?" },
-  { id: 6, text: "Usaste Tailwind CSS en algun proyecto?" },
-  { id: 7, text: "Has hecho pair programming?" },
-  { id: 8, text: "Aprendiste algo nuevo de IA este mes?" },
-  { id: 9, text: "Has participado en un hackathon?" },
-  { id: 10, text: "Programaste alguna vez de madrugada?" },
-  { id: 11, text: "Tienes proyecto personal en produccion?" },
-  { id: 12, text: "Has usado TypeScript?" },
-  { id: 13, text: "Te gusta dar charlas o talleres?" },
-  { id: 14, text: "Has usado Docker?" },
-  { id: 15, text: "Escuchas musica para concentrarte?" },
-  { id: 16, text: "Has probado una base de datos NoSQL?" },
-  { id: 17, text: "Trabajaste con APIs REST?" },
-  { id: 18, text: "Alguna vez rompiste produccion y lo arreglaste?" },
-  { id: 19, text: "Has usado Figma para diseñar interfaces?" },
-  { id: 20, text: "Te gustaria aprender ciberseguridad este año?" },
-];
-
-const MOCK_PARTICIPANT_CODES = [
-  "AN12",
-  "BE34",
-  "CR56",
-  "DA78",
-  "EL90",
-  "FA11",
-  "GI22",
-  "HA33",
-  "IR44",
-  "JO55",
-  "KA66",
-  "LU77",
-  "MI88",
-  "NO99",
-  "PA10",
-  "QU20",
-  "RA30",
-  "SA40",
-  "TI50",
-  "UL60",
-  "VA70",
-  "WI80",
-  "XI13",
-  "YA24",
-  "ZE35",
-];
-
-const shuffle = <T,>(items: T[]) => {
-  const clone = [...items];
-  for (let i = clone.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [clone[i], clone[j]] = [clone[j], clone[i]];
-  }
-  return clone;
-};
-
-const MainView = ({ playerName, playerCode }: MainViewProps) => {
-  const boardQuestions = useMemo(() => shuffle(QUESTIONS).slice(0, 9), []);
+const MainView = ({
+  cartilla,
+  playerName,
+  playerCode,
+  onSignCell,
+  onChangeUser,
+  loading = false,
+  errorMessage = "",
+}: MainViewProps) => {
+  const boardQuestions = useMemo(
+    () =>
+      cartilla.casillas.map((rel) => ({
+        id: rel.casilla.id,
+        numero: rel.casilla.numero,
+        text: rel.casilla.pregunta,
+      })),
+    [cartilla.casillas],
+  );
   const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(
     null,
   );
   const [codeInput, setCodeInput] = useState("");
-  const [validatedByQuestion, setValidatedByQuestion] = useState<
-    Record<number, string>
-  >({});
-  const [usedCodes, setUsedCodes] = useState<Set<string>>(new Set());
-  const [errorMessage, setErrorMessage] = useState("");
+  const [localError, setLocalError] = useState("");
   const [isBingoModalClosed, setIsBingoModalClosed] = useState(false);
   const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const completedCount = Object.keys(validatedByQuestion).length;
+  const signedByCellId = useMemo(() => {
+    const record: Record<number, boolean> = {};
+    for (const firma of cartilla.firmas) {
+      record[firma.casillaId] = true;
+    }
+    return record;
+  }, [cartilla.firmas]);
+
+  const completedCount = Object.keys(signedByCellId).length;
   const isBingo = completedCount === boardQuestions.length;
 
   const selectedQuestion = boardQuestions.find(
@@ -127,39 +88,30 @@ const MainView = ({ playerName, playerCode }: MainViewProps) => {
   const closeQuestionPanel = () => {
     setSelectedQuestionId(null);
     setCodeInput("");
-    setErrorMessage("");
+    setLocalError("");
   };
 
-  const handleValidateCode = () => {
+  const handleValidateCode = async () => {
     if (!selectedQuestion) return;
 
     const normalizedCode = codeInput.trim().toUpperCase();
-    const isFormatValid = /^[A-Z]{2}\d{2}$/.test(normalizedCode);
-    const existsInMockData = MOCK_PARTICIPANT_CODES.includes(normalizedCode);
+    const isFormatValid = /^[A-Z0-9]{4}$/.test(normalizedCode);
 
     if (!isFormatValid) {
-      setErrorMessage("El codigo debe tener formato AB12.");
-      return;
-    }
-    if (!existsInMockData) {
-      setErrorMessage("Codigo no encontrado en el registro mock.");
+      setLocalError("El codigo debe tener 4 caracteres (letras o numeros).");
       return;
     }
     if (normalizedCode === playerCode) {
-      setErrorMessage("No puedes usar tu propio codigo.");
-      return;
-    }
-    if (usedCodes.has(normalizedCode)) {
-      setErrorMessage("Ese codigo ya fue usado en otra casilla.");
+      setLocalError("No puedes usar tu propio codigo.");
       return;
     }
 
-    setValidatedByQuestion((prev) => ({
-      ...prev,
-      [selectedQuestion.id]: normalizedCode,
-    }));
-    setUsedCodes((prev) => new Set(prev).add(normalizedCode));
-    closeQuestionPanel();
+    try {
+      await onSignCell(selectedQuestion.id, normalizedCode);
+      closeQuestionPanel();
+    } catch {
+      // El error de backend se muestra desde props.
+    }
   };
 
   return (
@@ -179,11 +131,18 @@ const MainView = ({ playerName, playerCode }: MainViewProps) => {
           <p className="mt-2 text-xs leading-relaxed text-white">
             Tu codigo: <span className="text-[#3CE0B8]">{playerCode}</span>
           </p>
+          <button
+            type="button"
+            onClick={onChangeUser}
+            className="mt-4 rounded-lg border border-white/50 bg-white/10 px-3 py-2 text-[10px] text-white hover:bg-white/20"
+          >
+            Cambiar usuario
+          </button>
         </header>
 
         <div className="mt-8 grid grid-cols-3 gap-4">
           {boardQuestions.map((question) => {
-            const isDone = Boolean(validatedByQuestion[question.id]);
+            const isDone = Boolean(signedByCellId[question.id]);
             return (
               <button
                 key={question.id}
@@ -191,7 +150,7 @@ const MainView = ({ playerName, playerCode }: MainViewProps) => {
                 disabled={isDone}
                 onClick={() => {
                   setSelectedQuestionId(question.id);
-                  setErrorMessage("");
+                  setLocalError("");
                 }}
                 className={`h-20 rounded-xl border-2 text-4xl transition ${
                   isDone
@@ -199,7 +158,7 @@ const MainView = ({ playerName, playerCode }: MainViewProps) => {
                     : "border-white bg-white text-[#1F73C9] hover:scale-[1.02]"
                 }`}
               >
-                {question.id}
+                {question.numero}
               </button>
             );
           })}
@@ -223,7 +182,7 @@ const MainView = ({ playerName, playerCode }: MainViewProps) => {
         <section className="absolute inset-0 flex items-center justify-center bg-[#04123B] px-4">
           <div className="w-full max-w-[470px] rounded-[30px] border-2 border-[#4D75D7] bg-[#1247C4] px-7 py-9 shadow-2xl">
             <div className="mx-auto w-fit rounded-2xl bg-[#111319] px-7 py-4 text-6xl text-white">
-              {selectedQuestion.id}
+              {selectedQuestion.numero}
             </div>
             <p className="mt-7 text-center text-lg leading-relaxed text-white">
               {selectedQuestion.text}
@@ -243,12 +202,18 @@ const MainView = ({ playerName, playerCode }: MainViewProps) => {
               <button
                 type="button"
                 onClick={handleValidateCode}
+                disabled={loading}
                 className="rounded-lg bg-[#33D7AF] px-4 py-2 text-base text-white"
               >
                 OK
               </button>
             </div>
 
+            {localError && (
+              <p className="mt-4 text-xs leading-relaxed text-[#B7FFEB]">
+                {localError}
+              </p>
+            )}
             {errorMessage && (
               <p className="mt-4 text-xs leading-relaxed text-[#B7FFEB]">
                 {errorMessage}

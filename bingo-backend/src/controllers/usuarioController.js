@@ -1,6 +1,7 @@
 const prisma = require("../prismaClient");
 
 const USER_TYPES = { ADMIN: "ADMIN", PARTICIPANT: "PARTICIPANT" };
+const CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 function sanitizeUser(user) {
   return {
@@ -13,32 +14,68 @@ function sanitizeUser(user) {
 
 async function registrarUsuario(req, res) {
   try {
-    const { nombre, codigo, tipo } = req.body;
+    const { nombre, tipo } = req.body;
 
-    if (!nombre || !codigo) {
-      return res
-        .status(400)
-        .json({ error: "nombre y codigo son obligatorios" });
+    if (!nombre) {
+      return res.status(400).json({ error: "nombre es obligatorio" });
     }
 
     const userType =
       tipo === USER_TYPES.ADMIN ? USER_TYPES.ADMIN : USER_TYPES.PARTICIPANT;
 
-    const user = await prisma.usuario.create({
-      data: {
-        nombre: String(nombre).trim(),
-        codigo: String(codigo).trim().toUpperCase(),
-        tipo: userType,
-      },
+    const cleanName = String(nombre).trim();
+    if (!cleanName) {
+      return res.status(400).json({ error: "nombre es obligatorio" });
+    }
+
+    const userCode = await generarCodigoUnico();
+    const rondaActiva = await getOrCreateActiveRonda();
+    const casillasCartilla = await obtenerCasillasAleatorias(9);
+
+    const payload = await prisma.$transaction(async (tx) => {
+      const user = await tx.usuario.create({
+        data: {
+          nombre: cleanName,
+          codigo: userCode,
+          tipo: userType,
+        },
+      });
+
+      const cartilla = await tx.cartilla.create({
+        data: {
+          participantId: user.id,
+          rondaId: rondaActiva.id,
+          completo: false,
+        },
+      });
+
+      await tx.relacionCasilla.createMany({
+        data: casillasCartilla.map((casilla) => ({
+          cartillaId: cartilla.id,
+          casillaId: casilla.id,
+        })),
+      });
+
+      const cartillaConRelaciones = await tx.cartilla.findUnique({
+        where: { id: cartilla.id },
+        include: {
+          casillas: {
+            include: { casilla: true },
+          },
+          firmas: true,
+        },
+      });
+
+      return { user, cartilla: cartillaConRelaciones };
     });
 
-    req.session.user = sanitizeUser(user);
-    return res.status(201).json(req.session.user);
+    req.session.user = sanitizeUser(payload.user);
+    return res.status(201).json({
+      user: req.session.user,
+      cartilla: payload.cartilla,
+    });
   } catch (error) {
     console.error("ERROR registrarUsuario:", error);
-    if (error?.code === "P2002") {
-      return res.status(409).json({ error: "codigo ya registrado" });
-    }
     return res.status(500).json({ error: "error al registrar usuario" });
   }
 }
@@ -93,3 +130,68 @@ module.exports = {
   cerrarSesion,
   listarUsuarios,
 };
+
+async function getOrCreateActiveRonda() {
+  const activa = await prisma.ronda.findFirst({
+    where: { activa: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (activa) {
+    return activa;
+  }
+
+  return prisma.ronda.create({
+    data: {
+      nombre: `Ronda ${new Date().toISOString()}`,
+      activa: true,
+    },
+  });
+}
+
+async function obtenerCasillasAleatorias(limit) {
+  let casillas = await prisma.casilla.findMany();
+  if (casillas.length < limit) {
+    const faltantes = limit - casillas.length;
+    const maxNumero = casillas.reduce((max, c) => Math.max(max, c.numero), 0);
+
+    for (let i = 1; i <= faltantes; i += 1) {
+      const numero = maxNumero + i;
+      await prisma.casilla.create({
+        data: {
+          numero,
+          pregunta: `Pregunta ${numero}`,
+        },
+      });
+    }
+    casillas = await prisma.casilla.findMany();
+  }
+
+  const shuffled = [...casillas];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, limit);
+}
+
+async function generarCodigoUnico() {
+  for (let i = 0; i < 20; i += 1) {
+    const code = construirCodigo();
+    const existing = await prisma.usuario.findUnique({
+      where: { codigo: code },
+    });
+    if (!existing) {
+      return code;
+    }
+  }
+  throw new Error("No se pudo generar un codigo unico");
+}
+
+function construirCodigo() {
+  let out = "";
+  for (let i = 0; i < 4; i += 1) {
+    out += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  }
+  return out;
+}

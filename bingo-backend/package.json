@@ -7,7 +7,9 @@
     "dev": "nodemon src/app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "generate": "node node_modules/prisma/build/index.js generate",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.js",
+    "seed:casillas": "node prisma/seed.js",
+    "seed:users": "node prisma/seed-users.js"
   },
   "keywords": [],
   "author": "",

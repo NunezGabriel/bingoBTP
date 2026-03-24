@@ -43,7 +43,47 @@ async function casiGanador(req, res) {
   }
 }
 
+async function obtenerMiCartilla(req, res) {
+  try {
+    const sessionUser = req.session?.user;
+    if (!sessionUser) {
+      return res.status(401).json({ error: "no autenticado" });
+    }
+
+    const rondaActiva = await prisma.ronda.findFirst({
+      where: { activa: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!rondaActiva) {
+      return res.status(404).json({ error: "No hay ronda activa" });
+    }
+
+    const cartilla = await prisma.cartilla.findFirst({
+      where: {
+        participantId: sessionUser.id,
+        rondaId: rondaActiva.id,
+      },
+      include: {
+        casillas: {
+          include: { casilla: true },
+        },
+        firmas: true,
+      },
+    });
+
+    if (!cartilla) {
+      return res.status(404).json({ error: "Cartilla no encontrada" });
+    }
+
+    return res.json(cartilla);
+  } catch (error) {
+    return res.status(500).json({ error: "Error al obtener cartilla" });
+  }
+}
+
 module.exports = {
   obtenerCartilla,
-  casiGanador
+  casiGanador,
+  obtenerMiCartilla,
 };

@@ -3,10 +3,12 @@
 import { useState } from "react";
 
 type StartViewProps = {
-  onStart?: (playerName: string) => void;
+  onStart?: (playerName: string) => Promise<void> | void;
+  loading?: boolean;
+  errorMessage?: string;
 };
 
-const StartView = ({ onStart }: StartViewProps) => {
+const StartView = ({ onStart, loading = false, errorMessage = "" }: StartViewProps) => {
   const [name, setName] = useState("");
 
   const handleStart = () => {
@@ -45,11 +47,14 @@ const StartView = ({ onStart }: StartViewProps) => {
         <button
           type="button"
           onClick={handleStart}
-          disabled={!name.trim()}
+          disabled={!name.trim() || loading}
           className="mt-12 w-full rounded-xl bg-[#33D7AF] px-6 py-5 text-4xl uppercase tracking-[0.15em] text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Start
+          {loading ? "Creando..." : "Start"}
         </button>
+        {errorMessage && (
+          <p className="mt-6 text-center text-xs text-[#B7FFEB]">{errorMessage}</p>
+        )}
       </section>
     </main>
   );
