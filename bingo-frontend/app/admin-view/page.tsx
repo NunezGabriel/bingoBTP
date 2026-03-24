@@ -23,6 +23,27 @@ export default function AdminViewPage() {
     tryLoadAdminData();
   }, []);
 
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const progress = await obtenerProgresoAdmin();
+        setData(progress);
+      } catch (e) {
+        if (isNoActiveRoundError(e)) {
+          setData(null);
+          return;
+        }
+        setError(e instanceof Error ? e.message : "No se pudo actualizar progreso");
+      }
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isAdmin]);
+
   async function tryLoadAdminData() {
     try {
       const sessionUser = await obtenerMiSesion();

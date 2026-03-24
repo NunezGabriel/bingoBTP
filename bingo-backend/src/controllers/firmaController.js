@@ -112,16 +112,10 @@ async function firmarCasilla(req, res) {
     });
 
     if (totalFirmas >= totalCasillas) {
-      await prisma.$transaction([
-        prisma.cartilla.update({
-          where: { id: Number(cartilla_id) },
-          data: { completo: true },
-        }),
-        prisma.ronda.update({
-          where: { id: cartilla.rondaId },
-          data: { activa: false },
-        }),
-      ]);
+      await prisma.cartilla.update({
+        where: { id: Number(cartilla_id) },
+        data: { completo: true },
+      });
       return res.json({ ganador: true, progreso: totalFirmas });
     }
 

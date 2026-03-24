@@ -2,6 +2,7 @@
 
 import {
   Cartilla,
+  Firma,
   Usuario,
   cerrarSesion as cerrarSesionApi,
   firmarCasilla as firmarCasillaApi,
@@ -33,6 +34,30 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     hydrateSession();
   }, []);
+
+  useEffect(() => {
+    if (!user || user.tipo !== "PARTICIPANT") {
+      return;
+    }
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const nextCartilla = await obtenerMiCartilla();
+        setCartilla((prev) =>
+          prev &&
+          prev.id === nextCartilla.id &&
+          prev.rondaId === nextCartilla.rondaId &&
+          prev.firmas.length === nextCartilla.firmas.length
+            ? prev
+            : nextCartilla,
+        );
+      } catch {
+        // Si no hay ronda activa o aun no tiene cartilla, se mantiene estado actual.
+      }
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [user]);
 
   const value: GameContextValue = {
     user,
@@ -81,13 +106,36 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setError("");
     try {
-      await firmarCasillaApi({
+      const result = await firmarCasillaApi({
         cartilla_id: cartilla.id,
         casilla_id: casillaId,
         codigo_firmador: codigoFirmador.trim().toUpperCase(),
       });
-      const nextCartilla = await obtenerMiCartilla();
-      setCartilla(nextCartilla);
+
+      if (result.ganador) {
+        setCartilla((prev) => {
+          if (!prev) return prev;
+          const alreadySigned = prev.firmas.some((f) => f.casillaId === casillaId);
+          if (alreadySigned) {
+            return { ...prev, completo: true };
+          }
+          const syntheticFirma: Firma = {
+            id: Date.now(),
+            cartillaId: prev.id,
+            casillaId,
+            firmadoPorId: -1,
+            firmadoAId: prev.participantId,
+          };
+          return {
+            ...prev,
+            completo: true,
+            firmas: [...prev.firmas, syntheticFirma],
+          };
+        });
+      } else {
+        const nextCartilla = await obtenerMiCartilla();
+        setCartilla(nextCartilla);
+      }
     } catch (e) {
       setError(getErrorMessage(e));
       throw e;
