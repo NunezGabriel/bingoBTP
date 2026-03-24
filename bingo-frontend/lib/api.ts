@@ -41,14 +41,21 @@ export async function registrarUsuario(nombre: string): Promise<{
   user: Usuario;
   cartilla: Cartilla;
 }> {
-  return request("/usuarios/register", {
+  return request<{ user: Usuario; cartilla: Cartilla }>("/usuarios/register", {
     method: "POST",
     body: JSON.stringify({ nombre }),
   });
 }
 
 export async function obtenerMiSesion(): Promise<Usuario> {
-  return request("/usuarios/me");
+  return request<Usuario>("/usuarios/me");
+}
+
+export async function loginPorCodigo(codigo: string): Promise<Usuario> {
+  return request<Usuario>("/usuarios/login", {
+    method: "POST",
+    body: JSON.stringify({ codigo }),
+  });
 }
 
 export async function cerrarSesion() {
@@ -58,7 +65,7 @@ export async function cerrarSesion() {
 }
 
 export async function obtenerMiCartilla(): Promise<Cartilla> {
-  return request("/cartillas/mi");
+  return request<Cartilla>("/cartillas/mi");
 }
 
 export async function firmarCasilla(payload: {
@@ -66,13 +73,62 @@ export async function firmarCasilla(payload: {
   casilla_id: number;
   codigo_firmador: string;
 }) {
-  return request("/firmas/firmar", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request<{ ok?: boolean; ganador?: boolean; progreso: number }>(
+    "/firmas/firmar",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
-async function request(path: string, init?: RequestInit) {
+export type AdminProgresoItem = {
+  usuarioId: number;
+  nombre: string;
+  codigo: string;
+  cartillaId: number;
+  progreso: string;
+  completas: boolean;
+};
+
+export type AdminProgresoResponse = {
+  ronda: {
+    id: number;
+    nombre: string;
+    activa: boolean;
+  };
+  participantes: AdminProgresoItem[];
+};
+
+export async function obtenerProgresoAdmin(): Promise<AdminProgresoResponse> {
+  return request<AdminProgresoResponse>("/rondas/admin/progreso");
+}
+
+export async function crearNuevaRondaAdmin(): Promise<{
+  ronda: { id: number; nombre: string; activa: boolean };
+  totalParticipantes: number;
+}> {
+  return request<{ ronda: { id: number; nombre: string; activa: boolean }; totalParticipantes: number }>(
+    "/rondas/admin/crear",
+    {
+      method: "POST",
+    },
+  );
+}
+
+export async function finalizarRondaAdmin(): Promise<{
+  ok: boolean;
+  ronda: { id: number; nombre: string; activa: boolean };
+}> {
+  return request<{ ok: boolean; ronda: { id: number; nombre: string; activa: boolean } }>(
+    "/rondas/admin/finalizar",
+    {
+      method: "POST",
+    },
+  );
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     credentials: "include",
@@ -83,12 +139,19 @@ async function request(path: string, init?: RequestInit) {
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
-
-  if (!response.ok) {
-    throw new Error(data?.error || "Error de red");
+  let data: { error?: string } | null = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
   }
 
-  return data;
+  if (!response.ok) {
+    throw new Error(data?.error || `Error ${response.status}`);
+  }
+
+  return data as T;
 }
 

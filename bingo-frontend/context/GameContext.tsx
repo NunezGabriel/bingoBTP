@@ -48,10 +48,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   async function hydrateSession() {
     try {
       const currentUser = await obtenerMiSesion();
-      const currentCartilla = await obtenerMiCartilla();
       setUser(currentUser);
-      setCartilla(currentCartilla);
+      try {
+        const currentCartilla = await obtenerMiCartilla();
+        setCartilla(currentCartilla);
+      } catch {
+        setCartilla(null);
+      }
     } catch {
+      setUser(null);
+      setCartilla(null);
       // Sin sesión activa al entrar.
     }
   }

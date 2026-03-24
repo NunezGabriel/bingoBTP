@@ -37,6 +37,7 @@ const MainView = ({
   );
   const [codeInput, setCodeInput] = useState("");
   const [localError, setLocalError] = useState("");
+  const [isValidating, setIsValidating] = useState(false);
   const [isBingoModalClosed, setIsBingoModalClosed] = useState(false);
   const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -107,10 +108,13 @@ const MainView = ({
     }
 
     try {
+      setIsValidating(true);
       await onSignCell(selectedQuestion.id, normalizedCode);
       closeQuestionPanel();
     } catch {
       // El error de backend se muestra desde props.
+    } finally {
+      setIsValidating(false);
     }
   };
 
@@ -202,10 +206,10 @@ const MainView = ({
               <button
                 type="button"
                 onClick={handleValidateCode}
-                disabled={loading}
+                disabled={loading || isValidating}
                 className="rounded-lg bg-[#33D7AF] px-4 py-2 text-base text-white"
               >
-                OK
+                {isValidating ? "Validando..." : "OK"}
               </button>
             </div>
 
