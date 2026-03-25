@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
+const { Pool } = require("pg");
 require("dotenv").config();
 
 const app = express();
@@ -8,17 +9,44 @@ app.set("trust proxy", 1);
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      // Permite requests server-to-server (sin Origin) y herramientas locales.
+      if (!origin) return callback(null, true);
+
+      const allowlist = [
+        process.env.FRONTEND_URL,
+        ...(process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(",") : []),
+      ]
+        .map((s) => (s ? s.trim() : ""))
+        .filter(Boolean);
+
+      // Permite subdominios de Vercel (previews) si usas *.vercel.app
+      const isVercelPreview = /\.vercel\.app$/.test(new URL(origin).hostname);
+
+      if (allowlist.includes(origin) || isVercelPreview) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS: origin no permitido"));
+    },
     credentials: true,
   }),
 );
 app.use(express.json());
+
+const pgSession = require("connect-pg-simple")(session);
+const sessionPool = new Pool({ connectionString: process.env.DATABASE_URL });
+
 app.use(
   session({
     name: "bingo.sid",
     secret: process.env.SESSION_SECRET || "dev-session-secret",
     resave: false,
     saveUninitialized: false,
+    store: new pgSession({
+      pool: sessionPool,
+      tableName: "session",
+      createTableIfMissing: true,
+    }),
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
