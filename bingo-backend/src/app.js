@@ -68,7 +68,7 @@ app.use("/api/rondas", rondaRoutes);
 app.use("/api/firmas", firmaRoutes);
 app.use("/api/cartillas", cartillaRoutes);
 app.use("/api/ranking", rankingRoutes);
-app.use("/api/usuarios", usuarioRoutes);
+app.use("/api/usuarios", usuarioRoutes);  
 
 app.use((err, req, res, next) => {
   console.error("ERROR GLOBAL:", err);
