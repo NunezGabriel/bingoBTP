@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import {
   AdminProgresoResponse,
@@ -24,9 +24,7 @@ export default function AdminViewPage() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin) {
-      return;
-    }
+    if (!isAdmin) return;
 
     const intervalId = window.setInterval(async () => {
       try {
@@ -37,7 +35,9 @@ export default function AdminViewPage() {
           setData(null);
           return;
         }
-        setError(e instanceof Error ? e.message : "No se pudo actualizar progreso");
+        setError(
+          e instanceof Error ? e.message : "No se pudo actualizar progreso",
+        );
       }
     }, 3000);
 
@@ -47,9 +47,7 @@ export default function AdminViewPage() {
   async function tryLoadAdminData() {
     try {
       const sessionUser = await obtenerMiSesion();
-      if (sessionUser.tipo !== "ADMIN") {
-        return;
-      }
+      if (sessionUser.tipo !== "ADMIN") return;
 
       setIsAdmin(true);
       setError("");
@@ -125,10 +123,10 @@ export default function AdminViewPage() {
 
   if (!isAdmin) {
     return (
-      <main className="font-arcade flex min-h-screen items-center justify-center bg-[#0B3CB7] px-4 py-6">
+      <main className="font-arcade flex min-h-screen items-center justify-center bg-gradient-to-b from-black to-[#7B0000] px-4 py-6">
         <section className="w-full max-w-[460px] rounded-[34px] px-8 py-12">
           <h1 className="text-center text-3xl text-white">Admin View</h1>
-          <p className="mt-3 text-center text-xs text-[#B7FFEB]">
+          <p className="mt-3 text-center text-xs text-[#FFBBBB]">
             Ingresa un codigo de usuario ADMIN
           </p>
           <div className="mt-8">
@@ -138,30 +136,32 @@ export default function AdminViewPage() {
               onChange={(e) => setCodigo(e.target.value.toUpperCase())}
               maxLength={4}
               placeholder="Codigo admin"
-              className="w-full rounded-xl border-2 border-[#3CE0B8] bg-white px-4 py-4 text-center text-base text-[#103A9E] outline-none"
+              className="w-full rounded-xl border-2 border-[#FF3C3C] bg-white px-4 py-4 text-center text-base text-[#7B0000] outline-none"
             />
           </div>
           <button
             type="button"
             onClick={handleIngresar}
             disabled={!codigo.trim() || loading}
-            className="mt-8 w-full rounded-xl bg-[#33D7AF] px-6 py-4 text-xl uppercase text-white disabled:opacity-50"
+            className="mt-8 w-full rounded-xl bg-[#E53232] px-6 py-4 text-xl uppercase text-white disabled:opacity-50"
           >
             {loading ? "Validando..." : "Ingresar"}
           </button>
-          {error && <p className="mt-5 text-center text-xs text-[#B7FFEB]">{error}</p>}
+          {error && (
+            <p className="mt-5 text-center text-xs text-[#FFBBBB]">{error}</p>
+          )}
         </section>
       </main>
     );
   }
 
   return (
-    <main className="font-arcade min-h-screen bg-[#0B3CB7] px-4 py-8 text-white">
-      <section className="mx-auto w-full max-w-3xl rounded-2xl border border-white/20 bg-[#1247C4] p-6">
+    <main className="font-arcade min-h-screen bg-gradient-to-b from-black to-[#7B0000] px-4 py-8 text-white">
+      <section className="mx-auto w-full max-w-3xl rounded-2xl border border-white/20 bg-[#3A0000] p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl">Panel de Ronda</h1>
-            <p className="mt-2 text-xs text-[#B7FFEB]">
+            <p className="mt-2 text-xs text-[#FFBBBB]">
               {data ? `${data.ronda.nombre} (activa)` : "Sin ronda activa"}
             </p>
           </div>
@@ -169,7 +169,7 @@ export default function AdminViewPage() {
             type="button"
             onClick={handleCrearRonda}
             disabled={creatingRonda}
-            className="rounded-lg bg-[#33D7AF] px-4 py-2 text-xs text-white disabled:opacity-50"
+            className="rounded-lg bg-[#E53232] px-4 py-2 text-xs text-white disabled:opacity-50"
           >
             {creatingRonda ? "Creando..." : "Crear otra ronda"}
           </button>
@@ -177,23 +177,25 @@ export default function AdminViewPage() {
             type="button"
             onClick={handleFinalizarRonda}
             disabled={endingRonda}
-            className="rounded-lg bg-[#E53935] px-4 py-2 text-xs text-white disabled:opacity-50"
+            className="rounded-lg bg-black/60 border border-white/30 px-4 py-2 text-xs text-white disabled:opacity-50"
           >
             {endingRonda ? "Finalizando..." : "Finalizar ronda"}
           </button>
         </div>
 
-        {error && <p className="mt-4 text-xs text-[#B7FFEB]">{error}</p>}
+        {error && <p className="mt-4 text-xs text-[#FFBBBB]">{error}</p>}
 
         <div className="mt-6 space-y-3">
           {data?.participantes.map((item) => (
             <div
               key={item.usuarioId}
-              className="flex items-center justify-between rounded-xl border border-white/20 bg-[#0D3AA8] px-4 py-3"
+              className="flex items-center justify-between rounded-xl border border-white/20 bg-black/40 px-4 py-3"
             >
               <div>
                 <p className="text-sm">{item.nombre}</p>
-                <p className="text-[10px] text-[#B7FFEB]">Codigo: {item.codigo}</p>
+                <p className="text-[10px] text-[#FFBBBB]">
+                  Codigo: {item.codigo}
+                </p>
               </div>
               <p className="text-sm">{item.progreso}</p>
             </div>
@@ -205,10 +207,9 @@ export default function AdminViewPage() {
 }
 
 function isNoActiveRoundError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false;
-  }
+  if (!(error instanceof Error)) return false;
   const message = error.message.toLowerCase();
-  return message.includes("no hay ronda activa") || message.includes("error 404");
+  return (
+    message.includes("no hay ronda activa") || message.includes("error 404")
+  );
 }
-

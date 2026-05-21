@@ -71,7 +71,7 @@ const MainView = ({
         startVelocity: 45,
         gravity: 0.9,
         origin: { x: 0.15, y: 0.65 },
-        colors: ["#3CE0B8", "#FFFFFF", "#1F73C9"],
+        colors: ["#E53232", "#FFFFFF", "#7B0000"],
       });
       instance({
         particleCount: 90,
@@ -79,7 +79,7 @@ const MainView = ({
         startVelocity: 45,
         gravity: 0.9,
         origin: { x: 0.85, y: 0.65 },
-        colors: ["#3CE0B8", "#FFFFFF", "#1F73C9"],
+        colors: ["#E53232", "#FFFFFF", "#7B0000"],
       });
     };
 
@@ -119,21 +119,21 @@ const MainView = ({
   };
 
   return (
-    <main className="font-arcade relative flex min-h-screen items-center justify-center bg-[#0B3CB7] px-4 py-6">
+    <main className="font-arcade relative flex min-h-screen items-center justify-center bg-gradient-to-b from-black to-[#7B0000] px-4 py-6">
       <section className="w-full max-w-[470px] rounded-[34px] px-7 py-10">
         <header className="text-center">
           <div className="flex items-center justify-center gap-3 text-6xl">
-            <span className="text-[#3CE0B8]">B</span>
-            <span className="rounded-xl bg-[#1F73C9] px-5 py-2 text-white">
-              T
+            <span className="text-[#FF3C3C]">B</span>
+            <span className="text-[#FF3C3C]">W</span>
+            <span className="rounded-xl bg-[#7B0000] px-5 py-2 text-white">
+              AI
             </span>
-            <span className="text-[#3CE0B8]">P</span>
           </div>
           <p className="mt-5 text-xs leading-relaxed text-white">
-            Hola, <span className="text-[#B7FFEB]">{playerName}</span>
+            Hola, <span className="text-[#FFBBBB]">{playerName}</span>
           </p>
           <p className="mt-2 text-xs leading-relaxed text-white">
-            Tu codigo: <span className="text-[#3CE0B8]">{playerCode}</span>
+            Tu codigo: <span className="text-[#FF3C3C]">{playerCode}</span>
           </p>
           <button
             type="button"
@@ -158,8 +158,8 @@ const MainView = ({
                 }}
                 className={`h-20 rounded-xl border-2 text-4xl transition ${
                   isDone
-                    ? "cursor-not-allowed border-[#2BCFA5] bg-[#2BCFA5] text-white"
-                    : "border-white bg-white text-[#1F73C9] hover:scale-[1.02]"
+                    ? "cursor-not-allowed border-[#E53232] bg-[#E53232] text-white"
+                    : "border-white bg-white text-[#7B0000] hover:scale-[1.02]"
                 }`}
               >
                 {question.numero}
@@ -172,8 +172,8 @@ const MainView = ({
           Completadas: {completedCount}/9
         </p>
         {isBingo && isBingoModalClosed && (
-          <div className="mt-7 rounded-2xl border-2 border-[#3CE0B8] bg-[#0D3AA8] px-4 py-4 text-center">
-            <p className="text-sm text-[#B7FFEB]">Estado: EN ESPERA</p>
+          <div className="mt-7 rounded-2xl border-2 border-[#FF3C3C] bg-[#3A0000] px-4 py-4 text-center">
+            <p className="text-sm text-[#FFBBBB]">Estado: EN ESPERA</p>
             <p className="mt-2 text-xs leading-relaxed text-white">
               Ya completaste tu bingo. Mantente cerca del staff para la
               validacion final y entrega de premio.
@@ -183,16 +183,16 @@ const MainView = ({
       </section>
 
       {selectedQuestion && (
-        <section className="absolute inset-0 flex items-center justify-center bg-[#04123B] px-4">
-          <div className="w-full max-w-[470px] rounded-[30px] border-2 border-[#4D75D7] bg-[#1247C4] px-7 py-9 shadow-2xl">
-            <div className="mx-auto w-fit rounded-2xl bg-[#111319] px-7 py-4 text-6xl text-white">
+        <section className="absolute inset-0 flex items-center justify-center bg-black/90 px-4">
+          <div className="w-full max-w-[470px] rounded-[30px] border-2 border-[#C02020] bg-[#3A0000] px-7 py-9 shadow-2xl">
+            <div className="mx-auto w-fit rounded-2xl bg-black px-7 py-4 text-6xl text-white">
               {selectedQuestion.numero}
             </div>
             <p className="mt-7 text-center text-lg leading-relaxed text-white">
               {selectedQuestion.text}
             </p>
 
-            <div className="mt-7 flex items-center gap-2 rounded-xl border-2 border-[#3CE0B8] bg-white px-3 py-3">
+            <div className="mt-7 flex items-center gap-2 rounded-xl border-2 border-[#FF3C3C] bg-white px-3 py-3">
               <input
                 type="text"
                 value={codeInput}
@@ -200,26 +200,26 @@ const MainView = ({
                   setCodeInput(event.target.value.toUpperCase())
                 }
                 placeholder="Ingresa codigo"
-                className="w-full bg-transparent text-base uppercase text-[#1F73C9] outline-none placeholder:text-[#6784C4]"
+                className="w-full bg-transparent text-base uppercase text-[#7B0000] outline-none placeholder:text-[#C47B7B]"
                 maxLength={4}
               />
               <button
                 type="button"
                 onClick={handleValidateCode}
                 disabled={loading || isValidating}
-                className="rounded-lg bg-[#33D7AF] px-4 py-2 text-base text-white"
+                className="rounded-lg bg-[#E53232] px-4 py-2 text-base text-white"
               >
                 {isValidating ? "Validando..." : "OK"}
               </button>
             </div>
 
             {localError && (
-              <p className="mt-4 text-xs leading-relaxed text-[#B7FFEB]">
+              <p className="mt-4 text-xs leading-relaxed text-[#FFBBBB]">
                 {localError}
               </p>
             )}
             {errorMessage && (
-              <p className="mt-4 text-xs leading-relaxed text-[#B7FFEB]">
+              <p className="mt-4 text-xs leading-relaxed text-[#FFBBBB]">
                 {errorMessage}
               </p>
             )}
@@ -236,14 +236,14 @@ const MainView = ({
       )}
 
       {isBingo && !isBingoModalClosed && (
-        <section className="absolute inset-0 flex items-center justify-center bg-[#04123B] px-4">
-          <div className="relative w-full max-w-[470px] overflow-hidden rounded-[30px] border-2 border-[#5D80DB] bg-[#1247C4] px-7 py-14 text-center shadow-2xl">
+        <section className="absolute inset-0 flex items-center justify-center bg-black/90 px-4">
+          <div className="relative w-full max-w-[470px] overflow-hidden rounded-[30px] border-2 border-[#C02020] bg-[#3A0000] px-7 py-14 text-center shadow-2xl">
             <canvas
               ref={confettiCanvasRef}
               className="pointer-events-none absolute inset-0 h-full w-full"
             />
             <p className="text-5xl tracking-[0.08em] text-white">BINGO!</p>
-            <p className="mt-4 text-base text-[#B7FFEB]">
+            <p className="mt-4 text-base text-[#FFBBBB]">
               Completaste todas las casillas.
             </p>
             <p className="mt-3 text-xs leading-relaxed text-white">
