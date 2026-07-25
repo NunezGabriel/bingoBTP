@@ -87,8 +87,19 @@ export type AdminProgresoItem = {
   nombre: string;
   codigo: string;
   cartillaId: number;
+  firmas: number;
+  totalCasillas: number;
   progreso: string;
   completas: boolean;
+};
+
+export type AdminKpis = {
+  totalParticipantes: number;
+  bingos: number;
+  enJuego: number;
+  sinEmpezar: number;
+  firmasTotales: number;
+  avancePromedio: number;
 };
 
 export type AdminProgresoResponse = {
@@ -97,7 +108,9 @@ export type AdminProgresoResponse = {
     nombre: string;
     activa: boolean;
   };
+  kpis: AdminKpis;
   participantes: AdminProgresoItem[];
+  actualizadoEn: string;
 };
 
 export async function obtenerProgresoAdmin(): Promise<AdminProgresoResponse> {
@@ -126,6 +139,56 @@ export async function finalizarRondaAdmin(): Promise<{
       method: "POST",
     },
   );
+}
+
+export async function eliminarUsuarioAdmin(usuarioId: number): Promise<{
+  ok: boolean;
+  usuario: { id: number; nombre: string; codigo: string };
+  cartillasEliminadas: number;
+  firmasEliminadas: number;
+}> {
+  return request(`/usuarios/${usuarioId}`, { method: "DELETE" });
+}
+
+export async function eliminarTodosLosParticipantesAdmin(): Promise<{
+  ok: boolean;
+  usuariosEliminados: number;
+  cartillasEliminadas: number;
+}> {
+  return request("/usuarios/participantes", { method: "DELETE" });
+}
+
+/**
+ * Suscripcion en vivo al progreso de la ronda (Server-Sent Events).
+ * Devuelve la funcion para cerrar la conexion.
+ */
+export function suscribirProgresoAdmin(handlers: {
+  onProgreso: (data: AdminProgresoResponse) => void;
+  onSinRonda: () => void;
+  onEstado?: (conectado: boolean) => void;
+}): () => void {
+  const source = new EventSource(`${API_BASE_URL}/rondas/admin/stream`, {
+    withCredentials: true,
+  });
+
+  source.addEventListener("progreso", (event) => {
+    try {
+      handlers.onProgreso(JSON.parse((event as MessageEvent).data));
+      handlers.onEstado?.(true);
+    } catch {
+      // Evento malformado: se ignora y se espera el siguiente.
+    }
+  });
+
+  source.addEventListener("sin-ronda", () => {
+    handlers.onSinRonda();
+    handlers.onEstado?.(true);
+  });
+
+  source.onopen = () => handlers.onEstado?.(true);
+  source.onerror = () => handlers.onEstado?.(false);
+
+  return () => source.close();
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

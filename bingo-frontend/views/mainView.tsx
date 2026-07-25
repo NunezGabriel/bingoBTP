@@ -3,6 +3,7 @@
 import confetti from "canvas-confetti";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cartilla } from "@/lib/api";
+import IoBadge from "@/components/ioBadge";
 
 type MainViewProps = {
   cartilla: Cartilla;
@@ -13,6 +14,8 @@ type MainViewProps = {
   onChangeUser: () => Promise<void>;
   loading?: boolean;
 };
+
+const CONFETTI_COLORS = ["#4285F4", "#EA4335", "#FBBC04", "#34A853", "#7C4DFF"];
 
 const MainView = ({
   cartilla,
@@ -50,7 +53,8 @@ const MainView = ({
   }, [cartilla.firmas]);
 
   const completedCount = Object.keys(signedByCellId).length;
-  const isBingo = completedCount === boardQuestions.length;
+  const totalCells = boardQuestions.length;
+  const isBingo = completedCount === totalCells;
 
   const selectedQuestion = boardQuestions.find(
     (question) => question.id === selectedQuestionId,
@@ -71,7 +75,7 @@ const MainView = ({
         startVelocity: 45,
         gravity: 0.9,
         origin: { x: 0.15, y: 0.65 },
-        colors: ["#E53232", "#FFFFFF", "#7B0000"],
+        colors: CONFETTI_COLORS,
       });
       instance({
         particleCount: 90,
@@ -79,7 +83,7 @@ const MainView = ({
         startVelocity: 45,
         gravity: 0.9,
         origin: { x: 0.85, y: 0.65 },
-        colors: ["#E53232", "#FFFFFF", "#7B0000"],
+        colors: CONFETTI_COLORS,
       });
     };
 
@@ -118,33 +122,42 @@ const MainView = ({
     }
   };
 
+  const progressPct = totalCells ? (completedCount / totalCells) * 100 : 0;
+
   return (
-    <main className="font-arcade relative flex min-h-screen items-center justify-center bg-gradient-to-b from-black to-[#7B0000] px-4 py-6">
-      <section className="w-full max-w-[470px] rounded-[34px] px-7 py-10">
+    <main className="io-bg font-display relative flex min-h-screen items-center justify-center px-4 py-8">
+      <section className="io-card w-full max-w-[470px] rounded-[36px] px-7 py-9">
         <header className="text-center">
-          <div className="flex items-center justify-center gap-3 text-6xl">
-            <span className="text-[#FF3C3C]">B</span>
-            <span className="text-[#FF3C3C]">W</span>
-            <span className="rounded-xl bg-[#7B0000] px-5 py-2 text-white">
-              AI
-            </span>
+          <div className="flex flex-col items-center gap-3">
+            <h1 className="text-4xl font-extrabold tracking-tight text-[#1f1f1f]">
+              Bingo
+            </h1>
+            <IoBadge size={34} />
           </div>
-          <p className="mt-5 text-xs leading-relaxed text-white">
-            Hola, <span className="text-[#FFBBBB]">{playerName}</span>
-          </p>
-          <p className="mt-2 text-xs leading-relaxed text-white">
-            Tu codigo: <span className="text-[#FF3C3C]">{playerCode}</span>
-          </p>
-          <button
-            type="button"
-            onClick={onChangeUser}
-            className="mt-4 rounded-lg border border-white/50 bg-white/10 px-3 py-2 text-[10px] text-white hover:bg-white/20"
-          >
-            Cambiar usuario
-          </button>
+
+          <div className="mt-6 flex items-center justify-between gap-3 rounded-2xl bg-white/70 px-4 py-3 text-left">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[#1f1f1f]">
+                {playerName}
+              </p>
+              <p className="mt-0.5 text-[11px] text-[#5f6368]">
+                Tu codigo:{" "}
+                <span className="font-bold tracking-[0.18em] text-[var(--io-purple)]">
+                  {playerCode}
+                </span>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onChangeUser}
+              className="shrink-0 rounded-full border border-[#dadce0] bg-white px-3 py-2 text-[11px] font-medium text-[#5f6368] transition hover:bg-[#f1f3f4]"
+            >
+              Cambiar
+            </button>
+          </div>
         </header>
 
-        <div className="mt-8 grid grid-cols-3 gap-4">
+        <div className="mt-7 grid grid-cols-3 gap-3">
           {boardQuestions.map((question) => {
             const isDone = Boolean(signedByCellId[question.id]);
             return (
@@ -156,25 +169,39 @@ const MainView = ({
                   setSelectedQuestionId(question.id);
                   setLocalError("");
                 }}
-                className={`h-20 rounded-xl border-2 text-4xl transition ${
+                className={`flex h-20 items-center justify-center rounded-2xl text-3xl font-bold transition ${
                   isDone
-                    ? "cursor-not-allowed border-[#E53232] bg-[#E53232] text-white"
-                    : "border-white bg-white text-[#7B0000] hover:scale-[1.02]"
+                    ? "io-gradient cursor-not-allowed text-white shadow-md shadow-purple-500/25"
+                    : "border-2 border-[#e6dcf7] bg-white text-[#1f1f1f] hover:-translate-y-0.5 hover:border-[var(--io-purple)] hover:shadow-lg"
                 }`}
               >
-                {question.numero}
+                {isDone ? "✓" : question.numero}
               </button>
             );
           })}
         </div>
 
-        <p className="mt-6 text-center text-xs text-white">
-          Completadas: {completedCount}/9
-        </p>
+        <div className="mt-6">
+          <div className="flex items-center justify-between text-xs font-medium text-[#5f6368]">
+            <span>Completadas</span>
+            <span className="font-bold text-[#1f1f1f]">
+              {completedCount}/{totalCells}
+            </span>
+          </div>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/80">
+            <div
+              className="io-gradient h-full rounded-full transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+
         {isBingo && isBingoModalClosed && (
-          <div className="mt-7 rounded-2xl border-2 border-[#FF3C3C] bg-[#3A0000] px-4 py-4 text-center">
-            <p className="text-sm text-[#FFBBBB]">Estado: EN ESPERA</p>
-            <p className="mt-2 text-xs leading-relaxed text-white">
+          <div className="mt-6 rounded-2xl border border-[#d7c5f5] bg-white/85 px-4 py-4 text-center">
+            <p className="text-sm font-bold text-[var(--io-purple)]">
+              Estado: EN ESPERA
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-[#5f6368]">
               Ya completaste tu bingo. Mantente cerca del staff para la
               validacion final y entrega de premio.
             </p>
@@ -183,51 +210,49 @@ const MainView = ({
       </section>
 
       {selectedQuestion && (
-        <section className="absolute inset-0 flex items-center justify-center bg-black/90 px-4">
-          <div className="w-full max-w-[470px] rounded-[30px] border-2 border-[#C02020] bg-[#3A0000] px-7 py-9 shadow-2xl">
-            <div className="mx-auto w-fit rounded-2xl bg-black px-7 py-4 text-6xl text-white">
+        <section className="fixed inset-0 z-20 flex items-center justify-center bg-[#1f1f1f]/55 px-4 backdrop-blur-sm">
+          <div className="io-card-solid w-full max-w-[470px] rounded-[32px] px-7 py-8">
+            <div className="io-gradient mx-auto flex h-16 w-16 items-center justify-center rounded-2xl text-3xl font-bold text-white">
               {selectedQuestion.numero}
             </div>
-            <p className="mt-7 text-center text-lg leading-relaxed text-white">
+            <p className="mt-6 text-center text-lg font-semibold leading-relaxed text-[#1f1f1f]">
               {selectedQuestion.text}
             </p>
 
-            <div className="mt-7 flex items-center gap-2 rounded-xl border-2 border-[#FF3C3C] bg-white px-3 py-3">
+            <div className="mt-7 flex items-center gap-2 rounded-2xl border-2 border-[#e2d7f5] bg-white px-3 py-2 focus-within:border-[var(--io-purple)]">
               <input
                 type="text"
                 value={codeInput}
                 onChange={(event) =>
                   setCodeInput(event.target.value.toUpperCase())
                 }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleValidateCode();
+                }}
                 placeholder="Ingresa codigo"
-                className="w-full bg-transparent text-base uppercase text-[#7B0000] outline-none placeholder:text-[#C47B7B]"
+                className="w-full bg-transparent px-1 py-2 text-base font-semibold uppercase tracking-[0.15em] text-[#1f1f1f] outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-[#9aa0a6]"
                 maxLength={4}
               />
               <button
                 type="button"
                 onClick={handleValidateCode}
                 disabled={loading || isValidating}
-                className="rounded-lg bg-[#E53232] px-4 py-2 text-base text-white"
+                className="io-gradient shrink-0 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-105 disabled:opacity-50"
               >
-                {isValidating ? "Validando..." : "OK"}
+                {isValidating ? "..." : "OK"}
               </button>
             </div>
 
-            {localError && (
-              <p className="mt-4 text-xs leading-relaxed text-[#FFBBBB]">
-                {localError}
-              </p>
-            )}
-            {errorMessage && (
-              <p className="mt-4 text-xs leading-relaxed text-[#FFBBBB]">
-                {errorMessage}
+            {(localError || errorMessage) && (
+              <p className="mt-4 rounded-xl bg-[#fce8e6] px-4 py-3 text-xs font-medium leading-relaxed text-[#c5221f]">
+                {localError || errorMessage}
               </p>
             )}
 
             <button
               type="button"
               onClick={closeQuestionPanel}
-              className="mt-6 w-full rounded-xl border border-white/50 bg-white/10 py-3 text-xs text-white hover:bg-white/20"
+              className="mt-5 w-full rounded-2xl border border-[#dadce0] bg-white py-3 text-xs font-semibold text-[#5f6368] transition hover:bg-[#f1f3f4]"
             >
               Cerrar
             </button>
@@ -236,23 +261,34 @@ const MainView = ({
       )}
 
       {isBingo && !isBingoModalClosed && (
-        <section className="absolute inset-0 flex items-center justify-center bg-black/90 px-4">
-          <div className="relative w-full max-w-[470px] overflow-hidden rounded-[30px] border-2 border-[#C02020] bg-[#3A0000] px-7 py-14 text-center shadow-2xl">
+        <section className="fixed inset-0 z-20 flex items-center justify-center bg-[#1f1f1f]/55 px-4 backdrop-blur-sm">
+          <div className="io-card-solid relative w-full max-w-[470px] overflow-hidden rounded-[32px] px-7 py-12 text-center">
             <canvas
               ref={confettiCanvasRef}
               className="pointer-events-none absolute inset-0 h-full w-full"
             />
-            <p className="text-5xl tracking-[0.08em] text-white">BINGO!</p>
-            <p className="mt-4 text-base text-[#FFBBBB]">
+            <p className="io-gradient bg-clip-text text-5xl font-extrabold tracking-tight text-transparent">
+              BINGO!
+            </p>
+            <p className="mt-4 text-base font-semibold text-[#1f1f1f]">
               Completaste todas las casillas.
             </p>
-            <p className="mt-3 text-xs leading-relaxed text-white">
+            <p className="mt-2 text-xs leading-relaxed text-[#5f6368]">
               Acercate al staff para reclamar tu premio.
             </p>
+            <div
+              className="mt-6 flex items-center justify-center gap-2"
+              aria-hidden
+            >
+              <span className="h-1.5 w-8 rounded-full bg-[var(--io-blue)]" />
+              <span className="h-1.5 w-8 rounded-full bg-[var(--io-red)]" />
+              <span className="h-1.5 w-8 rounded-full bg-[var(--io-yellow)]" />
+              <span className="h-1.5 w-8 rounded-full bg-[var(--io-green)]" />
+            </div>
             <button
               type="button"
               onClick={() => setIsBingoModalClosed(true)}
-              className="mt-7 w-full rounded-xl border border-white/60 bg-white/10 py-3 text-xs text-white hover:bg-white/20"
+              className="relative mt-7 w-full rounded-2xl border border-[#dadce0] bg-white py-3 text-xs font-semibold text-[#5f6368] transition hover:bg-[#f1f3f4]"
             >
               Cerrar
             </button>

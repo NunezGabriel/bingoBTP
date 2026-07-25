@@ -1,4 +1,5 @@
 const prisma = require("../prismaClient");
+const realtime = require("../realtime");
 
 async function firmarCasilla(req, res) {
   const { cartilla_id, casilla_id, codigo_firmador, codigo_destino } = req.body;
@@ -116,9 +117,11 @@ async function firmarCasilla(req, res) {
         where: { id: Number(cartilla_id) },
         data: { completo: true },
       });
+      realtime.notificarCambio();
       return res.json({ ganador: true, progreso: totalFirmas });
     }
 
+    realtime.notificarCambio();
     return res.json({ ok: true, progreso: totalFirmas });
 
   } catch (error) {

@@ -1,4 +1,5 @@
 const prisma = require("../prismaClient");
+const realtime = require("../realtime");
 
 const USER_TYPES = { ADMIN: "ADMIN", PARTICIPANT: "PARTICIPANT" };
 const CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -70,6 +71,7 @@ async function registrarUsuario(req, res) {
     });
 
     req.session.user = sanitizeUser(payload.user);
+    realtime.notificarCambio();
     return res.status(201).json({
       user: req.session.user,
       cartilla: payload.cartilla,
@@ -123,12 +125,133 @@ async function listarUsuarios(req, res) {
   }
 }
 
+/**
+ * Elimina un participante y todo su rastro de juego.
+ *
+ * Ojo: tambien borra las firmas que esa persona dio en cartillas ajenas
+ * (su codigo deja de ser valido), asi que el progreso de otros puede bajar.
+ * Los ADMIN no se pueden eliminar por esta via.
+ */
+async function eliminarUsuario(req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: "id invalido" });
+    }
+
+    const usuario = await prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) {
+      return res.status(404).json({ error: "usuario no encontrado" });
+    }
+    if (usuario.tipo === USER_TYPES.ADMIN) {
+      return res
+        .status(403)
+        .json({ error: "no se puede eliminar una cuenta ADMIN" });
+    }
+
+    const resumen = await prisma.$transaction(async (tx) => {
+      const cartillas = await tx.cartilla.findMany({
+        where: { participantId: id },
+        select: { id: true },
+      });
+      const cartillaIds = cartillas.map((c) => c.id);
+
+      // Firmas propias (en sus cartillas) y las que dio o recibio en otras.
+      const firmas = await tx.firma.deleteMany({
+        where: {
+          OR: [
+            { cartillaId: { in: cartillaIds } },
+            { firmadoPorId: id },
+            { firmadoAId: id },
+          ],
+        },
+      });
+      await tx.relacionCasilla.deleteMany({
+        where: { cartillaId: { in: cartillaIds } },
+      });
+      await tx.cartilla.deleteMany({ where: { participantId: id } });
+      await tx.usuario.delete({ where: { id } });
+
+      return { cartillasEliminadas: cartillaIds.length, firmasEliminadas: firmas.count };
+    });
+
+    realtime.notificarCambio();
+    return res.json({
+      ok: true,
+      usuario: { id: usuario.id, nombre: usuario.nombre, codigo: usuario.codigo },
+      ...resumen,
+    });
+  } catch (error) {
+    console.error("ERROR eliminarUsuario:", error);
+    return res.status(500).json({ error: "error al eliminar usuario" });
+  }
+}
+
+/**
+ * Borra a TODOS los participantes y sus datos de juego.
+ * Las cuentas ADMIN, las casillas y las rondas se conservan.
+ */
+async function eliminarTodosLosParticipantes(req, res) {
+  try {
+    const resumen = await prisma.$transaction(
+      async (tx) => {
+        const participantes = await tx.usuario.findMany({
+          where: { tipo: USER_TYPES.PARTICIPANT },
+          select: { id: true },
+        });
+        const ids = participantes.map((p) => p.id);
+
+        if (ids.length === 0) {
+          return { usuariosEliminados: 0, cartillasEliminadas: 0 };
+        }
+
+        const cartillas = await tx.cartilla.findMany({
+          where: { participantId: { in: ids } },
+          select: { id: true },
+        });
+        const cartillaIds = cartillas.map((c) => c.id);
+
+        await tx.firma.deleteMany({
+          where: {
+            OR: [
+              { cartillaId: { in: cartillaIds } },
+              { firmadoPorId: { in: ids } },
+              { firmadoAId: { in: ids } },
+            ],
+          },
+        });
+        await tx.relacionCasilla.deleteMany({
+          where: { cartillaId: { in: cartillaIds } },
+        });
+        await tx.cartilla.deleteMany({ where: { id: { in: cartillaIds } } });
+        const borrados = await tx.usuario.deleteMany({
+          where: { id: { in: ids } },
+        });
+
+        return {
+          usuariosEliminados: borrados.count,
+          cartillasEliminadas: cartillaIds.length,
+        };
+      },
+      { maxWait: 10000, timeout: 30000 },
+    );
+
+    realtime.notificarCambio();
+    return res.json({ ok: true, ...resumen });
+  } catch (error) {
+    console.error("ERROR eliminarTodosLosParticipantes:", error);
+    return res.status(500).json({ error: "error al eliminar participantes" });
+  }
+}
+
 module.exports = {
   registrarUsuario,
   loginUsuario,
   obtenerSesion,
   cerrarSesion,
   listarUsuarios,
+  eliminarUsuario,
+  eliminarTodosLosParticipantes,
 };
 
 async function getOrCreateActiveRonda() {

@@ -1,56 +1,66 @@
-const prisma = require('../prismaClient');
+const prisma = require("../prismaClient");
+const realtime = require("../realtime");
+const { obtenerProgresoActual } = require("../services/progresoService");
+
+const CASILLAS_POR_CARTILLA = 9;
 
 async function crearRonda(req, res) {
   try {
     // desactivar rondas anteriores
     await prisma.ronda.updateMany({
       where: { activa: true },
-      data: { activa: false }
+      data: { activa: false },
     });
 
     const ronda = await prisma.ronda.create({
       data: {
-        nombre: `Ronda ${Date.now()}`
-      }
+        nombre: `Ronda ${Date.now()}`,
+      },
     });
 
+    realtime.notificarCambio();
     res.json(ronda);
-
   } catch (error) {
-    res.status(500).json({ error: 'Error creando ronda' });
+    res.status(500).json({ error: "Error creando ronda" });
   }
 }
 
 async function obtenerRondaActiva(req, res) {
   const ronda = await prisma.ronda.findFirst({
-    where: { activa: true }
+    where: { activa: true },
   });
 
   res.json(ronda);
 }
 
+/**
+ * Crea una ronda nueva y reparte una cartilla a cada participante.
+ *
+ * Todo se hace en operaciones masivas (4 queries en total). La version
+ * anterior recorria participante por participante dentro de la transaccion
+ * (~5 queries cada uno), lo que con 137 personas daba ~685 viajes a Neon
+ * y superaba el timeout de 60s de la transaccion -> error 500.
+ */
 async function crearNuevaRondaAdmin(req, res) {
   try {
-    const sessionUser = req.session?.user;
-    if (!sessionUser) {
-      return res.status(401).json({ error: "no autenticado" });
-    }
-    if (sessionUser.tipo !== "ADMIN") {
-      return res.status(403).json({ error: "solo admin" });
-    }
-
-    const participants = await prisma.usuario.findMany({
-      where: { tipo: "PARTICIPANT" },
-      orderBy: { id: "asc" },
-    });
+    const [participants, casillas] = await Promise.all([
+      prisma.usuario.findMany({
+        where: { tipo: "PARTICIPANT" },
+        orderBy: { id: "asc" },
+        select: { id: true },
+      }),
+      prisma.casilla.findMany({ select: { id: true } }),
+    ]);
 
     if (participants.length === 0) {
-      return res.status(400).json({ error: "No hay participantes registrados" });
+      return res
+        .status(400)
+        .json({ error: "No hay participantes registrados" });
     }
-
-    const casillas = await prisma.casilla.findMany();
-    if (casillas.length < 9) {
-      return res.status(400).json({ error: "No hay suficientes casillas para crear cartillas" });
+    if (casillas.length < CASILLAS_POR_CARTILLA) {
+      return res.status(400).json({
+        error: "No hay suficientes casillas para crear cartillas",
+      });
     }
 
     const payload = await prisma.$transaction(
@@ -62,70 +72,42 @@ async function crearNuevaRondaAdmin(req, res) {
 
         const ronda = await tx.ronda.create({
           data: {
-            nombre: `Ronda ${Date.now()}`,
+            nombre: `Ronda ${new Date().toLocaleString("es-PE")}`,
             activa: true,
           },
         });
 
-        for (const participant of participants) {
-          const sample = pickRandom(casillas, 9);
-          const existingCartilla = await tx.cartilla.findFirst({
-            where: { participantId: participant.id },
-            orderBy: { id: "desc" },
-          });
-          let cartilla;
+        // Cartillas nuevas por ronda: las anteriores quedan intactas, asi
+        // el historial de rondas pasadas se conserva.
+        const cartillas = await tx.cartilla.createManyAndReturn({
+          data: participants.map((p) => ({
+            participantId: p.id,
+            rondaId: ronda.id,
+            completo: false,
+          })),
+          select: { id: true },
+        });
 
-          if (existingCartilla) {
-            await tx.firma.deleteMany({
-              where: { cartillaId: existingCartilla.id },
-            });
-            await tx.relacionCasilla.deleteMany({
-              where: { cartillaId: existingCartilla.id },
-            });
-
-            cartilla = await tx.cartilla.update({
-              where: { id: existingCartilla.id },
-              data: {
-                rondaId: ronda.id,
-                completo: false,
-              },
-            });
-          } else {
-            cartilla = await tx.cartilla.create({
-              data: {
-                participantId: participant.id,
-                rondaId: ronda.id,
-                completo: false,
-              },
-            });
+        const relaciones = [];
+        for (const cartilla of cartillas) {
+          for (const casilla of pickRandom(casillas, CASILLAS_POR_CARTILLA)) {
+            relaciones.push({ cartillaId: cartilla.id, casillaId: casilla.id });
           }
-
-          await tx.relacionCasilla.createMany({
-            data: sample.map((c) => ({
-              cartillaId: cartilla.id,
-              casillaId: c.id,
-            })),
-          });
         }
+        await tx.relacionCasilla.createMany({ data: relaciones });
 
-        return {
-          ronda,
-          totalParticipantes: participants.length,
-        };
+        return { ronda, totalParticipantes: participants.length };
       },
-      {
-        maxWait: 10000,
-        timeout: 60000,
-      },
+      { maxWait: 10000, timeout: 30000 },
     );
 
+    realtime.notificarCambio();
     return res.json(payload);
   } catch (error) {
     console.error("Error creando nueva ronda admin:", {
       message: error?.message,
       code: error?.code,
       meta: error?.meta,
-      stack: error?.stack,
     });
     return res.status(500).json({ error: "Error creando ronda" });
   }
@@ -133,50 +115,11 @@ async function crearNuevaRondaAdmin(req, res) {
 
 async function obtenerProgresoRondaAdmin(req, res) {
   try {
-    const sessionUser = req.session?.user;
-    if (!sessionUser) {
-      return res.status(401).json({ error: "no autenticado" });
-    }
-    if (sessionUser.tipo !== "ADMIN") {
-      return res.status(403).json({ error: "solo admin" });
-    }
-
-    const ronda = await prisma.ronda.findFirst({
-      where: { activa: true },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!ronda) {
+    const progreso = await obtenerProgresoActual();
+    if (!progreso) {
       return res.status(404).json({ error: "No hay ronda activa" });
     }
-
-    const cartillas = await prisma.cartilla.findMany({
-      where: { rondaId: ronda.id },
-      include: {
-        participant: true,
-        firmas: true,
-        casillas: true,
-      },
-      orderBy: { id: "asc" },
-    });
-
-    const participantes = cartillas.map((c) => ({
-      usuarioId: c.participant.id,
-      nombre: c.participant.nombre,
-      codigo: c.participant.codigo,
-      cartillaId: c.id,
-      progreso: `${c.firmas.length}/${c.casillas.length}`,
-      completas: c.completo,
-    }));
-
-    return res.json({
-      ronda: {
-        id: ronda.id,
-        nombre: ronda.nombre,
-        activa: ronda.activa,
-      },
-      participantes,
-    });
+    return res.json(progreso);
   } catch (error) {
     console.error("Error obteniendo progreso admin:", error);
     return res.status(500).json({ error: "Error obteniendo progreso de ronda" });
@@ -185,14 +128,6 @@ async function obtenerProgresoRondaAdmin(req, res) {
 
 async function finalizarRondaAdmin(req, res) {
   try {
-    const sessionUser = req.session?.user;
-    if (!sessionUser) {
-      return res.status(401).json({ error: "no autenticado" });
-    }
-    if (sessionUser.tipo !== "ADMIN") {
-      return res.status(403).json({ error: "solo admin" });
-    }
-
     const rondaActiva = await prisma.ronda.findFirst({
       where: { activa: true },
       orderBy: { createdAt: "desc" },
@@ -207,18 +142,19 @@ async function finalizarRondaAdmin(req, res) {
       data: { activa: false },
     });
 
+    realtime.notificarCambio();
     return res.json({
       ok: true,
-      ronda: {
-        id: ronda.id,
-        nombre: ronda.nombre,
-        activa: ronda.activa,
-      },
+      ronda: { id: ronda.id, nombre: ronda.nombre, activa: ronda.activa },
     });
   } catch (error) {
     console.error("Error finalizando ronda admin:", error);
     return res.status(500).json({ error: "Error finalizando ronda" });
   }
+}
+
+function streamProgresoAdmin(req, res) {
+  realtime.suscribir(req, res);
 }
 
 module.exports = {
@@ -227,6 +163,7 @@ module.exports = {
   crearNuevaRondaAdmin,
   obtenerProgresoRondaAdmin,
   finalizarRondaAdmin,
+  streamProgresoAdmin,
 };
 
 function pickRandom(items, count) {

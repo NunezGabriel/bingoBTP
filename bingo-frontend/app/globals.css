@@ -1,5 +1,57 @@
 @import "tailwindcss";
 
-.font-arcade {
-  font-family: var(--font-press-start), var(--font-geist-mono), monospace;
+/* ---- Paleta Google I/O Extended ---- */
+:root {
+  --io-blue: #4285f4;
+  --io-red: #ea4335;
+  --io-yellow: #fbbc04;
+  --io-green: #34a853;
+  --io-purple: #7c4dff;
+  --io-magenta: #e45fd0;
+  --io-ink: #1f1f1f;
+}
+
+.font-display {
+  font-family: var(--font-poppins), var(--font-geist-sans), sans-serif;
+}
+
+/* Fondo tipo "mesh" del poster: azul arriba-izq, magenta arriba-der,
+   violeta abajo-izq y rosa abajo-der sobre una diagonal base. */
+.io-bg {
+  background-color: #b98ceb;
+  background-image:
+    radial-gradient(at 0% 0%, #6ea8ff 0%, transparent 55%),
+    radial-gradient(at 100% 0%, #f45fd0 0%, transparent 55%),
+    radial-gradient(at 0% 100%, #7c7bf0 0%, transparent 55%),
+    radial-gradient(at 100% 100%, #ff8ad8 0%, transparent 55%),
+    linear-gradient(135deg, #8ab4f8 0%, #c77df0 50%, #ff9bde 100%);
+  /* Sin background-attachment: fixed -> iOS Safari lo ignora y en Android
+     genera jank al hacer scroll. */
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+/* Tarjeta translucida con borde claro, como los bloques del poster. */
+.io-card {
+  background-color: rgb(255 255 255 / 0.78);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  box-shadow: 0 24px 60px -24px rgb(76 29 149 / 0.55);
+}
+
+.io-card-solid {
+  background-color: rgb(255 255 255 / 0.94);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgb(255 255 255 / 0.8);
+  box-shadow: 0 30px 80px -28px rgb(76 29 149 / 0.6);
+}
+
+/* CTA con el degradado de marca. */
+.io-gradient {
+  background-image: linear-gradient(
+    100deg,
+    var(--io-blue) 0%,
+    var(--io-purple) 45%,
+    var(--io-magenta) 100%
+  );
 }

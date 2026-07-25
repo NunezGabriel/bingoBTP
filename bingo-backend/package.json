@@ -9,6 +9,7 @@
     "generate": "node node_modules/prisma/build/index.js generate",
     "seed": "node prisma/seed.js",
     "seed:casillas": "node prisma/seed.js",
+    "seed:reset": "node prisma/seed.js --reset",
     "seed:users": "node prisma/seed-users.js",
     "start": "node src/app.js"
   },
