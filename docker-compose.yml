@@ -1,0 +1,96 @@
+# Despliegue autocontenido de Misti Quest (GDG Arequipa).
+# Uso:  cp .env.docker.example .env  &&  docker compose up -d --build
+#
+# Nada de esto afecta a Render ni a Vercel: son plataformas que ignoran
+# por completo docker-compose.yml.
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: bingo_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Lima
+    volumes:
+      # Postgres 18 espera el volumen en /var/lib/postgresql (no en .../data
+      # como en versiones anteriores); con el path viejo el contenedor no arranca.
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - bingo_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./bingo-backend
+    container_name: bingo_backend
+    restart: always
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      DB_POOL_MAX: ${DB_POOL_MAX:-20}
+      SESSION_SECRET: ${SESSION_SECRET}
+      NODE_ENV: production
+      PORT: 3001
+      # nginx es el unico proxy delante del backend
+      TRUST_PROXY: 1
+      ADMIN_NICKNAME: ${ADMIN_NICKNAME}
+      ADMIN_PIN: ${ADMIN_PIN}
+      # En red local por HTTP la cookie NO puede ser secure, o el navegador
+      # la descarta y nadie logra iniciar sesion. Cambiar a true con HTTPS.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # Todo pasa por nginx, asi que backend y frontend son el mismo origen.
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      FRONTEND_URL: ${FRONTEND_URL}
+      SEED_ON_START: ${SEED_ON_START:-false}
+      TZ: America/Lima
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bingo_net
+
+  frontend:
+    build:
+      context: ./bingo-frontend
+      args:
+        # Ruta relativa: el navegador pega a /api y nginx lo enruta al backend.
+        NEXT_PUBLIC_API_URL: /api
+    container_name: bingo_frontend
+    restart: always
+    environment:
+      NODE_ENV: production
+      TZ: America/Lima
+    depends_on:
+      - backend
+    networks:
+      - bingo_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: bingo_nginx
+    restart: always
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      # - "443:443"   # descomentar al habilitar HTTPS
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - bingo_net
+
+volumes:
+  postgres_data:
+
+networks:
+  bingo_net:
+    driver: bridge

@@ -1,0 +1,7 @@
+# Variables del despliegue con Docker (contiene credenciales del servidor)
+.env
+.env.local
+
+# Certificados
+nginx/ssl/*
+!nginx/ssl/.gitkeep

@@ -1,0 +1,9 @@
+{
+  "name": "misti-quest",
+  "private": true,
+  "description": "Misti Quest - dinamicas gamificadas de GDG Arequipa",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "setup": "npm --prefix bingo-backend install && npm --prefix bingo-frontend install"
+  }
+}
