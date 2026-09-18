@@ -1,74 +1,227 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Misti Quest - dinamicas de GDG Arequipa.
+//
+// Modelo mental:
+//   Player      = la cuenta/personaje. Persiste entre eventos (xp de por vida).
+//   Event       = un evento (DevFest, I/O Extended...). Solo uno abierto a la vez.
+//   EventPlayer = inscripcion de un jugador a un evento. Los juegos de un evento
+//                 solo incluyen a sus inscritos.
+//   GameSession = un juego lanzado por el admin (por ahora: bingo).
+//   PointLedger = libro contable de TODOS los puntos. Su clave unica
+//                 (evento, jugador, refKey) evita cobrar dos veces lo mismo.
+//
+// Las preguntas del bingo y las misiones del staff NO estan en la base: se
+// editan en codigo, en src/content/.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // Resuelve los include con JOIN en una sola consulta en vez de una por
+  // relacion. Contra una base remota (Neon) cada consulta ahorrada son ~100 ms.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-model Usuario {
-  id              Int        @id @default(autoincrement())
-  nombre          String
-  codigo          String     @unique
-  tipo            String
-  cartillas       Cartilla[]
-  firmasHechas    Firma[]    @relation("Firmador")
-  firmasRecibidas Firma[]    @relation("Firmado")
+enum Role {
+  PLAYER
+  STAFF
+  ADMIN
 }
 
-model Cartilla {
-  id            Int               @id @default(autoincrement())
-  participant   Usuario           @relation(fields: [participantId], references: [id])
-  participantId Int
-  completo      Boolean           @default(false)
-  ronda         Ronda     @relation(fields: [rondaId], references: [id])
-  rondaId       Int
-  casillas      RelacionCasilla[]
-  firmas        Firma[]
+enum EventStatus {
+  DRAFT
+  LIVE
+  CLOSED
 }
 
-model Casilla {
-  id        Int               @id @default(autoincrement())
-  numero    Int               @unique
-  pregunta  String
-  cartillas RelacionCasilla[]
-  firmas    Firma[]
+enum PointSource {
+  BINGO
+  MISSION
+  MANUAL
 }
 
-model RelacionCasilla {
-  id         Int      @id @default(autoincrement())
-  cartilla   Cartilla @relation(fields: [cartillaId], references: [id])
-  cartillaId Int
-  casilla    Casilla  @relation(fields: [casillaId], references: [id])
-  casillaId  Int
-
-  @@unique([cartillaId, casillaId])
+enum GameType {
+  BINGO
 }
 
-model Firma {
-  id           Int      @id @default(autoincrement())
-  cartilla     Cartilla @relation(fields: [cartillaId], references: [id])
-  cartillaId   Int
-  casilla      Casilla  @relation(fields: [casillaId], references: [id])
-  casillaId    Int
-  firmadoPor   Usuario  @relation("Firmador", fields: [firmadoPorId], references: [id])
-  firmadoPorId Int
-  firmadoA     Usuario  @relation("Firmado", fields: [firmadoAId], references: [id])
-  firmadoAId   Int
-
-  @@unique([cartillaId, firmadoPorId, firmadoAId])
+enum GameStatus {
+  COUNTDOWN
+  ACTIVE
+  ENDED
 }
 
-model Ronda {
-  id        Int       @id @default(autoincrement())
-  nombre    String
-  activa    Boolean   @default(true)
-  createdAt DateTime  @default(now())
+enum TrophyKind {
+  CHAMPION
+  PODIUM
+  TOP10
+  PARTICIPANT
+}
 
-  cartillas Cartilla[]
+model Player {
+  id             Int      @id @default(autoincrement())
+  nickname       String
+  /// nickname en minusculas: garantiza unicidad sin importar mayusculas.
+  nicknameKey    String   @unique
+  pinHash        String
+  /// Se incrementa al cambiar el PIN: invalida todas las sesiones abiertas.
+  sessionVersion Int      @default(1)
+  role           Role     @default(PLAYER)
+  avatarClass    String
+  avatarHouse    String
+  /// Codigo publico de 6 caracteres: se dicta o se escribe, sin camara.
+  code           String   @unique
+  /// Experiencia de por vida: define nivel, aura y medalla.
+  xp             Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  events      EventPlayer[]
+  ledger      PointLedger[] @relation("LedgerPlayer")
+  awardsGiven PointLedger[] @relation("LedgerAwarder")
+  bingoBoards BingoBoard[]
+  bingoSigned BingoCell[]
+  trophies    Trophy[]
+  contactsA   Connection[]  @relation("ConnectionA")
+  contactsB   Connection[]  @relation("ConnectionB")
+
+  @@index([role])
+}
+
+model Event {
+  id        Int         @id @default(autoincrement())
+  name      String
+  status    EventStatus @default(DRAFT)
+  createdAt DateTime    @default(now())
+  startedAt DateTime?
+  closedAt  DateTime?
+
+  players     EventPlayer[]
+  ledger      PointLedger[]
+  games       GameSession[]
+  connections Connection[]
+  trophies    Trophy[]
+}
+
+model EventPlayer {
+  id           Int       @id @default(autoincrement())
+  eventId      Int
+  playerId     Int
+  points       Int       @default(0)
+  /// Desempate del ranking: a igual puntaje gana quien llego primero.
+  lastScoredAt DateTime?
+  finalRank    Int?
+  joinedAt     DateTime  @default(now())
+
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, playerId])
+  @@index([eventId, points])
+}
+
+model PointLedger {
+  id          Int         @id @default(autoincrement())
+  eventId     Int
+  playerId    Int
+  amount      Int
+  source      PointSource
+  /// Identificador de la recompensa, ej. "bingo:3:cell:4", "mission:pregunta:<uuid>".
+  refKey      String
+  label       String
+  awardedById Int?
+  createdAt   DateTime    @default(now())
+
+  event     Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  player    Player  @relation("LedgerPlayer", fields: [playerId], references: [id], onDelete: Cascade)
+  awardedBy Player? @relation("LedgerAwarder", fields: [awardedById], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, playerId, refKey])
+  @@index([playerId, createdAt])
+  @@index([eventId, createdAt])
+}
+
+model GameSession {
+  id             Int        @id @default(autoincrement())
+  eventId        Int
+  type           GameType
+  status         GameStatus @default(COUNTDOWN)
+  /// Fin de la cuenta regresiva: desde aqui se puede jugar.
+  startsAt       DateTime
+  endedAt        DateTime?
+  /// Puntajes usados en este juego (se copian de src/content al lanzarlo).
+  cellPoints     Int        @default(5)
+  completePoints Int        @default(50)
+  createdAt      DateTime   @default(now())
+
+  event  Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  boards BingoBoard[]
+
+  @@index([eventId, status])
+}
+
+model BingoBoard {
+  id            Int       @id @default(autoincrement())
+  sessionId     Int
+  playerId      Int
+  completedAt   DateTime?
+  /// Orden de llegada: 1 = primero en completar.
+  completedRank Int?
+  createdAt     DateTime  @default(now())
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  player  Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  cells   BingoCell[]
+
+  @@unique([sessionId, playerId])
+  @@index([sessionId, completedRank])
+}
+
+model BingoCell {
+  id         Int       @id @default(autoincrement())
+  boardId    Int
+  position   Int
+  /// La pregunta de la casilla (sale de src/content/bingo.js al repartir).
+  text       String
+  signedById Int?
+  signedAt   DateTime?
+
+  board    BingoBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  signedBy Player?    @relation(fields: [signedById], references: [id], onDelete: SetNull)
+
+  @@unique([boardId, position])
+  /// Una misma persona no puede firmar dos casillas de la misma cartilla.
+  @@unique([boardId, signedById])
+}
+
+/// Contactos: se crean al firmar un bingo o al escribir el codigo de alguien.
+model Connection {
+  id        Int      @id @default(autoincrement())
+  /// Evento donde se conocieron (null si fue fuera de un evento).
+  eventId   Int?
+  /// Siempre aId < bId: el par es unico sin importar quien agrego a quien.
+  aId       Int
+  bId       Int
+  createdAt DateTime @default(now())
+
+  event Event? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  a     Player @relation("ConnectionA", fields: [aId], references: [id], onDelete: Cascade)
+  b     Player @relation("ConnectionB", fields: [bId], references: [id], onDelete: Cascade)
+
+  @@unique([aId, bId])
+  @@index([bId])
+}
+
+model Trophy {
+  id        Int        @id @default(autoincrement())
+  playerId  Int
+  eventId   Int
+  kind      TrophyKind
+  rank      Int?
+  points    Int
+  createdAt DateTime   @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, eventId])
 }

@@ -1,0 +1,7 @@
+# Los scripts de shell y el entrypoint de Docker deben viajar con saltos LF.
+# Sin esto, Git en Windows los convierte a CRLF y Linux falla con
+# "exec format error" / "no such file or directory" al ejecutarlos.
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf
+*.conf text eol=lf

@@ -1,208 +1,55 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+import type {
+  BingoBoard,
+  BingoResults,
+  Contact,
+  EventView,
+  GameSession,
+  HistoryEvent,
+  HouseCount,
+  HouseRow,
+  LeaderboardRow,
+  MeResponse,
+  PublicPlayer,
+  Role,
+  SelfPlayer,
+  StaffMission,
+  Standing,
+} from "./types";
+import type { ClassKey, HouseKey } from "./sprites";
 
-export type Usuario = {
-  id: number;
-  nombre: string;
-  codigo: string;
-  tipo: "ADMIN" | "PARTICIPANT";
-};
+/** Ruta relativa: el navegador llama a /api y Next (o nginx) lo enruta al backend. */
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
-export type Casilla = {
-  id: number;
-  numero: number;
-  pregunta: string;
-};
-
-export type RelacionCasilla = {
-  id: number;
-  casillaId: number;
-  casilla: Casilla;
-};
-
-export type Firma = {
-  id: number;
-  cartillaId: number;
-  casillaId: number;
-  firmadoPorId: number;
-  firmadoAId: number;
-};
-
-export type Cartilla = {
-  id: number;
-  participantId: number;
-  rondaId: number;
-  completo: boolean;
-  casillas: RelacionCasilla[];
-  firmas: Firma[];
-};
-
-export async function registrarUsuario(nombre: string): Promise<{
-  user: Usuario;
-  cartilla: Cartilla;
-}> {
-  return request<{ user: Usuario; cartilla: Cartilla }>("/usuarios/register", {
-    method: "POST",
-    body: JSON.stringify({ nombre }),
-  });
+export class ApiError extends Error {
+  status: number;
+  data: Record<string, unknown> | null;
+  constructor(status: number, message: string, data: Record<string, unknown> | null) {
+    super(message);
+    this.status = status;
+    this.data = data;
+  }
 }
 
-export async function obtenerMiSesion(): Promise<Usuario> {
-  return request<Usuario>("/usuarios/me");
-}
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method,
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        // Cabecera anti-CSRF que exige el backend en toda escritura.
+        "x-mq": "1",
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(0, "Sin conexion. Revisa tu internet e intenta otra vez", null);
+  }
 
-export async function loginPorCodigo(codigo: string): Promise<Usuario> {
-  return request<Usuario>("/usuarios/login", {
-    method: "POST",
-    body: JSON.stringify({ codigo }),
-  });
-}
-
-export async function cerrarSesion() {
-  return request("/usuarios/logout", {
-    method: "POST",
-  });
-}
-
-export async function obtenerMiCartilla(): Promise<Cartilla> {
-  return request<Cartilla>("/cartillas/mi");
-}
-
-export async function firmarCasilla(payload: {
-  cartilla_id: number;
-  casilla_id: number;
-  codigo_firmador: string;
-}) {
-  return request<{ ok?: boolean; ganador?: boolean; progreso: number }>(
-    "/firmas/firmar",
-    {
-      method: "POST",
-      body: JSON.stringify(payload),
-    },
-  );
-}
-
-export type AdminProgresoItem = {
-  usuarioId: number;
-  nombre: string;
-  codigo: string;
-  cartillaId: number;
-  firmas: number;
-  totalCasillas: number;
-  progreso: string;
-  completas: boolean;
-};
-
-export type AdminKpis = {
-  totalParticipantes: number;
-  bingos: number;
-  enJuego: number;
-  sinEmpezar: number;
-  firmasTotales: number;
-  avancePromedio: number;
-};
-
-export type AdminProgresoResponse = {
-  ronda: {
-    id: number;
-    nombre: string;
-    activa: boolean;
-  };
-  kpis: AdminKpis;
-  participantes: AdminProgresoItem[];
-  actualizadoEn: string;
-};
-
-export async function obtenerProgresoAdmin(): Promise<AdminProgresoResponse> {
-  return request<AdminProgresoResponse>("/rondas/admin/progreso");
-}
-
-export async function crearNuevaRondaAdmin(): Promise<{
-  ronda: { id: number; nombre: string; activa: boolean };
-  totalParticipantes: number;
-}> {
-  return request<{ ronda: { id: number; nombre: string; activa: boolean }; totalParticipantes: number }>(
-    "/rondas/admin/crear",
-    {
-      method: "POST",
-    },
-  );
-}
-
-export async function finalizarRondaAdmin(): Promise<{
-  ok: boolean;
-  ronda: { id: number; nombre: string; activa: boolean };
-}> {
-  return request<{ ok: boolean; ronda: { id: number; nombre: string; activa: boolean } }>(
-    "/rondas/admin/finalizar",
-    {
-      method: "POST",
-    },
-  );
-}
-
-export async function eliminarUsuarioAdmin(usuarioId: number): Promise<{
-  ok: boolean;
-  usuario: { id: number; nombre: string; codigo: string };
-  cartillasEliminadas: number;
-  firmasEliminadas: number;
-}> {
-  return request(`/usuarios/${usuarioId}`, { method: "DELETE" });
-}
-
-export async function eliminarTodosLosParticipantesAdmin(): Promise<{
-  ok: boolean;
-  usuariosEliminados: number;
-  cartillasEliminadas: number;
-}> {
-  return request("/usuarios/participantes", { method: "DELETE" });
-}
-
-/**
- * Suscripcion en vivo al progreso de la ronda (Server-Sent Events).
- * Devuelve la funcion para cerrar la conexion.
- */
-export function suscribirProgresoAdmin(handlers: {
-  onProgreso: (data: AdminProgresoResponse) => void;
-  onSinRonda: () => void;
-  onEstado?: (conectado: boolean) => void;
-}): () => void {
-  const source = new EventSource(`${API_BASE_URL}/rondas/admin/stream`, {
-    withCredentials: true,
-  });
-
-  source.addEventListener("progreso", (event) => {
-    try {
-      handlers.onProgreso(JSON.parse((event as MessageEvent).data));
-      handlers.onEstado?.(true);
-    } catch {
-      // Evento malformado: se ignora y se espera el siguiente.
-    }
-  });
-
-  source.addEventListener("sin-ronda", () => {
-    handlers.onSinRonda();
-    handlers.onEstado?.(true);
-  });
-
-  source.onopen = () => handlers.onEstado?.(true);
-  source.onerror = () => handlers.onEstado?.(false);
-
-  return () => source.close();
-}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-    },
-  });
-
-  const text = await response.text();
-  let data: { error?: string } | null = null;
+  const text = await res.text();
+  let data: Record<string, unknown> | null = null;
   if (text) {
     try {
       data = JSON.parse(text);
@@ -210,11 +57,139 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       data = null;
     }
   }
-
-  if (!response.ok) {
-    throw new Error(data?.error || `Error ${response.status}`);
+  if (!res.ok) {
+    const message =
+      (data && typeof data.error === "string" && data.error) ||
+      (res.status >= 500 ? "El servidor tuvo un problema. Intenta de nuevo" : `Error ${res.status}`);
+    throw new ApiError(res.status, message, data);
   }
-
   return data as T;
 }
 
+const get = <T>(p: string) => request<T>("GET", p);
+const post = <T>(p: string, b: unknown = {}) => request<T>("POST", p, b);
+const patch = <T>(p: string, b: unknown = {}) => request<T>("PATCH", p, b);
+const del = <T>(p: string) => request<T>("DELETE", p);
+
+export function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Algo salio mal";
+}
+
+/** Lo que escribe la gente: "ab-12 cd" -> "AB12CD". */
+export function cleanCode(raw: string) {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+}
+
+/* ---------- Jugador ---------- */
+
+export const auth = {
+  nickname: (n: string) =>
+    get<{ available: boolean; reason: string | null }>(`/auth/nickname/${encodeURIComponent(n)}`),
+  register: (data: { nickname: string; pin: string; avatarClass: ClassKey; avatarHouse: HouseKey }) =>
+    post<{ player: SelfPlayer }>("/auth/register", data),
+  login: (nickname: string, pin: string) => post<{ player: SelfPlayer }>("/auth/login", { nickname, pin }),
+  logout: () => post<{ ok: true }>("/auth/logout"),
+};
+
+export const me = {
+  get: () => get<MeResponse>("/me"),
+  history: () => get<{ events: HistoryEvent[] }>("/me/history"),
+  contacts: () => get<{ contacts: Contact[] }>("/me/contacts"),
+  addContact: (code: string) => post<{ isNew: boolean; player: PublicPlayer }>("/me/contacts", { code }),
+  avatar: (data: { avatarClass?: ClassKey; avatarHouse?: HouseKey }) =>
+    patch<{ player: SelfPlayer }>("/me/avatar", data),
+  pin: (currentPin: string, newPin: string) => post<{ ok: true }>("/me/pin", { currentPin, newPin }),
+};
+
+export const game = {
+  current: () =>
+    get<{ game: GameSession | null; board: BingoBoard | null; winners: BingoResults["winners"] }>(
+      "/game/current",
+    ),
+  signBingo: (position: number, code: string) =>
+    post<{ signedCount: number; completedRank: number | null; board: BingoBoard }>("/game/bingo/sign", {
+      position,
+      code,
+    }),
+};
+
+export type ScreenData = {
+  event: EventView | null;
+  top: LeaderboardRow[];
+  houses: HouseRow[];
+  players: number;
+  game: GameSession | null;
+  bingo: BingoResults | null;
+};
+
+export const publicApi = {
+  event: () => get<{ event: EventView | null; players: number; houses: HouseCount[] }>("/public/event"),
+  leaderboard: (limit = 50) =>
+    get<{ event: EventView | null; top: LeaderboardRow[]; houses: HouseRow[]; me: Standing | null }>(
+      `/public/leaderboard?limit=${limit}`,
+    ),
+  screen: () => get<ScreenData>("/public/screen"),
+};
+
+/* ---------- Staff ---------- */
+
+export type StaffCard = {
+  player: PublicPlayer;
+  role: Role;
+  points: number;
+  missions: StaffMission[];
+};
+
+export const staff = {
+  player: (code: string) => get<StaffCard>(`/staff/player/${encodeURIComponent(code)}`),
+  award: (code: string, mission: string) =>
+    post<{ ok: true; mission: { key: string; title: string; points: number }; points: number }>("/staff/award", {
+      code,
+      mission,
+    }),
+};
+
+/* ---------- Admin ---------- */
+
+export type AdminEventRow = EventView & { createdAt: string; players: number };
+
+export type LiveEvent = EventView & { players: number; houses: HouseCount[]; connected: number };
+
+export type AdminUser = PublicPlayer & {
+  code: string;
+  role: Role;
+  xp: number;
+  createdAt: string;
+  inEvent: boolean;
+  eventPoints: number | null;
+};
+
+export type RunningGame = GameSession & { progress: BingoResults };
+
+export const admin = {
+  events: () => get<{ events: AdminEventRow[]; live: LiveEvent | null }>("/admin/events"),
+  createEvent: (name: string) => post<{ event: EventView }>("/admin/events", { name }),
+  openEvent: (id: number) => post<{ event: EventView }>(`/admin/events/${id}/open`),
+  closeEvent: (id: number) => post<{ ok: true; ranked: number }>(`/admin/events/${id}/close`),
+  deleteEvent: (id: number) => del<{ ok: true }>(`/admin/events/${id}`),
+
+  game: () =>
+    get<{
+      event: { id: number; name: string } | null;
+      running: RunningGame | null;
+      last: { session: GameSession; results: BingoResults } | null;
+    }>("/admin/game"),
+  startBingo: () => post<{ session: GameSession; boards: number }>("/admin/game/bingo/start"),
+  endGame: (id: number) => post<{ session: GameSession; results: BingoResults }>(`/admin/game/${id}/end`),
+
+  users: (params: { q?: string; onlyEvent?: boolean; page?: number }) => {
+    const search = new URLSearchParams();
+    if (params.q) search.set("q", params.q);
+    if (params.onlyEvent) search.set("scope", "event");
+    if (params.page) search.set("page", String(params.page));
+    return get<{ total: number; page: number; hasMore: boolean; users: AdminUser[] }>(`/admin/users?${search}`);
+  },
+  resetPin: (id: number, pin: string) => post<{ ok: true }>(`/admin/users/${id}/pin`, { pin }),
+  setRole: (id: number, role: "PLAYER" | "STAFF") => post<{ ok: true; role: Role }>(`/admin/users/${id}/role`, { role }),
+  deleteUser: (id: number) => del<{ ok: true; nickname: string }>(`/admin/users/${id}`),
+};
