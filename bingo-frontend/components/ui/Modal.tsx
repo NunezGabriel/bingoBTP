@@ -1,21 +1,19 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { PixelIcon } from "@/components/pixel/Sprite";
+import { Icon } from "./Icon";
 
 export function Modal({
   open,
   onClose,
   title,
   children,
-  wide = false,
   dismissible = true,
 }: {
   open: boolean;
   onClose: () => void;
   title?: ReactNode;
   children: ReactNode;
-  wide?: boolean;
   dismissible?: boolean;
 }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -39,7 +37,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-night/80 p-3 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-3 sm:items-center"
       onClick={dismissible ? onClose : undefined}
       role="presentation"
     >
@@ -48,23 +46,18 @@ export function Modal({
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        className={`px-box px-pop max-h-[88dvh] w-full overflow-y-auto outline-none ${wide ? "max-w-2xl" : "max-w-md"}`}
+        className="card pop max-h-[88dvh] w-full max-w-md overflow-y-auto outline-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b-4 border-ink px-4 pb-3 pt-4">
-          <div className="font-pixel text-[12px] leading-relaxed text-cream">{title}</div>
+        <div className="flex items-start justify-between gap-3 px-5 pb-2 pt-5">
+          <div className="text-lg font-extrabold leading-tight">{title}</div>
           {dismissible && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="-mr-1 -mt-1 p-2 text-muted hover:text-cream"
-              aria-label="Cerrar"
-            >
-              <PixelIcon name="close" size={16} />
+            <button type="button" onClick={onClose} className="-mr-1 -mt-1 p-2 text-muted" aria-label="Cerrar">
+              <Icon name="close" size={18} />
             </button>
           )}
         </div>
-        <div className="p-4">{children}</div>
+        <div className="px-5 pb-5">{children}</div>
       </div>
     </div>
   );

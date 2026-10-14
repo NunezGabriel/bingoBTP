@@ -3,12 +3,12 @@
 import { useMemo } from "react";
 import QRCode from "qrcode";
 
-/** QR dibujado con rectangulos, igual que los sprites: nitido a cualquier tamano. */
+/** QR dibujado como rectangulos: nitido a cualquier tamano. */
 export function QrCode({
   value,
-  size = 220,
-  fg = "#14142b",
-  bg = "#f7f3e8",
+  size = 200,
+  fg = "#191919",
+  bg = "#ffffff",
   className = "",
 }: {
   value: string;
@@ -45,7 +45,7 @@ export function QrCode({
       height={size}
       shapeRendering="crispEdges"
       role="img"
-      aria-label="Codigo QR"
+      aria-label="Codigo QR para entrar"
       className={className}
     >
       <rect width={total} height={total} fill={bg} />

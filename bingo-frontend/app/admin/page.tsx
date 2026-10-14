@@ -2,77 +2,425 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { admin, errorMessage, type AdminEventRow, type LiveEvent } from "@/lib/api";
-import { useRealtime } from "@/lib/realtime";
-import { HOUSES } from "@/lib/sprites";
-import { Card, ConfirmButton, TextInput } from "@/components/admin/Form";
-import { PixelIcon } from "@/components/pixel/Sprite";
+import { admin, errorMessage } from "@/lib/api";
+import { RealtimeProvider, useRealtime } from "@/lib/realtime";
+import type { AdminEventRow, Overview, Round, RoundResults } from "@/lib/types";
+import { BingoWordmark, GdgLogo } from "@/components/Brand";
+import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { PlayersPanel } from "@/components/admin/PlayersPanel";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { ErrorBox, Loading, Pill } from "@/components/ui/Blocks";
 import { useToast } from "@/components/ui/Toasts";
 
-const STATUS: Record<AdminEventRow["status"], { label: string; color: string }> = {
-  DRAFT: { label: "SIN ABRIR", color: "#6e7385" },
-  LIVE: { label: "ABIERTO", color: "#34a853" },
-  CLOSED: { label: "CERRADO", color: "#2657b8" },
+type Tab = "evento" | "ronda" | "jugadores";
+
+const TABS: { key: Tab; label: string; icon: IconName }[] = [
+  { key: "evento", label: "Evento", icon: "flag" },
+  { key: "ronda", label: "Ronda", icon: "grid" },
+  { key: "jugadores", label: "Jugadores", icon: "users" },
+];
+
+const PODIUM = ["#fbbc04", "#c9c9c9", "#cd7f32"];
+const STATUS: Record<AdminEventRow["status"], { label: string; color: string; text?: string }> = {
+  DRAFT: { label: "Sin abrir", color: "#ffffff" },
+  LIVE: { label: "Abierto", color: "#34a853", text: "#fff" },
+  CLOSED: { label: "Cerrado", color: "#4285f4", text: "#fff" },
 };
 
-function LiveCard({ live, onClose, busy }: { live: LiveEvent; onClose: () => void; busy: boolean }) {
+/* ---------- Entrada con el codigo ---------- */
+
+function CodeGate({ onOk }: { onOk: () => void }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await admin.login(code.trim());
+      onOk();
+    } catch (err) {
+      setError(errorMessage(err));
+      setBusy(false);
+    }
+  }
+
   return (
-    <Card color="#1c3a26">
-      <p className="font-pixel flex items-center gap-2 text-[9px] text-ggreen">
-        <span className="px-blink block h-2 w-2 bg-ggreen" /> EVENTO ABIERTO
-      </p>
-      <h1 className="font-pixel mt-2 text-[16px] leading-snug text-cream">{live.name}</h1>
-
-      <div className="mt-3 grid grid-cols-2 gap-1">
-        <div className="px-inset p-3 text-center">
-          <p className="font-pixel text-[20px] text-gold">{live.players}</p>
-          <p className="font-pixel mt-1 text-[8px] text-muted">JUGADORES</p>
-        </div>
-        <div className="px-inset p-3 text-center">
-          <p className="font-pixel text-[20px] text-violet">{live.connected}</p>
-          <p className="font-pixel mt-1 text-[8px] text-muted">CONECTADOS AHORA</p>
-        </div>
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 pb-8">
+      <div className="self-center">
+        <BingoWordmark size={38} subtitle="Panel admin" />
       </div>
-
-      <div className="mt-1 grid grid-cols-4 gap-1">
-        {live.houses.map((h) => (
-          <div key={h.house} className="px-inset p-2 text-center">
-            <p className="font-pixel text-[7px]" style={{ color: HOUSES[h.house].P }}>
-              {HOUSES[h.house].name.toUpperCase()}
-            </p>
-            <p className="font-pixel mt-1 text-[14px] text-cream">{h.players}</p>
-          </div>
-        ))}
-      </div>
-
-      <p className="mt-3 text-[15px] text-muted">
-        Quien se registre o entre con su cuenta ahora queda inscrito en este evento.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-1">
-        <Link href="/admin/bingo" className="px-btn px-btn-yellow">
-          <PixelIcon name="grid" size={14} /> Iniciar el bingo
-        </Link>
-        <ConfirmButton confirmLabel="Cerrar y dar trofeos?" disabled={busy} onConfirm={onClose}>
-          Cerrar evento
-        </ConfirmButton>
-      </div>
-    </Card>
+      <form onSubmit={submit} className="card mt-8 p-5">
+        <h1 className="text-xl font-extrabold">Codigo de admin</h1>
+        <p className="mt-1 text-[15px] text-muted">Solo el codigo: no hace falta usuario.</p>
+        <input
+          className="input input-code mt-4"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          type="password"
+          autoComplete="one-time-code"
+          aria-label="Codigo de admin"
+          autoFocus
+        />
+        {error && <p className="mt-3 text-center font-semibold text-gred">{error}</p>}
+        <button type="submit" className="btn btn-ink btn-lg mt-4 w-full" disabled={busy || code.trim().length < 3}>
+          {busy ? "Entrando..." : "Entrar al panel"}
+        </button>
+      </form>
+      <Link href="/" className="mt-6 text-center text-[15px] font-bold text-gblue underline">
+        Volver al bingo
+      </Link>
+    </main>
   );
 }
 
-export default function AdminEventPage() {
+/* ---------- Pestana: evento ---------- */
+
+function EventTab({ overview, reload }: { overview: Overview; reload: () => void }) {
   const toast = useToast();
-  const [data, setData] = useState<{ events: AdminEventRow[]; live: LiveEvent | null } | null>(null);
-  const [error, setError] = useState("");
+  const [events, setEvents] = useState<AdminEventRow[] | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(() => {
+  const loadEvents = useCallback(() => {
     admin
       .events()
+      .then((r) => setEvents(r.events))
+      .catch((e) => toast.error("No se cargaron los eventos", errorMessage(e)));
+  }, [toast]);
+
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
+
+  async function run(action: () => Promise<unknown>, ok: string, detail?: string) {
+    setBusy(true);
+    try {
+      await action();
+      toast.ok(ok, detail);
+      loadEvents();
+      reload();
+    } catch (e) {
+      toast.error("No se pudo", errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const live = overview.event;
+  const others = (events ?? []).filter((e) => e.id !== live?.id);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {live ? (
+        <section className="card p-5" style={{ background: "#34a853", color: "#fff" }}>
+          <span className="flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-wide">
+            <span className="blink block h-2 w-2 rounded-full bg-white" /> Evento abierto
+          </span>
+          <h2 className="mt-2 text-2xl font-black leading-tight">{live.name}</h2>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="card-soft p-3 text-center text-ink">
+              <p className="text-2xl font-black">{overview.players}</p>
+              <p className="text-[12px] font-bold uppercase text-muted">Jugando</p>
+            </div>
+            <div className="card-soft p-3 text-center text-ink">
+              <p className="text-2xl font-black">{overview.connected}</p>
+              <p className="text-[12px] font-bold uppercase text-muted">Conectados</p>
+            </div>
+          </div>
+          <p className="mt-3 text-[14px] opacity-95">
+            Quien se registre o entre con su cuenta ahora queda en este evento.
+          </p>
+          <ConfirmButton
+            className="btn-ink mt-4 w-full"
+            confirmLabel="Cerrar y congelar el ranking?"
+            disabled={busy}
+            onConfirm={() => run(() => admin.closeEvent(live.id), "Evento cerrado")}
+          >
+            Cerrar evento
+          </ConfirmButton>
+        </section>
+      ) : (
+        <section className="card p-5">
+          <h2 className="text-xl font-extrabold">No hay ningun evento abierto</h2>
+          <p className="mt-1 text-[15px] text-muted">
+            Crea el evento y abrelo cuando empiece. El bingo sirve para cualquier evento de GDG.
+          </p>
+        </section>
+      )}
+
+      <section className="card p-5">
+        <h2 className="font-extrabold">Crear evento</h2>
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run(() => admin.createEvent(name.trim()), "Evento creado", "Abrelo cuando empiece");
+            setName("");
+          }}
+        >
+          <input
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="DevFest Arequipa 2026"
+            aria-label="Nombre del evento"
+          />
+          <button type="submit" className="btn btn-green" disabled={busy || name.trim().length < 3}>
+            Crear
+          </button>
+        </form>
+      </section>
+
+      {others.length > 0 && (
+        <section className="card p-5">
+          <h2 className="font-extrabold">Otros eventos</h2>
+          <ul className="mt-3 flex flex-col gap-2">
+            {others.map((ev) => (
+              <li key={ev.id} className="card-flat flex flex-wrap items-center gap-2 p-3">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-bold">{ev.name}</span>
+                  <span className="text-[13px] text-muted">
+                    {ev.players} jugadores · {ev.rounds} rondas
+                  </span>
+                </span>
+                <Pill color={STATUS[ev.status].color} text={STATUS[ev.status].text}>
+                  {STATUS[ev.status].label}
+                </Pill>
+                {ev.status === "DRAFT" && (
+                  <ConfirmButton
+                    className="btn-green btn-sm"
+                    confirmLabel={live ? "Cierra el abierto" : "Abrir ahora?"}
+                    disabled={busy || Boolean(live)}
+                    onConfirm={() => run(() => admin.openEvent(ev.id), "Evento abierto")}
+                  >
+                    Abrir
+                  </ConfirmButton>
+                )}
+                {ev.status === "DRAFT" && ev.players === 0 && (
+                  <ConfirmButton
+                    className="btn-sm"
+                    confirmLabel="Borrar?"
+                    disabled={busy}
+                    onConfirm={() => run(() => admin.deleteEvent(ev.id), "Evento borrado")}
+                  >
+                    <Icon name="trash" size={14} />
+                  </ConfirmButton>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Pestana: ronda ---------- */
+
+function RoundTab({ overview, reload }: { overview: Overview; reload: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [points, setPoints] = useState({ cell: "", complete: "" });
+
+  const round = overview.round ?? null;
+
+  async function newRound() {
+    setBusy(true);
+    try {
+      const r = await admin.newRound({
+        cellPoints: points.cell ? Number(points.cell) : undefined,
+        completePoints: points.complete ? Number(points.complete) : undefined,
+      });
+      toast.ok(`Ronda ${r.round.number} empezada`, `${r.cards} cartillas repartidas`);
+      reload();
+    } catch (e) {
+      toast.error("No se pudo empezar", errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function endRound(id: number) {
+    setBusy(true);
+    try {
+      const r = await admin.endRound(id);
+      const winner = r.results.winners[0];
+      toast.ok("Ronda terminada", winner ? `Gano ${winner.player.name}` : "Nadie completo su cartilla");
+      reload();
+    } catch (e) {
+      toast.error("No se pudo terminar", errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!overview.event) {
+    return (
+      <section className="card p-5">
+        <h2 className="text-xl font-extrabold">Primero abre un evento</h2>
+        <p className="mt-1 text-[15px] text-muted">Las rondas son de los jugadores del evento abierto.</p>
+      </section>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {round ? (
+        <section className="card p-5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-xl font-extrabold">Ronda {round.number}</h2>
+            <Pill color={round.status === "ACTIVE" ? "#34a853" : "#fbbc04"} text={round.status === "ACTIVE" ? "#fff" : undefined}>
+              {round.status === "ACTIVE" ? "En curso" : "Cuenta regresiva"}
+            </Pill>
+          </div>
+
+          <p className="mt-4 text-4xl font-black leading-none">
+            {round.progress.completed}
+            <span className="text-base font-bold text-muted"> de {round.progress.cards} completaron</span>
+          </p>
+
+          {round.progress.winners.length > 0 && (
+            <ol className="mt-4 flex flex-col gap-2">
+              {round.progress.winners.slice(0, 5).map((w) => (
+                <li key={w.player.id} className="card-flat flex items-center gap-3 p-2.5">
+                  <span
+                    className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink text-[13px] font-black"
+                    style={{ background: PODIUM[w.rank - 1] ?? "#f0f0f0" }}
+                  >
+                    {w.rank}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-bold">{w.player.name}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {round.progress.closest.length > 0 && (
+            <>
+              <p className="mt-4 text-[12px] font-extrabold uppercase text-muted">Van mas cerca</p>
+              <ul className="mt-2 flex flex-col gap-1">
+                {round.progress.closest.map((c) => (
+                  <li key={c.player.id} className="flex items-center gap-2 text-[15px]">
+                    <span className="min-w-0 flex-1 truncate font-semibold">{c.player.name}</span>
+                    <span className="font-black">{c.signed}/9</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          <div className="mt-5 flex flex-col gap-2">
+            <ConfirmButton
+              className="btn-ink"
+              confirmLabel="Terminar para todos?"
+              disabled={busy}
+              onConfirm={() => endRound(round.id)}
+            >
+              <Icon name="stop" size={16} /> Terminar ronda
+            </ConfirmButton>
+            <ConfirmButton
+              className="btn-yellow"
+              confirmLabel="Reparte cartillas nuevas?"
+              disabled={busy}
+              onConfirm={newRound}
+            >
+              <Icon name="refresh" size={16} /> Reiniciar: nueva ronda
+            </ConfirmButton>
+          </div>
+        </section>
+      ) : (
+        <section className="card p-5">
+          <h2 className="text-xl font-extrabold">Empezar una ronda</h2>
+          <p className="mt-1 text-[15px] text-muted">
+            Todos los jugadores del evento veran 5, 4, 3, 2, 1 y recibiran una cartilla nueva de 9 casillas.
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <label className="text-[13px] font-extrabold uppercase text-muted">
+              Puntos por firma
+              <input
+                className="input mt-1"
+                inputMode="numeric"
+                placeholder="5"
+                value={points.cell}
+                onChange={(e) => setPoints({ ...points, cell: e.target.value.replace(/\D/g, "") })}
+              />
+            </label>
+            <label className="text-[13px] font-extrabold uppercase text-muted">
+              Al completar
+              <input
+                className="input mt-1"
+                inputMode="numeric"
+                placeholder="50"
+                value={points.complete}
+                onChange={(e) => setPoints({ ...points, complete: e.target.value.replace(/\D/g, "") })}
+              />
+            </label>
+          </div>
+          <p className="mt-2 text-[13px] text-muted">
+            Vacio = los valores de src/content/bingo.js. Sube los puntos en la ultima ronda para dar chance de remontar.
+          </p>
+          <ConfirmButton className="btn-blue btn-lg mt-4 w-full" confirmLabel="Empezar para todos?" disabled={busy} onConfirm={newRound}>
+            <Icon name="play" size={18} /> Empezar ronda
+          </ConfirmButton>
+        </section>
+      )}
+
+      {!round && overview.lastRound && (
+        <section className="card p-5">
+          <h2 className="font-extrabold">Ronda {overview.lastRound.round.number} (terminada)</h2>
+          {overview.lastRound.results.winners.length === 0 ? (
+            <p className="mt-2 text-[15px] text-muted">Nadie completo su cartilla.</p>
+          ) : (
+            <ol className="mt-3 flex flex-col gap-2">
+              {overview.lastRound.results.winners.slice(0, 5).map((w) => (
+                <li key={w.player.id} className="card-flat flex items-center gap-3 p-2.5">
+                  <span
+                    className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink text-[13px] font-black"
+                    style={{ background: PODIUM[w.rank - 1] ?? "#f0f0f0" }}
+                  >
+                    {w.rank}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-bold">{w.player.name}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      )}
+
+      {overview.top && overview.top.length > 0 && (
+        <section className="card p-5">
+          <h2 className="font-extrabold">Top del evento</h2>
+          <ol className="mt-3 flex flex-col gap-1.5">
+            {overview.top.map((r) => (
+              <li key={r.player.id} className="flex items-center gap-3">
+                <span className="w-6 text-center font-black text-muted">{r.rank}</span>
+                <span className="min-w-0 flex-1 truncate font-semibold">{r.player.name}</span>
+                <span className="font-black">{r.points}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Panel ---------- */
+
+function Panel({ onLogout }: { onLogout: () => void }) {
+  const [tab, setTab] = useState<Tab>("evento");
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    admin
+      .overview()
       .then((d) => {
-        setData(d);
+        setOverview(d);
         setError("");
       })
       .catch((e) => setError(errorMessage(e)));
@@ -83,99 +431,90 @@ export default function AdminEventPage() {
     const id = window.setInterval(load, 20_000);
     return () => window.clearInterval(id);
   }, [load]);
+
+  useRealtime("round:countdown", load);
+  useRealtime<Round>("round:started", (r) =>
+    setOverview((o) => (o?.round && o.round.id === r.id ? { ...o, round: { ...o.round, ...r } } : o)),
+  );
+  useRealtime("round:ended", load);
   useRealtime("event:update", load);
-
-  async function run(action: () => Promise<unknown>, ok: string, detail?: string) {
-    setBusy(true);
-    try {
-      await action();
-      toast.success(ok, detail);
-      load();
-    } catch (e) {
-      toast.error("No se pudo", errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (error) return <ErrorBox message={error} onRetry={load} />;
-  if (!data) return <Loading />;
-
-  const others = data.events.filter((e) => e.id !== data.live?.id);
+  useRealtime<RoundResults & { roundId: number }>("bingo:progress", (p) =>
+    setOverview((o) => (o?.round && o.round.id === p.roundId ? { ...o, round: { ...o.round, progress: p } } : o)),
+  );
+  useRealtime<{ top: Overview["top"] }>("leaderboard", (lb) => setOverview((o) => (o ? { ...o, top: lb.top } : o)));
 
   return (
-    <>
-      {data.live ? (
-        <LiveCard
-          live={data.live}
-          busy={busy}
-          onClose={() => run(() => admin.closeEvent(data.live!.id), "Evento cerrado", "Trofeos entregados")}
-        />
-      ) : (
-        <Card>
-          <p className="font-pixel text-[11px] text-cream">No hay ningun evento abierto</p>
-          <p className="mt-2 text-[16px] text-muted">
-            Crea el evento y abrelo cuando empiece. Desde ese momento, quien se registre queda inscrito en el.
-          </p>
-        </Card>
-      )}
-
-      <Card title="CREAR EVENTO">
-        <form
-          className="flex items-center"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void run(() => admin.createEvent(name.trim()), "Evento creado", "Abrelo cuando empiece");
-            setName("");
-          }}
-        >
-          <TextInput
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="DevFest Arequipa 2026"
-            aria-label="Nombre del evento"
-          />
-          <button type="submit" className="px-btn px-btn-green" disabled={busy || name.trim().length < 3}>
-            Crear
+    <div className="mx-auto w-full max-w-md px-4 pb-10 pt-3">
+      <header className="flex items-center justify-between gap-2">
+        <GdgLogo size={18} />
+        <div className="flex gap-1">
+          <Link href="/pantalla" target="_blank" className="btn btn-sm">
+            <Icon name="eye" size={14} /> Proyector
+          </Link>
+          <button type="button" className="btn btn-sm" onClick={onLogout}>
+            <Icon name="logout" size={14} />
           </button>
-        </form>
-      </Card>
+        </div>
+      </header>
 
-      {others.length > 0 && (
-        <Card title="OTROS EVENTOS">
-          <ul className="flex flex-col gap-1">
-            {others.map((ev) => (
-              <li key={ev.id} className="px-inset flex flex-wrap items-center gap-2 p-2">
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[17px] text-cream">{ev.name}</span>
-                  <span className="text-[14px] text-muted">{ev.players} jugadores</span>
-                </span>
-                <Pill color={STATUS[ev.status].color}>{STATUS[ev.status].label}</Pill>
-                {ev.status === "DRAFT" && (
-                  <ConfirmButton
-                    className="px-btn-green"
-                    confirmLabel={data.live ? "Cierra el abierto" : "Abrir ahora?"}
-                    disabled={busy || Boolean(data.live)}
-                    onConfirm={() => run(() => admin.openEvent(ev.id), "Evento abierto")}
-                  >
-                    Abrir
-                  </ConfirmButton>
-                )}
-                {ev.status === "DRAFT" && ev.players === 0 && (
-                  <ConfirmButton
-                    className="px-btn-dark"
-                    confirmLabel="Borrar?"
-                    disabled={busy}
-                    onConfirm={() => run(() => admin.deleteEvent(ev.id), "Evento borrado")}
-                  >
-                    <PixelIcon name="trash" size={12} />
-                  </ConfirmButton>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-    </>
+      <nav className="mt-3 grid grid-cols-3 gap-2">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            className={`btn btn-sm ${tab === t.key ? "btn-ink" : ""}`}
+            aria-current={tab === t.key ? "page" : undefined}
+            onClick={() => setTab(t.key)}
+          >
+            <Icon name={t.icon} size={15} /> {t.label}
+          </button>
+        ))}
+      </nav>
+
+      <main className="mt-4">
+        {error ? (
+          <ErrorBox message={error} onRetry={load} />
+        ) : !overview ? (
+          <Loading />
+        ) : tab === "evento" ? (
+          <EventTab overview={overview} reload={load} />
+        ) : tab === "ronda" ? (
+          <RoundTab overview={overview} reload={load} />
+        ) : (
+          <PlayersPanel onChanged={load} />
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default function AdminPage() {
+  const [authed, setAuthed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    admin
+      .session()
+      .then((r) => setAuthed(r.admin))
+      .catch(() => setAuthed(false));
+  }, []);
+
+  if (authed === null) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center">
+        <Loading label="Verificando" />
+      </main>
+    );
+  }
+  if (!authed) return <CodeGate onOk={() => setAuthed(true)} />;
+
+  return (
+    <RealtimeProvider enabled>
+      <Panel
+        onLogout={async () => {
+          await admin.logout().catch(() => {});
+          setAuthed(false);
+        }}
+      />
+    </RealtimeProvider>
   );
 }

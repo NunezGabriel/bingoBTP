@@ -3,10 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const { prisma } = require("./lib/prisma");
 const { HttpError } = require("./lib/http");
-const { hashPin, verifyPin, isValidPin } = require("./lib/pin");
-const { newPlayerCode } = require("./lib/codes");
 const { attachPlayer, requireCsrfHeader } = require("./middleware/auth");
-const games = require("./services/games");
+const rounds = require("./services/rounds");
 
 const app = express();
 // Saltos de proxy confiables para leer la IP real del cliente: 1 con nginx o
@@ -25,8 +23,7 @@ app.use(
       } catch {
         return callback(null, false);
       }
-      const allowed =
-        config.frontendOrigins.includes(origin) || /\.vercel\.app$/.test(hostname);
+      const allowed = config.frontendOrigins.includes(origin) || /\.vercel\.app$/.test(hostname);
       return callback(null, allowed);
     },
     credentials: true,
@@ -37,12 +34,11 @@ app.use(express.json({ limit: "100kb" }));
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api", attachPlayer, requireCsrfHeader);
-app.use("/api/auth", require("./routes/auth").router);
+app.use("/api/auth", require("./routes/auth"));
 app.use("/api/me", require("./routes/me"));
 app.use("/api/public", require("./routes/public"));
 app.use("/api/stream", require("./routes/stream"));
 app.use("/api/game", require("./routes/game"));
-app.use("/api/staff", require("./routes/staff"));
 app.use("/api/admin", require("./routes/admin"));
 
 app.use("/api", (req, res) => {
@@ -63,49 +59,6 @@ app.use((err, req, res, next) => {
   console.error("ERROR:", req.method, req.originalUrl, err);
   return res.status(500).json({ error: "Error interno del servidor" });
 });
-
-/**
- * Crea (o recupera) la cuenta admin definida en ADMIN_NICKNAME / ADMIN_PIN.
- * Util en Render, donde el plan gratuito no tiene consola para correr scripts.
- * Si el nombre ya existe con OTRO PIN no se toca: nadie puede volverse admin
- * registrando ese nombre antes que tu.
- */
-async function bootstrapAdmin() {
-  const { nickname, pin } = config.bootstrapAdmin;
-  if (!nickname || !pin) return;
-  if (!isValidPin(pin)) {
-    console.warn("ADMIN_PIN debe tener 4 a 8 digitos; no se creo la cuenta admin.");
-    return;
-  }
-  const key = nickname.normalize("NFC").toLowerCase();
-  const existing = await prisma.player.findUnique({ where: { nicknameKey: key } });
-
-  if (!existing) {
-    await prisma.player.create({
-      data: {
-        nickname,
-        nicknameKey: key,
-        pinHash: await hashPin(pin),
-        role: "ADMIN",
-        avatarClass: "mago",
-        avatarHouse: "azul",
-        code: newPlayerCode(),
-      },
-    });
-    console.log(`Cuenta admin "${nickname}" creada.`);
-    return;
-  }
-  if (existing.role !== "ADMIN") {
-    if (await verifyPin(pin, existing.pinHash)) {
-      await prisma.player.update({ where: { id: existing.id }, data: { role: "ADMIN" } });
-      console.log(`Cuenta "${nickname}" promovida a admin.`);
-    } else {
-      console.warn(
-        `"${nickname}" ya existe con otro PIN y no es admin. No se promovio por seguridad.`,
-      );
-    }
-  }
-}
 
 /**
  * Espera a que la base acepte conexiones antes de arrancar. Pasa en local si
@@ -131,12 +84,14 @@ async function waitForDatabase({ attempts = 30, delayMs = 2000 } = {}) {
 
 async function start() {
   await waitForDatabase();
-  await bootstrapAdmin();
-  const recovered = await games.recoverGames();
-  if (recovered) console.log(`Juegos: ${recovered} cuenta(s) regresiva(s) reprogramada(s).`);
+  if (!config.adminCode) {
+    console.warn("ADMIN_CODE no esta configurado: nadie podra entrar al panel /admin.");
+  }
+  const recovered = await rounds.recoverRounds();
+  if (recovered) console.log(`Rondas: ${recovered} cuenta(s) regresiva(s) reprogramada(s).`);
 
   const server = app.listen(config.port, () => {
-    console.log(`Misti Quest API en puerto ${config.port}`);
+    console.log(`Bingo GDG API en puerto ${config.port}`);
   });
   // Detras de proxies (Render, nginx) conviene que el keep-alive del servidor
   // dure mas que el del proxy, o aparecen 502 intermitentes.

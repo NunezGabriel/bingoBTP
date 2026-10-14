@@ -5,45 +5,29 @@ const { issueSession, clearSession } = require("../lib/session");
 const { newPlayerCode } = require("../lib/codes");
 const rateLimit = require("../lib/rateLimit");
 const { badRequest, conflict, unauthorized, tooMany } = require("../lib/http");
-const { CLASSES, HOUSES, isClassUnlocked } = require("../lib/progression");
 const { selfPlayer, invalidatePlayer } = require("../services/players");
 const { getLiveEvent, ensureJoined } = require("../services/events");
 
 const router = express.Router();
 
-const NICKNAME_RE = /^[\p{L}\p{N}_]{3,16}$/u;
-const RESERVED = new Set([
-  "admin",
-  "administrador",
-  "staff",
-  "gdg",
-  "gdgarequipa",
-  "moderador",
-  "soporte",
-  "sistema",
-  "misti",
-  "mistiquest",
-]);
+const NAME_RE = /^[\p{L}\p{N} _.-]{2,20}$/u;
+const RESERVED = new Set(["admin", "administrador", "staff", "gdg", "gdgarequipa", "bingo", "soporte"]);
 
-function nicknameKey(nickname) {
-  return nickname.normalize("NFC").toLowerCase();
+function nameKeyOf(name) {
+  return name.normalize("NFC").toLowerCase();
 }
 
-function validateNickname(raw) {
-  const nickname = typeof raw === "string" ? raw.trim().normalize("NFC") : "";
-  if (!NICKNAME_RE.test(nickname)) {
-    throw badRequest("El nombre debe tener 3 a 16 letras, numeros o _");
-  }
-  if (RESERVED.has(nicknameKey(nickname))) {
-    throw badRequest("Ese nombre esta reservado, elige otro");
-  }
-  return nickname;
+function validateName(raw) {
+  const name = typeof raw === "string" ? raw.trim().replace(/\s+/g, " ").normalize("NFC") : "";
+  if (!NAME_RE.test(name)) throw badRequest("El nombre debe tener 2 a 20 letras o numeros");
+  if (RESERVED.has(nameKeyOf(name))) throw badRequest("Ese nombre esta reservado, usa otro");
+  return name;
 }
 
 /**
- * Inscribe al jugador en el evento en curso. No es critico: si falla, /api/me
- * lo reintenta en la siguiente peticion. Lo que NO puede pasar es que un fallo
- * aqui convierta un registro exitoso en un "error" para el celular.
+ * Inscribe al jugador en el evento abierto. No es critico: si falla, /api/me
+ * lo reintenta. Lo que NO puede pasar es que un fallo aqui convierta un
+ * registro exitoso en un error para el celular.
  */
 async function joinLiveEvent(playerId) {
   try {
@@ -54,38 +38,29 @@ async function joinLiveEvent(playerId) {
   }
 }
 
-router.get("/nickname/:nickname", async (req, res) => {
-  let nickname;
+router.get("/name/:name", async (req, res) => {
+  let name;
   try {
-    nickname = validateNickname(req.params.nickname);
+    name = validateName(req.params.name);
   } catch (error) {
     return res.json({ available: false, reason: error.message });
   }
   const taken = await prisma.player.findUnique({
-    where: { nicknameKey: nicknameKey(nickname) },
+    where: { nameKey: nameKeyOf(name) },
     select: { id: true },
   });
-  res.json({ available: !taken, reason: taken ? "Ese nombre ya existe" : null });
+  res.json({ available: !taken, reason: taken ? "Ese nombre ya esta tomado" : null });
 });
 
 router.post("/register", async (req, res) => {
-  // En un evento cientos de personas comparten la IP publica del WiFi, y detras
-  // de proxies (Vercel -> Render) req.ip puede ser la misma para TODOS. Por eso
-  // este limite es solo un freno anti-spam muy holgado: jamas debe bloquear la
-  // fila de la entrada.
+  // En un evento cientos de personas comparten la IP del WiFi: este limite es
+  // solo un freno anti-spam muy holgado, jamas debe bloquear la fila de entrada.
   const ipLimit = rateLimit.hit(`register:${req.ip}`, 3000, 10 * 60_000);
   if (!ipLimit.ok) throw tooMany("Demasiados registros desde esta red", ipLimit.retryAfterMs);
 
-  const nickname = validateNickname(req.body?.nickname);
+  const name = validateName(req.body?.name);
   const pin = String(req.body?.pin ?? "");
-  const avatarClass = String(req.body?.avatarClass ?? "");
-  const avatarHouse = String(req.body?.avatarHouse ?? "");
-
   if (!isValidPin(pin)) throw badRequest("El PIN debe tener de 4 a 8 digitos");
-  if (!CLASSES.includes(avatarClass) || !isClassUnlocked(avatarClass, 1)) {
-    throw badRequest("Clase de personaje no disponible");
-  }
-  if (!HOUSES.includes(avatarHouse)) throw badRequest("Casa invalida");
 
   const pinHash = await hashPin(pin);
 
@@ -93,26 +68,19 @@ router.post("/register", async (req, res) => {
   for (let attempt = 0; attempt < 5 && !player; attempt += 1) {
     try {
       player = await prisma.player.create({
-        data: {
-          nickname,
-          nicknameKey: nicknameKey(nickname),
-          pinHash,
-          avatarClass,
-          avatarHouse,
-          code: newPlayerCode(),
-        },
+        data: { name, nameKey: nameKeyOf(name), pinHash, code: newPlayerCode() },
       });
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       const exists = await prisma.player.findUnique({
-        where: { nicknameKey: nicknameKey(nickname) },
+        where: { nameKey: nameKeyOf(name) },
         select: { id: true },
       });
       if (exists) throw conflict("Ese nombre ya existe. Si es tuyo, entra con tu PIN");
-      // si no, fue colision del codigo publico: se reintenta
+      // si no, fue colision del codigo: se reintenta
     }
   }
-  if (!player) throw conflict("No se pudo crear el personaje, intenta de nuevo");
+  if (!player) throw conflict("No se pudo crear tu cuenta, intenta de nuevo");
 
   await joinLiveEvent(player.id);
   issueSession(res, player);
@@ -120,35 +88,30 @@ router.post("/register", async (req, res) => {
 });
 
 router.post("/login", async (req, res) => {
-  const rawNickname = typeof req.body?.nickname === "string" ? req.body.nickname.trim() : "";
+  const rawName = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const pin = String(req.body?.pin ?? "");
-  if (!rawNickname || !pin) throw badRequest("Escribe tu nombre y tu PIN");
+  if (!rawName || !pin) throw badRequest("Escribe tu nombre y tu PIN");
 
-  const key = nicknameKey(rawNickname);
+  const key = nameKeyOf(rawName.replace(/\s+/g, " "));
   // La defensa real contra adivinar PINs es por nombre: 6 fallos y esa cuenta
-  // queda en pausa 10 minutos, venga de donde venga el ataque.
-  const nickLock = rateLimit.peek(`login:nick:${key}`, 6);
-  if (!nickLock.ok) {
-    throw tooMany(
-      "Demasiados intentos con ese nombre. Espera unos minutos o pide ayuda al staff",
-      nickLock.retryAfterMs,
-    );
+  // queda en pausa 10 minutos, venga de donde venga el intento.
+  const nameLock = rateLimit.peek(`login:name:${key}`, 6);
+  if (!nameLock.ok) {
+    throw tooMany("Demasiados intentos con ese nombre. Espera unos minutos o pide ayuda al staff", nameLock.retryAfterMs);
   }
-  // Por IP solo se frena un barrido masivo de muchas cuentas; es holgado
-  // porque toda la gente del evento puede compartir IP.
   const ipLimit = rateLimit.peek(`login:ip:${req.ip}`, 2000);
   if (!ipLimit.ok) throw tooMany("Demasiados intentos desde esta red", ipLimit.retryAfterMs);
 
-  const player = await prisma.player.findUnique({ where: { nicknameKey: key } });
+  const player = await prisma.player.findUnique({ where: { nameKey: key } });
   const valid = player ? await verifyPin(pin, player.pinHash) : false;
 
   if (!valid) {
-    rateLimit.hit(`login:nick:${key}`, 6, 10 * 60_000);
+    rateLimit.hit(`login:name:${key}`, 6, 10 * 60_000);
     rateLimit.hit(`login:ip:${req.ip}`, 2000, 10 * 60_000);
     throw unauthorized("Nombre o PIN incorrectos");
   }
 
-  rateLimit.reset(`login:nick:${key}`);
+  rateLimit.reset(`login:name:${key}`);
   invalidatePlayer(player.id);
   await joinLiveEvent(player.id);
   issueSession(res, player);
@@ -160,4 +123,4 @@ router.post("/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-module.exports = { router, nicknameKey, validateNickname };
+module.exports = router;

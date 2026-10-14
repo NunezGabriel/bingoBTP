@@ -1,38 +1,16 @@
 const { prisma } = require("../lib/prisma");
-const { progressFor } = require("../lib/progression");
 
-/** Campos minimos para mostrar a un jugador a otros (ranking, contactos...). */
-const PUBLIC_SELECT = {
-  id: true,
-  nickname: true,
-  avatarClass: true,
-  avatarHouse: true,
-  xp: true,
-};
-
+/** Lo minimo para mostrar a alguien en el ranking o en una casilla firmada. */
 function publicPlayer(p) {
   if (!p) return null;
-  const prog = progressFor(p.xp);
-  return {
-    id: p.id,
-    nickname: p.nickname,
-    avatarClass: p.avatarClass,
-    avatarHouse: p.avatarHouse,
-    level: prog.level,
-    tier: prog.tier,
-    title: prog.title,
-  };
+  return { id: p.id, name: p.name };
 }
 
 function selfPlayer(p) {
-  return {
-    ...publicPlayer(p),
-    code: p.code,
-    role: p.role,
-    progress: progressFor(p.xp),
-    createdAt: p.createdAt,
-  };
+  return { id: p.id, name: p.name, code: p.code, createdAt: p.createdAt };
 }
+
+const PUBLIC_SELECT = { id: true, name: true };
 
 // Cache corto por proceso: cada peticion autenticada necesita al jugador, y
 // contra una base remota eso son ~100 ms por peticion si no se cachea.
@@ -60,7 +38,7 @@ function invalidatePlayer(...ids) {
   for (const id of ids.flat()) cache.delete(id);
 }
 
-async function findByCode(code) {
+function findByCode(code) {
   return prisma.player.findUnique({ where: { code } });
 }
 
@@ -71,11 +49,4 @@ setInterval(() => {
   }
 }, 60_000).unref();
 
-module.exports = {
-  PUBLIC_SELECT,
-  publicPlayer,
-  selfPlayer,
-  getPlayer,
-  invalidatePlayer,
-  findByCode,
-};
+module.exports = { PUBLIC_SELECT, publicPlayer, selfPlayer, getPlayer, invalidatePlayer, findByCode };

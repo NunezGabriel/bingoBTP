@@ -1,43 +1,27 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import { PixelIcon } from "@/components/pixel/Sprite";
-import type { IconName } from "@/components/pixel/icons";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { Icon, type IconName } from "./Icon";
 
-type ToastKind = "points" | "success" | "error" | "info" | "announcement";
+type ToastKind = "points" | "ok" | "error" | "info";
 
-type Toast = {
-  id: number;
-  kind: ToastKind;
-  title: string;
-  detail?: string;
-  amount?: number;
-};
+type Toast = { id: number; kind: ToastKind; title: string; detail?: string };
 
 type ToastApi = {
   push: (toast: Omit<Toast, "id">, durationMs?: number) => void;
   points: (amount: number, label: string) => void;
-  success: (title: string, detail?: string) => void;
+  ok: (title: string, detail?: string) => void;
   error: (title: string, detail?: string) => void;
   info: (title: string, detail?: string) => void;
 };
 
 const ToastContext = createContext<ToastApi | null>(null);
 
-const STYLE: Record<ToastKind, { bg: string; text: string; icon: IconName }> = {
-  points: { bg: "#ffd23f", text: "#14142b", icon: "star" },
-  success: { bg: "#34a853", text: "#ffffff", icon: "check" },
-  error: { bg: "#ea4335", text: "#ffffff", icon: "close" },
-  info: { bg: "#2a2a5a", text: "#f7f3e8", icon: "bell" },
-  announcement: { bg: "#4285f4", text: "#ffffff", icon: "bell" },
+const STYLE: Record<ToastKind, { bg: string; color: string; icon: IconName }> = {
+  points: { bg: "#fbbc04", color: "#191919", icon: "star" },
+  ok: { bg: "#34a853", color: "#ffffff", icon: "check" },
+  error: { bg: "#ea4335", color: "#ffffff", icon: "close" },
+  info: { bg: "#4285f4", color: "#ffffff", icon: "flag" },
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -51,8 +35,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback(
     (toast: Omit<Toast, "id">, durationMs = 3200) => {
       const id = nextId.current++;
-      // Maximo 4 a la vez: si llueven puntos, se ven los mas recientes.
-      setToasts((list) => [...list.slice(-3), { ...toast, id }]);
+      // Maximo 3 a la vez: si llueven avisos, se ven los mas recientes.
+      setToasts((list) => [...list.slice(-2), { ...toast, id }]);
       window.setTimeout(() => dismiss(id), durationMs);
     },
     [dismiss],
@@ -62,8 +46,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     () => ({
       push,
       points: (amount, label) =>
-        push({ kind: "points", title: `${amount > 0 ? "+" : ""}${amount} PTS`, detail: label, amount }),
-      success: (title, detail) => push({ kind: "success", title, detail }),
+        push({ kind: "points", title: `${amount > 0 ? "+" : ""}${amount} puntos`, detail: label }),
+      ok: (title, detail) => push({ kind: "ok", title, detail }),
       error: (title, detail) => push({ kind: "error", title, detail }, 4500),
       info: (title, detail) => push({ kind: "info", title, detail }),
     }),
@@ -73,10 +57,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div
-        className="pointer-events-none fixed inset-x-0 top-2 z-[60] flex flex-col items-center gap-1 px-3"
-        aria-live="polite"
-      >
+      <div className="pointer-events-none fixed inset-x-0 top-3 z-[60] flex flex-col items-center gap-2 px-3" aria-live="polite">
         {toasts.map((t) => {
           const s = STYLE[t.kind];
           return (
@@ -84,13 +65,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               key={t.id}
               type="button"
               onClick={() => dismiss(t.id)}
-              className="px-box px-slide-down pointer-events-auto flex w-full max-w-sm items-center gap-3 px-3 py-2 text-left"
-              style={{ ["--box-bg" as string]: s.bg, color: s.text }}
+              className="rise card pointer-events-auto flex w-full max-w-sm items-center gap-3 px-4 py-3 text-left"
+              style={{ background: s.bg, color: s.color }}
             >
-              <PixelIcon name={s.icon} size={18} />
+              <Icon name={s.icon} size={20} />
               <span className="min-w-0 flex-1">
-                <span className="font-pixel block text-[11px]">{t.title}</span>
-                {t.detail && <span className="block truncate text-[15px] leading-tight">{t.detail}</span>}
+                <span className="block font-extrabold leading-tight">{t.title}</span>
+                {t.detail && <span className="block truncate text-[14px] opacity-90">{t.detail}</span>}
               </span>
             </button>
           );

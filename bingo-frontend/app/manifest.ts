@@ -3,19 +3,15 @@ import type { MetadataRoute } from "next";
 /** Permite "Agregar a pantalla de inicio": abre como app, sin barra del navegador. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Misti Quest · GDG Arequipa",
-    short_name: "Misti Quest",
-    description: "Tu personaje 8-bit para las dinamicas de GDG Arequipa.",
-    start_url: "/inicio",
+    name: "Bingo GDG · GDG Arequipa",
+    short_name: "Bingo GDG",
+    description: "El bingo para conocer gente en los eventos de GDG Arequipa.",
+    start_url: "/cartilla",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#0b0b1a",
-    theme_color: "#0b0b1a",
+    background_color: "#f0f0f0",
+    theme_color: "#f0f0f0",
     lang: "es",
-    icons: [
-      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-      { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-    ],
+    icons: [{ src: "/apple-icon", sizes: "180x180", type: "image/png" }],
   };
 }

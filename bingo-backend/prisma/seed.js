@@ -1,27 +1,17 @@
 /**
- * Datos iniciales de Misti Quest.
+ * Datos iniciales de Bingo GDG.
  *
  *   npm run seed            -> crea un evento de ejemplo si no hay ninguno (no borra nada)
- *   npm run seed -- --reset -> BORRA TODO (jugadores, eventos, puntos). Solo desarrollo.
+ *   npm run seed -- --reset -> BORRA TODO (jugadores, eventos, rondas, puntos). Solo desarrollo.
  *
- * Las preguntas del bingo y las misiones no se cargan aqui: estan en src/content/.
- * La cuenta admin se crea sola al arrancar la API (ADMIN_NICKNAME / ADMIN_PIN).
+ * Las preguntas del bingo no se cargan aqui: estan en src/content/bingo.js.
+ * Al panel admin se entra con ADMIN_CODE, no hay cuenta de admin.
  */
 require("dotenv").config({ quiet: true });
 const { prisma, pool } = require("../src/lib/prisma");
 
 async function reset() {
-  const tables = [
-    "BingoCell",
-    "BingoBoard",
-    "GameSession",
-    "Connection",
-    "PointLedger",
-    "Trophy",
-    "EventPlayer",
-    "Event",
-    "Player",
-  ];
+  const tables = ["Cell", "Card", "Round", "PointLedger", "EventPlayer", "Event", "Player"];
   await prisma.$executeRawUnsafe(
     `TRUNCATE ${tables.map((t) => `"${t}"`).join(", ")} RESTART IDENTITY CASCADE`,
   );

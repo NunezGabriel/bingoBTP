@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { errorMessage, publicApi } from "@/lib/api";
 import { useRealtime } from "@/lib/realtime";
 import { useSession } from "@/lib/session";
-import type { HouseRow, LeaderboardRow, Standing } from "@/lib/types";
+import type { LeaderboardRow, Standing } from "@/lib/types";
 import { Empty, ErrorBox, Loading, PageTitle } from "@/components/ui/Blocks";
-import { HouseBars, LeaderboardList } from "@/components/game/Leaderboard";
+
+const PODIUM = ["#fbbc04", "#c9c9c9", "#cd7f32"];
 
 export default function RankingPage() {
   const { me } = useSession();
-  const [board, setBoard] = useState<{ top: LeaderboardRow[]; houses: HouseRow[]; me: Standing | null } | null>(null);
+  const [board, setBoard] = useState<{ top: LeaderboardRow[]; me: Standing | null } | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(() => {
@@ -27,7 +28,6 @@ export default function RankingPage() {
     load();
   }, [load]);
 
-  // Mientras la pantalla esta abierta se refresca cada 15 s.
   useEffect(() => {
     const id = window.setInterval(() => {
       if (document.visibilityState === "visible") load();
@@ -40,7 +40,7 @@ export default function RankingPage() {
 
   return (
     <div>
-      <PageTitle icon="trophy" title="Ranking" subtitle={me?.event?.name ?? "Sin evento abierto"} />
+      <PageTitle title="Ranking" subtitle={me?.event?.name ?? "Sin evento abierto"} />
 
       {error && <ErrorBox message={error} onRetry={load} />}
 
@@ -53,26 +53,44 @@ export default function RankingPage() {
       ) : (
         <>
           {board.me?.rank && (
-            <div className="px-box mb-1 flex items-center justify-between p-3" style={{ ["--box-bg" as string]: "#2d2257" }}>
-              <span className="font-pixel text-[10px] text-cream">TU PUESTO</span>
-              <span className="font-pixel text-[16px] text-gold">
+            <div className="card mb-3 flex items-center justify-between p-4" style={{ background: "#4285f4", color: "#fff" }}>
+              <span className="font-extrabold">Tu puesto</span>
+              <span className="text-2xl font-black">
                 #{board.me.rank}
-                <span className="ml-2 text-[9px] text-muted">de {board.me.total}</span>
+                <span className="ml-2 text-[13px] font-bold opacity-80">de {board.me.total}</span>
               </span>
             </div>
           )}
 
-          <div className="px-box mb-1 p-3">
-            <p className="font-pixel mb-2 text-[9px] text-muted">COPA DE CASAS</p>
-            <HouseBars houses={board.houses} />
-          </div>
-
           {board.top.length === 0 ? (
             <Empty icon="star" title="Nadie ha sumado puntos aun">
-              Se el primero: firma el bingo o pide puntos al staff.
+              Se el primero: consigue firmas en tu cartilla.
             </Empty>
           ) : (
-            <LeaderboardList rows={board.top} highlightId={me.player.id} />
+            <ol className="flex flex-col gap-2">
+              {board.top.map((r) => {
+                const mine = r.player.id === me.player.id;
+                return (
+                  <li
+                    key={r.player.id}
+                    className="card flex items-center gap-3 px-4 py-3"
+                    style={mine ? { background: "#fff7d6" } : undefined}
+                  >
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-ink text-[15px] font-black"
+                      style={{ background: PODIUM[r.rank - 1] ?? "#f0f0f0" }}
+                    >
+                      {r.rank}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[17px] font-bold">
+                      {r.player.name}
+                      {mine && <span className="ml-1 text-[13px] font-extrabold text-gblue">(tu)</span>}
+                    </span>
+                    <span className="text-xl font-black">{r.points}</span>
+                  </li>
+                );
+              })}
+            </ol>
           )}
         </>
       )}

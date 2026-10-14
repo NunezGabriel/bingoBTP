@@ -1,16 +1,16 @@
 /**
- * BINGO: puntajes y preguntas.
+ * BINGO GDG: puntajes y preguntas de las casillas.
  *
- * Este archivo es lo unico que hay que tocar para cambiar el bingo. Cada
+ * Este es el unico archivo que hay que tocar para cambiar el juego. Cada
  * cartilla toma 9 preguntas al azar de esta lista (minimo 9). Los cambios se
- * aplican al lanzar el siguiente bingo; los que ya estan en curso no cambian.
+ * aplican en la siguiente ronda; la que ya esta en curso no cambia.
  */
 module.exports = {
   /** Puntos por cada casilla firmada. */
   cellPoints: 5,
   /** Puntos al completar las 9 casillas. */
   completePoints: 50,
-  /** Extra para el 1ro, 2do y 3ro en completar. */
+  /** Extra para el 1ro, 2do y 3ro en completar la ronda. */
   podiumBonus: [30, 20, 10],
 
   prompts: [

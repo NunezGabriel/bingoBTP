@@ -1,4 +1,4 @@
-const { readSession, issueSession, clearSession, shouldRefresh } = require("../lib/session");
+const { readSession, issueSession, clearSession, shouldRefresh, readAdmin } = require("../lib/session");
 const { unauthorized, forbidden, conflict } = require("../lib/http");
 const { getPlayer } = require("../services/players");
 const { getLiveEvent, ensureJoined } = require("../services/events");
@@ -24,12 +24,10 @@ function requirePlayer(req, res, next) {
   next();
 }
 
-function requireRole(...roles) {
-  return (req, res, next) => {
-    requirePlayer(req, res, () => {});
-    if (!roles.includes(req.player.role)) throw forbidden();
-    next();
-  };
+/** Panel admin: basta con la cookie que se emite al escribir el codigo. */
+function requireAdmin(req, res, next) {
+  if (!readAdmin(req)) throw unauthorized("Escribe el codigo de admin");
+  next();
 }
 
 /** Exige un evento abierto y deja al jugador inscrito en el. */
@@ -42,19 +40,13 @@ async function requireLiveEvent(req, res, next) {
 }
 
 /**
- * Proteccion CSRF barata: toda escritura debe traer la cabecera X-MQ.
+ * Proteccion CSRF barata: toda escritura debe traer la cabecera X-BG.
  * Un formulario de otro sitio no puede agregar cabeceras sin pasar por CORS.
  */
 function requireCsrfHeader(req, res, next) {
   const safe = req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS";
-  if (!safe && req.get("x-mq") !== "1") throw forbidden("Peticion rechazada");
+  if (!safe && req.get("x-bg") !== "1") throw forbidden("Peticion rechazada");
   next();
 }
 
-module.exports = {
-  attachPlayer,
-  requirePlayer,
-  requireRole,
-  requireLiveEvent,
-  requireCsrfHeader,
-};
+module.exports = { attachPlayer, requirePlayer, requireAdmin, requireLiveEvent, requireCsrfHeader };

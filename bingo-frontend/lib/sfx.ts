@@ -1,12 +1,11 @@
 /**
- * Efectos de sonido 8-bit sintetizados con WebAudio (onda cuadrada).
- * Sin archivos de audio: pesan 0 KB y suenan a consola vieja.
+ * Sonidos cortos sintetizados con WebAudio: 0 KB de archivos y suenan suaves.
+ * Se pueden silenciar desde Mi cuenta.
  */
-
 type Note = [freq: number, durationMs: number];
 
 let ctx: AudioContext | null = null;
-const MUTE_KEY = "mq:mute";
+const MUTE_KEY = "bg:mute";
 
 function readMuted() {
   try {
@@ -34,7 +33,8 @@ export function setMuted(value: boolean) {
 function audio() {
   if (typeof window === "undefined") return null;
   if (!ctx) {
-    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const Ctor =
+      window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return null;
     ctx = new Ctor();
   }
@@ -43,7 +43,7 @@ function audio() {
   return ctx;
 }
 
-function play(notes: Note[], { type = "square", volume = 0.06 }: { type?: OscillatorType; volume?: number } = {}) {
+function play(notes: Note[], volume = 0.05) {
   if (muted) return;
   const ac = audio();
   if (!ac) return;
@@ -51,10 +51,11 @@ function play(notes: Note[], { type = "square", volume = 0.06 }: { type?: Oscill
   for (const [freq, ms] of notes) {
     const osc = ac.createOscillator();
     const gain = ac.createGain();
-    osc.type = type;
+    osc.type = "sine";
     osc.frequency.setValueAtTime(freq, t);
-    gain.gain.setValueAtTime(freq ? volume : 0, t);
-    gain.gain.setValueAtTime(0, t + ms / 1000 - 0.005);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(freq ? volume : 0, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000);
     osc.connect(gain).connect(ac.destination);
     osc.start(t);
     osc.stop(t + ms / 1000);
@@ -72,69 +73,39 @@ function vibrate(pattern: number | number[]) {
 
 export const sfx = {
   unlock: () => audio(),
-  click: () => play([[880, 30]], { volume: 0.03 }),
-  coin: () => {
+  tap: () => play([[660, 70]], 0.03),
+  ok: () => {
     play([
-      [988, 70],
-      [1319, 160],
+      [660, 90],
+      [990, 180],
     ]);
     vibrate(30);
   },
   error: () => {
     play([
-      [220, 90],
-      [165, 160],
+      [300, 120],
+      [200, 180],
     ]);
     vibrate([40, 40, 40]);
   },
-  levelUp: () => {
-    play([
-      [523, 90],
-      [659, 90],
-      [784, 90],
-      [1047, 90],
-      [0, 40],
-      [784, 90],
-      [1047, 260],
-    ]);
-    vibrate([60, 40, 120]);
-  },
   bingo: () => {
     play([
-      [659, 110],
-      [659, 110],
-      [0, 50],
-      [659, 110],
-      [0, 50],
       [523, 110],
-      [659, 150],
-      [784, 300],
+      [659, 110],
+      [784, 110],
+      [1047, 320],
     ]);
-    vibrate([80, 60, 80, 60, 200]);
+    vibrate([80, 50, 80, 50, 200]);
   },
-  alert: () => {
-    play([
-      [1175, 80],
-      [0, 60],
-      [1175, 80],
-      [0, 60],
-      [1568, 180],
-    ]);
-    vibrate([100, 50, 100]);
-  },
-  tick: () => play([[1400, 25]], { volume: 0.025 }),
-  /** Cada numero de la cuenta regresiva. */
   count: () => {
-    play([[660, 140]], { volume: 0.05 });
-    vibrate(40);
+    play([[700, 120]], 0.045);
+    vibrate(35);
   },
-  /** Fin de la cuenta: arranca el juego. */
   go: () => {
     play([
-      [880, 90],
-      [1175, 90],
-      [1760, 280],
+      [880, 100],
+      [1320, 260],
     ]);
-    vibrate([80, 40, 160]);
+    vibrate([80, 40, 140]);
   },
 };

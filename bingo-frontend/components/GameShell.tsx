@@ -1,0 +1,233 @@
+"use client";
+
+import confetti from "canvas-confetti";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { RealtimeProvider, useRealtime } from "@/lib/realtime";
+import { useSession } from "@/lib/session";
+import { sfx } from "@/lib/sfx";
+import type { Player, PointsEvent, Round, RoundResults } from "@/lib/types";
+import { GdgMark } from "@/components/Brand";
+import { CountdownOverlay } from "@/components/Countdown";
+import { Icon, type IconName } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
+import { ErrorBox, Loading } from "@/components/ui/Blocks";
+import { useToast } from "@/components/ui/Toasts";
+
+const NAV: { href: string; label: string; icon: IconName }[] = [
+  { href: "/cartilla", label: "Cartilla", icon: "grid" },
+  { href: "/ranking", label: "Ranking", icon: "trophy" },
+  { href: "/cuenta", label: "Mi cuenta", icon: "user" },
+];
+
+const PODIUM = ["#fbbc04", "#c9c9c9", "#cd7f32"];
+
+function TopBar() {
+  const { me } = useSession();
+  if (!me) return null;
+  return (
+    <header className="sticky top-0 z-40 border-b-2 border-ink bg-paper/95 backdrop-blur-sm">
+      <div className="mx-auto flex max-w-md items-center gap-2 px-4 py-2.5">
+        <GdgMark size={20} />
+        <span className="min-w-0 flex-1 truncate font-extrabold">{me.player.name}</span>
+        {me.event && (
+          <span className="pill" style={{ background: "#fbbc04" }}>
+            {me.standing?.points ?? 0} pts
+          </span>
+        )}
+      </div>
+    </header>
+  );
+}
+
+function BottomNav() {
+  const pathname = usePathname();
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-ink bg-card pb-[env(safe-area-inset-bottom)]">
+      <ul className="mx-auto grid max-w-md grid-cols-3">
+        {NAV.map((item) => {
+          const active = pathname === item.href;
+          return (
+            <li key={item.href} className="flex justify-center">
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex w-full flex-col items-center gap-1 py-2.5 text-[12px] font-bold ${active ? "text-gblue" : "text-muted"}`}
+              >
+                <Icon name={item.icon} size={22} />
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+function RoundOverModal({ results, onClose }: { results: RoundResults | null; onClose: () => void }) {
+  const { me } = useSession();
+  if (!results || !me) return null;
+  const mine = results.winners.find((w) => w.player.id === me.player.id);
+
+  return (
+    <Modal open onClose={onClose} title="Termino la ronda">
+      {results.winners.length === 0 ? (
+        <p className="text-[17px]">Nadie completo su cartilla esta vez.</p>
+      ) : (
+        <ol className="flex flex-col gap-2">
+          {results.winners.slice(0, 3).map((w) => (
+            <li key={w.player.id} className="card-flat flex items-center gap-3 p-3">
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-ink font-extrabold"
+                style={{ background: PODIUM[w.rank - 1] }}
+              >
+                {w.rank}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-bold">{w.player.name}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <p className="mt-4 text-[15px] text-muted">
+        {mine ? `Quedaste en el puesto #${mine.rank}.` : "Tus firmas ya suman en el ranking."}
+      </p>
+      <button type="button" className="btn btn-blue mt-4 w-full" onClick={onClose}>
+        Entendido
+      </button>
+    </Modal>
+  );
+}
+
+/** Traduce los eventos en vivo del servidor en avisos, sonidos y estado. */
+function LiveBridge() {
+  const { me, clockOffset, refresh, applyPoints, setRound } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const toast = useToast();
+  const [roundOver, setRoundOver] = useState<RoundResults | null>(null);
+  const [countdownDoneId, setCountdownDoneId] = useState<number | null>(null);
+  const [countdownSeenId, setCountdownSeenId] = useState<number | null>(null);
+  const rankTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(rankTimer.current), []);
+
+  const openCard = () => {
+    if (pathname !== "/cartilla") router.push("/cartilla");
+  };
+
+  useRealtime<PointsEvent>("points", (e) => {
+    applyPoints(e);
+    // El puesto depende de todos los demas: se recalcula tras una racha de puntos.
+    window.clearTimeout(rankTimer.current);
+    rankTimer.current = window.setTimeout(() => void refresh(), 4000);
+    toast.points(e.amount, e.label);
+    sfx.ok();
+  });
+  useRealtime<{ for: Player }>("bingo:signed", (e) => {
+    toast.info("Firmaste una cartilla", `Ayudaste a ${e.for.name}`);
+  });
+  useRealtime<{ rank: number; player: Player }>("bingo:completed", (e) => {
+    if (e.player.id === me?.player.id) return; // su propia pantalla ya lo celebra
+    toast.info(`BINGO #${e.rank}`, `${e.player.name} completo su cartilla`);
+  });
+
+  useRealtime<Round>("round:countdown", (r) => {
+    setCountdownSeenId(r.id);
+    setRound(r);
+  });
+  useRealtime<Round>("round:started", (r) => {
+    const sawCountdown = countdownSeenId === r.id || (me?.round?.id === r.id && me.round.status === "COUNTDOWN");
+    if (sawCountdown) setCountdownSeenId(r.id);
+    setRound(r);
+    if (!sawCountdown) {
+      // Se perdio la cuenta (celular bloqueado o reconectando): igual lo llevamos a su cartilla.
+      sfx.go();
+      openCard();
+    }
+  });
+  useRealtime<Round & { results: RoundResults }>("round:ended", (r) => {
+    setRound(null);
+    if (me?.event) {
+      sfx.ok();
+      setRoundOver(r.results);
+    }
+  });
+
+  useRealtime("event:update", () => window.setTimeout(() => void refresh(), Math.random() * 2500));
+  useRealtime("session:update", () => void refresh());
+  useRealtime("resync", () => void refresh());
+
+  const round = me?.round ?? null;
+  const showCountdown =
+    round !== null && round.id !== countdownDoneId && (round.status === "COUNTDOWN" || round.id === countdownSeenId);
+
+  return (
+    <>
+      {showCountdown && round && (
+        <CountdownOverlay
+          key={round.id}
+          startsAt={round.startsAt}
+          offset={clockOffset}
+          onDone={() => {
+            setCountdownDoneId(round.id);
+            openCard();
+          }}
+        />
+      )}
+      <RoundOverModal results={roundOver} onClose={() => setRoundOver(null)} />
+    </>
+  );
+}
+
+export function celebrate() {
+  confetti({
+    particleCount: 140,
+    spread: 100,
+    origin: { y: 0.6 },
+    colors: ["#4285f4", "#ea4335", "#fbbc04", "#34a853"],
+  });
+}
+
+/** Envuelve las pantallas del jugador: exige sesion y conecta el tiempo real. */
+export function GameShell({ children }: { children: ReactNode }) {
+  const { status, me, refresh } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (status === "guest") router.replace(`/entrar?next=${encodeURIComponent(pathname)}`);
+  }, [status, router, pathname]);
+
+  // Desbloquea el audio en iOS con el primer toque.
+  useEffect(() => {
+    const unlock = () => sfx.unlock();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    return () => window.removeEventListener("pointerdown", unlock);
+  }, []);
+
+  if (status === "loading" || status === "guest") {
+    return (
+      <main className="flex min-h-dvh items-center justify-center">
+        <Loading />
+      </main>
+    );
+  }
+  if (status === "offline" || !me) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-md items-center px-4">
+        <ErrorBox message="No pudimos conectar con el servidor." onRetry={() => void refresh()} />
+      </main>
+    );
+  }
+
+  return (
+    <RealtimeProvider enabled>
+      <LiveBridge />
+      <TopBar />
+      <main className="mx-auto w-full max-w-md px-4 pb-24 pt-4">{children}</main>
+      <BottomNav />
+    </RealtimeProvider>
+  );
+}

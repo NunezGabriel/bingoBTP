@@ -2,37 +2,37 @@ const express = require("express");
 const { toInt, conflict } = require("../lib/http");
 const { resolvePlayerCode } = require("../lib/playerCode");
 const { requirePlayer, requireLiveEvent } = require("../middleware/auth");
-const games = require("../services/games");
-const bingo = require("../services/bingo");
+const rounds = require("../services/rounds");
+const cards = require("../services/cards");
 
 const router = express.Router();
 router.use(requirePlayer, requireLiveEvent);
 
-/** El juego en marcha y, si es bingo activo, la cartilla del jugador y el podio. */
+/** La ronda en marcha, la cartilla del jugador y quienes ya completaron. */
 router.get("/current", async (req, res) => {
-  const session = await games.runningSession(req.event.id);
-  if (!session) return res.json({ game: null, board: null, winners: [] });
+  const round = await rounds.currentRound(req.event.id);
+  if (!round) return res.json({ round: null, card: null, winners: [] });
 
-  let board = null;
+  let card = null;
   let winners = [];
-  if (session.type === "BINGO" && session.status === "ACTIVE") {
+  if (round.status === "ACTIVE") {
     const [mine, top] = await Promise.all([
-      bingo.getOrCreateBoard(session, req.player.id),
-      bingo.podium(session.id),
+      cards.getOrCreateCard(round, req.player.id),
+      cards.podium(round.id),
     ]);
-    board = bingo.boardView(mine, session);
+    card = cards.cardView(mine, round);
     winners = top;
   }
-  res.json({ game: games.sessionView(session), board, winners });
+  res.json({ round: rounds.roundView(round), card, winners });
 });
 
-router.post("/bingo/sign", async (req, res) => {
-  const session = await games.runningSession(req.event.id);
-  if (!session || session.type !== "BINGO") throw conflict("No hay un bingo en curso");
+router.post("/sign", async (req, res) => {
+  const round = await rounds.currentRound(req.event.id);
+  if (!round) throw conflict("No hay una ronda en curso");
 
-  const position = toInt(req.body?.position, "position", { min: 0, max: bingo.BOARD_SIZE - 1 });
+  const position = toInt(req.body?.position, "position", { min: 0, max: cards.CARD_SIZE - 1 });
   const signer = await resolvePlayerCode(req, req.body?.code);
-  res.json(await bingo.signCell(req.event, session, req.player, position, signer));
+  res.json(await cards.signCell(req.event, round, req.player, position, signer));
 });
 
 module.exports = router;

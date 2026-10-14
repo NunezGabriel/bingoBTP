@@ -1,4 +1,4 @@
-# Despliegue autocontenido de Misti Quest (GDG Arequipa).
+# Despliegue autocontenido de Bingo GDG (GDG Arequipa).
 # Uso:  cp .env.docker.example .env  &&  docker compose up -d --build
 #
 # Nada de esto afecta a Render ni a Vercel: son plataformas que ignoran
@@ -40,8 +40,7 @@ services:
       PORT: 3001
       # nginx es el unico proxy delante del backend
       TRUST_PROXY: 1
-      ADMIN_NICKNAME: ${ADMIN_NICKNAME}
-      ADMIN_PIN: ${ADMIN_PIN}
+      ADMIN_CODE: ${ADMIN_CODE}
       # En red local por HTTP la cookie NO puede ser secure, o el navegador
       # la descarta y nadie logra iniciar sesion. Cambiar a true con HTTPS.
       COOKIE_SECURE: ${COOKIE_SECURE:-false}

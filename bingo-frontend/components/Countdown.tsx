@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { sfx } from "@/lib/sfx";
 
-/** Cuanto se muestra "A JUGAR" antes de abrir el juego. */
+/** Cuanto se muestra "A JUGAR" antes de abrir la cartilla. */
 const GO_MS = 900;
 
 /**
@@ -11,19 +11,17 @@ const GO_MS = 900;
  * Usa la hora del servidor (offset) para que todos los celulares y el
  * proyector cuenten sincronizados aunque sus relojes esten desfasados.
  *
- * Montalo con key={juego.id}: cada juego nuevo reinicia la cuenta.
+ * Montalo con key={ronda.id}: cada ronda nueva reinicia la cuenta.
  */
 export function CountdownOverlay({
   startsAt,
   offset,
-  title = "BINGO",
   onDone,
   sound = true,
   projector = false,
 }: {
   startsAt: string;
   offset: number;
-  title?: string;
   onDone?: () => void;
   sound?: boolean;
   projector?: boolean;
@@ -59,35 +57,33 @@ export function CountdownOverlay({
 
   const left = target - now;
   const seconds = Math.min(5, Math.ceil(left / 1000));
+  const colors = ["#4285f4", "#ea4335", "#fbbc04", "#34a853", "#ff5fa2"];
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-night/95 px-6 text-center"
+      className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-paper px-6 text-center"
       role="alert"
       aria-live="assertive"
     >
-      <p className={`font-pixel text-gyellow ${projector ? "text-[3vw]" : "text-[16px]"}`}>
-        {seconds > 0 ? `EL ${title} EMPIEZA EN` : `EMPIEZA EL ${title}`}
+      <p className={`font-extrabold uppercase tracking-wide ${projector ? "text-[2.4vw]" : "text-xl"}`}>
+        {seconds > 0 ? "La ronda empieza en" : "Empieza el bingo"}
       </p>
       {seconds > 0 ? (
         <span
           key={seconds}
-          className={`font-pixel px-pop mt-6 block leading-none text-cream ${projector ? "text-[28vw]" : "text-[140px]"}`}
-          style={{ textShadow: "6px 6px 0 #ea4335, 12px 12px 0 #14142b" }}
+          className={`pop mt-4 block font-black leading-none ${projector ? "text-[26vw]" : "text-[9rem]"}`}
+          style={{ color: colors[(seconds - 1) % colors.length] }}
         >
           {seconds}
         </span>
       ) : (
-        <span
-          className={`font-pixel px-pop mt-6 block leading-tight text-ggreen ${projector ? "text-[10vw]" : "text-[44px]"}`}
-          style={{ textShadow: "4px 4px 0 #14142b" }}
-        >
-          A JUGAR!
+        <span className={`pop mt-4 block font-black leading-none text-ggreen ${projector ? "text-[10vw]" : "text-6xl"}`}>
+          A JUGAR
         </span>
       )}
       {!projector && (
-        <p className="mt-8 max-w-xs text-[17px] text-muted">
-          Busca a quien cumpla cada casilla y pidele su codigo para que te firme.
+        <p className="mt-8 max-w-xs text-[16px] text-muted">
+          Busca a quien cumpla cada casilla y pidele su codigo.
         </p>
       )}
     </div>
