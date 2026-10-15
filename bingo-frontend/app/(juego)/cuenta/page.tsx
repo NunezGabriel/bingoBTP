@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { errorMessage, me as meApi } from "@/lib/api";
@@ -129,10 +128,6 @@ export default function AccountPage() {
       >
         Sonido: {muted ? "no" : "si"}
       </button>
-
-      <Link href="/admin" className="btn btn-sm">
-        <Icon name="lock" size={14} /> Panel admin
-      </Link>
 
       <button
         type="button"

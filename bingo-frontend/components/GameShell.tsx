@@ -15,16 +15,19 @@ import { Modal } from "@/components/ui/Modal";
 import { ErrorBox, Loading } from "@/components/ui/Blocks";
 import { useToast } from "@/components/ui/Toasts";
 
+/**
+ * Tres destinos y nada mas. La cartilla no esta aqui a proposito: aparece sola
+ * cuando el admin empieza la ronda y desaparece cuando termina, asi nadie entra
+ * a una cartilla vieja ni se pregunta por que esta vacia.
+ */
 const NAV: { href: string; label: string; icon: IconName }[] = [
-  { href: "/lobby", label: "Lobby", icon: "home" },
-  { href: "/cartilla", label: "Cartilla", icon: "grid" },
+  { href: "/lobby", label: "Plaza", icon: "home" },
   { href: "/misiones", label: "Misiones", icon: "check" },
-  { href: "/ranking", label: "Ranking", icon: "trophy" },
-  { href: "/cuenta", label: "Cuenta", icon: "user" },
+  { href: "/cuenta", label: "Mi cuenta", icon: "user" },
 ];
 
-/** El lobby ocupa toda la pantalla: sin barra de arriba ni margenes. */
-const FULL_BLEED = "/lobby";
+/** El lobby y la cartilla ocupan toda la pantalla: sin barra de arriba. */
+const FULL_BLEED = ["/lobby"];
 
 const PODIUM = ["#fbbc04", "#c9c9c9", "#cd7f32"];
 
@@ -50,7 +53,7 @@ function BottomNav() {
   const pathname = usePathname();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-ink bg-card pb-[env(safe-area-inset-bottom)]">
-      <ul className="mx-auto grid max-w-md grid-cols-5">
+      <ul className="mx-auto grid max-w-md grid-cols-3">
         {NAV.map((item) => {
           const active = pathname === item.href;
           return (
@@ -58,9 +61,9 @@ function BottomNav() {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex w-full flex-col items-center gap-1 py-2.5 text-[12px] font-bold ${active ? "text-gblue" : "text-muted"}`}
+                className={`flex w-full flex-col items-center gap-1 py-3 text-[14px] font-extrabold ${active ? "text-gblue" : "text-muted"}`}
               >
-                <Icon name={item.icon} size={22} />
+                <Icon name={item.icon} size={28} />
                 {item.label}
               </Link>
             </li>
@@ -203,7 +206,7 @@ export function GameShell({ children }: { children: ReactNode }) {
   const { status, me, refresh } = useSession();
   const router = useRouter();
   const pathname = usePathname();
-  const full = pathname === FULL_BLEED;
+  const full = FULL_BLEED.includes(pathname);
 
   useEffect(() => {
     if (status === "guest") {

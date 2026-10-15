@@ -49,13 +49,14 @@ body {
 
 .card {
   background: var(--color-card);
-  border: 2px solid var(--color-ink);
+  border: 3px solid var(--color-ink);
   border-radius: 28px;
+  box-shadow: 0 5px 0 var(--color-ink);
 }
 
 .card-flat {
   background: var(--color-card);
-  border: 2px solid var(--color-ink);
+  border: 3px solid var(--color-ink);
   border-radius: 20px;
 }
 
@@ -70,18 +71,21 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  border: 2px solid var(--color-ink);
+  gap: 0.55rem;
+  border: 3px solid var(--color-ink);
   border-radius: 999px;
-  padding: 0.8rem 1.4rem;
-  font-weight: 700;
-  font-size: 1rem;
+  padding: 1rem 1.6rem;
+  font-weight: 800;
+  font-size: 1.1rem;
   line-height: 1.1;
   background: var(--color-card);
   color: var(--color-ink);
   cursor: pointer;
+  /* Sombra dura: el boton se ve como una ficha, no como un rectangulo plano. */
+  box-shadow: 0 4px 0 var(--color-ink);
   transition:
     transform 0.06s ease,
+    box-shadow 0.06s ease,
     filter 0.12s ease;
 }
 
@@ -90,22 +94,31 @@ body {
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--color-ink);
 }
 
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: 0 4px 0 rgba(25, 25, 25, 0.35);
 }
 
 .btn-lg {
-  padding: 1.05rem 1.6rem;
-  font-size: 1.15rem;
+  padding: 1.25rem 1.8rem;
+  font-size: 1.35rem;
+  border-radius: 999px;
 }
 
 .btn-sm {
-  padding: 0.5rem 0.9rem;
-  font-size: 0.85rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  border-width: 2px;
+  box-shadow: 0 3px 0 var(--color-ink);
+}
+
+.btn-sm:active:not(:disabled) {
+  transform: translateY(3px);
 }
 
 .btn-blue {
@@ -138,12 +151,12 @@ body {
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   border: 2px solid var(--color-ink);
   border-radius: 999px;
-  padding: 0.25rem 0.7rem;
-  font-weight: 700;
-  font-size: 0.78rem;
+  padding: 0.35rem 0.85rem;
+  font-weight: 800;
+  font-size: 0.9rem;
   background: var(--color-card);
   white-space: nowrap;
 }
@@ -151,11 +164,11 @@ body {
 .input {
   width: 100%;
   background: var(--color-card);
-  border: 2px solid var(--color-ink);
-  border-radius: 18px;
-  padding: 0.85rem 1rem;
-  font-size: 1.05rem;
-  font-weight: 600;
+  border: 3px solid var(--color-ink);
+  border-radius: 20px;
+  padding: 1rem 1.1rem;
+  font-size: 1.2rem;
+  font-weight: 700;
   color: var(--color-ink);
   outline: none;
 }
@@ -228,11 +241,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 46px;
-  border: 2px solid var(--color-ink);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.86);
+  width: 58px;
+  height: 58px;
+  border: 3px solid var(--color-ink);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 3px 0 var(--color-ink);
   color: var(--color-ink);
   cursor: pointer;
   touch-action: none;

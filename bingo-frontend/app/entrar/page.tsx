@@ -1,22 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { auth, errorMessage } from "@/lib/api";
+import { auth, errorMessage, publicApi } from "@/lib/api";
 import { safeNext, useSession } from "@/lib/session";
 import { sfx } from "@/lib/sfx";
+import type { EventView } from "@/lib/types";
 import { BingoWordmark } from "@/components/Brand";
-import { Icon } from "@/components/ui/Icon";
 import { Loading } from "@/components/ui/Blocks";
 
 /**
- * Una sola puerta para todos.
+ * La primera pantalla de la app, y la unica puerta.
  *
  * Si el usuario no existe, la cuenta se crea con esa clave; si existe, se
  * valida. Sin correo, sin pantalla de registro aparte y sin elegir entre
  * "entrar" o "crear cuenta": en la puerta de un evento cada toque de mas es
- * una persona menos que llega a jugar.
+ * una persona menos que llega a jugar. El rol de la cuenta decide a donde va:
+ * un admin cae en su panel, un jugador en la plaza.
  */
 function Entrar() {
   const router = useRouter();
@@ -27,6 +27,14 @@ function Entrar() {
   const [clave, setClave] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [live, setLive] = useState<{ event: EventView | null; players: number } | null>(null);
+
+  useEffect(() => {
+    publicApi
+      .event()
+      .then(setLive)
+      .catch(() => setLive(null));
+  }, []);
 
   useEffect(() => {
     if (status !== "ready" || !me) return;
@@ -54,27 +62,33 @@ function Entrar() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pb-8 pt-5">
-      <Link href="/" className="self-start p-2 text-muted" aria-label="Volver">
-        <Icon name="back" size={20} />
-      </Link>
-
-      <div className="mt-2">
-        <BingoWordmark size={38} />
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-5 px-5 py-8">
+      <div className="self-center">
+        <BingoWordmark size={52} />
       </div>
 
-      <form onSubmit={submit} className="card mt-7 p-5">
-        <h1 className="text-2xl font-extrabold">Entrar</h1>
-        <p className="mt-1 text-[15px] text-muted">
-          Elige un usuario y una clave de 4 numeros. Si es tu primera vez, tu cuenta se crea sola.
-        </p>
+      {live?.event ? (
+        <div
+          className="card flex flex-col items-center px-5 py-3 text-center"
+          style={{ background: "#34a853", color: "#fff" }}
+        >
+          <span className="flex items-center gap-2 text-[13px] font-black uppercase tracking-wider">
+            <span className="blink block h-2.5 w-2.5 rounded-full bg-white" aria-hidden /> En vivo
+          </span>
+          <span className="mt-1 text-xl font-black leading-tight">{live.event.name}</span>
+          <span className="text-[15px] font-bold opacity-90">{live.players} jugando ahora</span>
+        </div>
+      ) : (
+        <p className="pill self-center">Proximo evento muy pronto</p>
+      )}
 
-        <label htmlFor="usuario" className="mt-5 block text-[13px] font-extrabold uppercase text-muted">
-          Usuario
+      <form onSubmit={submit} className="card p-6">
+        <label htmlFor="usuario" className="block text-[15px] font-black uppercase tracking-wide text-muted">
+          Tu usuario
         </label>
         <input
           id="usuario"
-          className="input mt-1"
+          className="input mt-2"
           value={usuario}
           onChange={(e) => setUsuario(e.target.value)}
           maxLength={20}
@@ -85,12 +99,12 @@ function Entrar() {
           autoFocus
         />
 
-        <label htmlFor="clave" className="mt-4 block text-[13px] font-extrabold uppercase text-muted">
-          Clave
+        <label htmlFor="clave" className="mt-5 block text-[15px] font-black uppercase tracking-wide text-muted">
+          Tu clave de 4 numeros
         </label>
         <input
           id="clave"
-          className="input input-code mt-1"
+          className="input input-code mt-2"
           type="password"
           inputMode="numeric"
           autoComplete="current-password"
@@ -101,22 +115,26 @@ function Entrar() {
         />
 
         {error && (
-          <p className="mt-3 font-semibold text-gred" role="alert">
+          <p className="mt-4 text-center text-[16px] font-bold text-gred" role="alert">
             {error}
           </p>
         )}
 
         <button
           type="submit"
-          className="btn btn-blue btn-lg mt-5 w-full"
+          className="btn btn-blue btn-lg mt-6 w-full"
           disabled={busy || usuario.trim().length < 2 || clave.length < 4}
         >
           {busy ? "Entrando..." : "Entrar"}
         </button>
+
+        <p className="mt-4 text-center text-[15px] font-semibold text-muted">
+          Si es tu primera vez, tu cuenta se crea sola.
+        </p>
       </form>
 
-      <p className="mt-5 text-center text-[15px] text-muted">
-        Olvidaste tu clave? Pidele al staff que te la reinicie: no pierdes tus puntos ni tus misiones.
+      <p className="text-center text-[15px] text-muted">
+        Olvidaste tu clave? Pidesela al staff: no pierdes tus puntos ni tus misiones.
       </p>
     </main>
   );

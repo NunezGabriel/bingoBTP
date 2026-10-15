@@ -61,28 +61,37 @@ export function CountdownOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-paper px-6 text-center"
+      className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-ink px-6 text-center text-white"
       role="alert"
       aria-live="assertive"
     >
-      <p className={`font-extrabold uppercase tracking-wide ${projector ? "text-[2.4vw]" : "text-xl"}`}>
-        {seconds > 0 ? "La ronda empieza en" : "Empieza el bingo"}
+      <p className={`font-black uppercase tracking-[0.2em] ${projector ? "text-[2.4vw]" : "text-2xl"}`}>
+        Bingo
       </p>
-      {seconds > 0 ? (
+      <p className={`mt-1 font-extrabold uppercase tracking-wide opacity-80 ${projector ? "text-[1.6vw]" : "text-[17px]"}`}>
+        {seconds > 3 ? "repartiendo cartillas" : seconds > 0 ? "empieza en" : "ya"}
+      </p>
+      {seconds > 3 ? (
+        <span className={`blink mt-3 block font-black leading-none ${projector ? "text-[20vw]" : "text-[8rem]"}`}>
+          ...
+        </span>
+      ) : seconds > 0 ? (
         <span
           key={seconds}
-          className={`pop mt-4 block font-black leading-none ${projector ? "text-[26vw]" : "text-[9rem]"}`}
+          className={`pop mt-3 block font-black leading-none ${projector ? "text-[26vw]" : "text-[11rem]"}`}
           style={{ color: colors[(seconds - 1) % colors.length] }}
         >
           {seconds}
         </span>
       ) : (
-        <span className={`pop mt-4 block font-black leading-none text-ggreen ${projector ? "text-[10vw]" : "text-6xl"}`}>
+        <span
+          className={`pop mt-3 block font-black leading-none text-ggreen ${projector ? "text-[10vw]" : "text-7xl"}`}
+        >
           A JUGAR
         </span>
       )}
       {!projector && (
-        <p className="mt-8 max-w-xs text-[16px] text-muted">
+        <p className="mt-10 max-w-xs text-[17px] font-semibold opacity-80">
           Busca a quien cumpla cada casilla y pidele su codigo.
         </p>
       )}

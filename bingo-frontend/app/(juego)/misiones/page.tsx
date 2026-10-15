@@ -6,7 +6,8 @@ import { useRealtime } from "@/lib/realtime";
 import type { MissionCard } from "@/lib/types";
 import { QrCode } from "@/components/QrCode";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { ErrorBox, Loading, PageTitle, ProgressBar } from "@/components/ui/Blocks";
+import { ErrorBox, Loading } from "@/components/ui/Blocks";
+import { Modal } from "@/components/ui/Modal";
 
 const ICONS: Record<string, IconName> = {
   heart: "heart",
@@ -15,16 +16,20 @@ const ICONS: Record<string, IconName> = {
   camera: "camera",
 };
 
+/** Un color por mision, en el orden del logo de Google. */
+const COLORS = ["#4285f4", "#ea4335", "#fbbc04", "#34a853"];
+
 /**
- * La tarjeta del participante.
+ * La tarjeta del participante, como una tarjeta de verdad: cuatro casillas
+ * numeradas que se van marcando, y el QR grande en el centro.
  *
- * Nadie marca sus propias misiones: cumple la mision, se acerca a un
- * organizador y le muestra este QR. El QR lleva su codigo de 6 letras, que es
- * el mismo que se dicta para firmar casillas.
+ * Nadie marca sus propias misiones: cumples la mision, te acercas a un
+ * organizador y le muestras el QR.
  */
 export default function MisionesPage() {
   const [card, setCard] = useState<MissionCard | null>(null);
   const [error, setError] = useState("");
+  const [abierta, setAbierta] = useState<number | null>(null);
 
   const load = useCallback(() => {
     meApi
@@ -43,75 +48,101 @@ export default function MisionesPage() {
   if (error) return <ErrorBox message={error} onRetry={load} />;
   if (!card) return <Loading label="Buscando tu tarjeta" />;
 
+  const mision = abierta === null ? null : card.missions[abierta];
+
   return (
-    <div className="flex flex-col gap-3">
-      <PageTitle
-        title="Tu tarjeta"
-        subtitle={`${card.done} de ${card.total} completadas`}
-        right={
-          <span
-            className="pill"
-            style={{ background: card.completa ? "#34a853" : "#fbbc04", color: card.completa ? "#fff" : undefined }}
-          >
+    <div className="flex flex-col gap-4">
+      {/* La tarjeta */}
+      <section
+        className="card overflow-hidden p-0"
+        style={{ background: card.completa ? "#34a853" : "#191919", color: "#fff" }}
+      >
+        <div className="flex items-center justify-between gap-2 px-5 pt-4">
+          <span className="text-[13px] font-black uppercase tracking-[0.18em] opacity-80">
+            Tarjeta de retos
+          </span>
+          <span className="pill bg-white text-ink">
             {card.done}/{card.total}
           </span>
-        }
-      />
+        </div>
 
-      <ProgressBar value={card.done} max={card.total} />
-
-      {/* El QR primero: es lo que el participante tiene que mostrar. */}
-      <div className="card flex flex-col items-center gap-2 p-4">
-        <p className="text-center text-[15px] font-semibold">
-          Cumpliste una mision? Muestrale esto a un organizador.
+        <h1 className="px-5 pb-1 pt-2 text-[30px] font-black leading-none">
+          {card.completa ? "Tarjeta completa" : "Completa los 4"}
+        </h1>
+        <p className="px-5 pb-4 text-[15px] font-semibold opacity-85">
+          {card.completa
+            ? `Ganaste +${card.bonus} puntos. Reclama tu premio al final del evento.`
+            : `Al completarlos ganas +${card.bonus} puntos y tu premio del final.`}
         </p>
-        <QrCode value={card.code} size={176} />
-        <p className="text-[26px] font-black tracking-[0.25em]">{card.code}</p>
-        <p className="text-center text-[13px] text-muted">
+
+        {/* Los cuatro retos, en cuadricula */}
+        <ul className="grid grid-cols-2 gap-3 px-4 pb-5">
+          {card.missions.map((m, i) => (
+            <li key={m.id}>
+              <button
+                type="button"
+                onClick={() => setAbierta(i)}
+                className="flex h-full w-full flex-col items-center gap-2 rounded-[20px] border-[3px] border-white/25 px-2 py-4 text-center"
+                style={{ background: m.done ? "#ffffff" : "rgba(255,255,255,0.08)" }}
+              >
+                <span
+                  className="flex h-14 w-14 items-center justify-center rounded-full border-[3px]"
+                  style={{
+                    background: m.done ? "#34a853" : COLORS[i % COLORS.length],
+                    borderColor: m.done ? "#191919" : "rgba(255,255,255,0.5)",
+                    color: "#fff",
+                  }}
+                >
+                  <Icon name={m.done ? "check" : (ICONS[m.icon] ?? "star")} size={26} />
+                </span>
+                <span
+                  className="text-[11px] font-black uppercase tracking-widest"
+                  style={{ color: m.done ? "#6b6b6b" : "rgba(255,255,255,0.65)" }}
+                >
+                  0{i + 1}
+                </span>
+                <span
+                  className="text-[14px] font-extrabold leading-tight"
+                  style={{ color: m.done ? "#191919" : "#fff" }}
+                >
+                  {m.title}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* El QR: lo que hay que mostrarle al organizador */}
+      <section className="card flex flex-col items-center gap-2 p-5">
+        <p className="text-center text-[17px] font-extrabold leading-tight">
+          Cumpliste un reto? Muestra esto a un organizador
+        </p>
+        <QrCode value={card.code} size={200} />
+        <p className="text-[32px] font-black leading-none tracking-[0.25em]">{card.code}</p>
+        <p className="text-center text-[15px] text-muted">
           Si no les abre la camara, dictales estas 6 letras.
         </p>
-      </div>
+      </section>
 
-      <ul className="flex flex-col gap-2">
-        {card.missions.map((m) => (
-          <li
-            key={m.id}
-            className="card-flat flex items-start gap-3 p-3"
-            style={m.done ? { background: "#eaf7ec", borderColor: "#34a853" } : undefined}
-          >
-            <span
-              className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-ink"
-              style={{ background: m.done ? "#34a853" : "#fff", color: m.done ? "#fff" : undefined }}
-            >
-              <Icon name={m.done ? "check" : (ICONS[m.icon] ?? "star")} size={18} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[16px] font-extrabold leading-tight">{m.title}</p>
-              <p className="text-[14px] leading-tight text-muted">{m.detail}</p>
-              {!m.done && <p className="mt-1 text-[13px] leading-tight text-gblue">{m.hint}</p>}
-            </div>
-            <span className="pill shrink-0 text-[11px]">+{m.points}</span>
-          </li>
-        ))}
-      </ul>
-
-      <div
-        className="card p-4 text-center"
-        style={card.completa ? { background: "#34a853", color: "#fff" } : undefined}
-      >
-        {card.completa ? (
+      <Modal open={mision !== null} onClose={() => setAbierta(null)} title={`Reto 0${(abierta ?? 0) + 1}`}>
+        {mision && (
           <>
-            <p className="text-xl font-black">Tarjeta completa</p>
-            <p className="mt-1 text-[15px]">
-              Ganaste +{card.bonus} puntos extra. Reclama tu premio al final del evento.
-            </p>
+            <p className="text-[22px] font-black leading-tight">{mision.title}</p>
+            <p className="mt-2 text-[17px] text-muted">{mision.detail}</p>
+            {mision.done ? (
+              <p className="mt-4 flex items-center gap-2 text-[18px] font-extrabold text-ggreen">
+                <Icon name="check" size={22} /> Ya te lo validaron
+              </p>
+            ) : (
+              <p className="mt-4 text-[17px] font-semibold text-gblue">{mision.hint}</p>
+            )}
+            <button type="button" className="btn btn-lg mt-5 w-full" onClick={() => setAbierta(null)}>
+              Cerrar
+            </button>
           </>
-        ) : (
-          <p className="text-[15px]">
-            Completa las {card.total} y ganas <b>+{card.bonus} puntos</b> y entras al premio del final.
-          </p>
         )}
-      </div>
+      </Modal>
     </div>
   );
 }
