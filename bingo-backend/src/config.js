@@ -62,7 +62,7 @@ module.exports = {
      * entren cientos de personas es el ancho, no el alto.
      */
     width: 1800,
-    height: 620,
+    height: 840,
   },
 
   frontendOrigins: [

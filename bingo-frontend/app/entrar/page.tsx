@@ -6,7 +6,7 @@ import { auth, errorMessage, publicApi } from "@/lib/api";
 import { safeNext, useSession } from "@/lib/session";
 import { sfx } from "@/lib/sfx";
 import type { EventView } from "@/lib/types";
-import { BingoWordmark } from "@/components/Brand";
+import { BingoWordmark, GdgLogo } from "@/components/Brand";
 import { Loading } from "@/components/ui/Blocks";
 
 /**
@@ -63,7 +63,8 @@ function Entrar() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-5 px-5 py-8">
-      <div className="self-center">
+      <div className="flex flex-col items-center gap-3">
+        <GdgLogo size={24} />
         <BingoWordmark size={52} />
       </div>
 

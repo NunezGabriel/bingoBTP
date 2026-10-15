@@ -125,6 +125,18 @@ function LiveBridge() {
     if (pathname !== "/cartilla") router.push("/cartilla");
   };
 
+  /**
+   * Si la ronda ya estaba corriendo cuando esta persona entro, nadie le aviso:
+   * el evento de "empezo la ronda" salio antes de que abriera la app. Como la
+   * cartilla no esta en el menu, se quedaria mirando la plaza sin saber que
+   * esta jugando. El servidor le reparte cartilla al vuelo, asi que basta con
+   * llevarla ahi.
+   */
+  const round = me?.round ?? null;
+  useEffect(() => {
+    if (round?.status === "ACTIVE" && pathname !== "/cartilla") router.push("/cartilla");
+  }, [round?.status, pathname, router]);
+
   useRealtime<PointsEvent>("points", (e) => {
     applyPoints(e);
     // El puesto depende de todos los demas: se recalcula tras una racha de puntos.
@@ -170,7 +182,6 @@ function LiveBridge() {
   useRealtime("session:update", () => void refresh());
   useRealtime("resync", () => void refresh());
 
-  const round = me?.round ?? null;
   const showCountdown =
     round !== null && round.id !== countdownDoneId && (round.status === "COUNTDOWN" || round.id === countdownSeenId);
 

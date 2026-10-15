@@ -1,13 +1,24 @@
-/** Marca de colores de GDG (aproximacion simple, dibujada en SVG). */
+/**
+ * El logo de GDG: los signos < > hechos con cuatro barras redondeadas en los
+ * colores de Google. El orden de dibujo importa: en cada vertice la barra de
+ * abajo tapa a la de arriba, como en el logo original.
+ */
 export function GdgMark({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size * 1.6} height={size} viewBox="0 0 48 30" aria-hidden className="shrink-0">
-      <rect x="1" y="7" width="16" height="16" rx="8" fill="#4285f4" />
-      <rect x="10" y="7" width="16" height="16" rx="8" fill="#ea4335" />
-      <rect x="22" y="7" width="16" height="16" rx="8" fill="#fbbc04" />
-      <rect x="31" y="7" width="16" height="16" rx="8" fill="#34a853" />
-      <rect x="10" y="7" width="8" height="16" fill="#ea4335" opacity="0.85" />
-      <rect x="31" y="7" width="7" height="16" fill="#34a853" opacity="0.85" />
+    <svg
+      width={size * 1.6}
+      height={size}
+      viewBox="0 0 800 500"
+      aria-hidden
+      className="shrink-0"
+      fill="none"
+      strokeWidth="118"
+      strokeLinecap="round"
+    >
+      <path d="M306 108 86 236" stroke="#ea4335" />
+      <path d="M86 264 306 392" stroke="#4285f4" />
+      <path d="M714 264 494 392" stroke="#fbbc04" />
+      <path d="M494 108 714 236" stroke="#1e8e3e" />
     </svg>
   );
 }

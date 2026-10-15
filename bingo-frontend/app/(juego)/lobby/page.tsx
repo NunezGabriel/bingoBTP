@@ -164,10 +164,31 @@ export default function LobbyPage() {
     let raf = 0;
     let last = performance.now();
     const t0 = performance.now();
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
 
+    // Sombra de los personajes, pintada una vez: con decenas en pantalla, un
+    // arco por persona y por cuadro se nota en un celular viejo.
+    const sombra = document.createElement("canvas");
+    sombra.width = 24;
+    sombra.height = 10;
+    const sctx2 = sombra.getContext("2d");
+    if (sctx2) {
+      sctx2.fillStyle = "rgba(0,0,0,0.3)";
+      sctx2.beginPath();
+      sctx2.ellipse(12, 5, 11, 4, 0, 0, Math.PI * 2);
+      sctx2.fill();
+    }
+    /** Ancho del nombre de cada quien: medir texto en cada cuadro es caro. */
+    const anchos = new Map<string, number>();
+
+    let dpr = 1;
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
+      // Techo de pixeles reales: en un celular gama baja, un canvas de 3
+      // millones de pixeles arrastra el cuadro aunque el dibujo sea simple.
+      const ideal = Math.min(2, window.devicePixelRatio || 1);
+      const maxPx = 1_400_000;
+      const sobra = (rect.width * rect.height * ideal * ideal) / maxPx;
+      dpr = sobra > 1 ? Math.max(1, ideal / Math.sqrt(sobra)) : ideal;
       canvas.width = Math.round(rect.width * dpr);
       canvas.height = Math.round(rect.height * dpr);
     };
@@ -231,10 +252,13 @@ export default function LobbyPage() {
         const ciclo = (now - t0) % AVION_CADA_MS;
         if (ciclo < AVION_DURA_MS) {
           const t = ciclo / AVION_DURA_MS;
+          const ancho = SKY.w / P;
           ctx.save();
           ctx.translate(offset, 0);
           ctx.scale(skyW / SKY.w, skyH / SKY.h);
-          drawPlane(ctx, Math.round(-70 + t * (SKY.w / P + 90)), 14);
+          // Entra por la izquierda con el cartel detras, asi que arranca bien
+          // afuera para que el cartel no aparezca de la nada.
+          drawPlane(ctx, Math.round(-40 + t * (ancho + 200)), 30, now / 220);
           ctx.restore();
         }
       }
@@ -243,7 +267,27 @@ export default function LobbyPage() {
       ctx.translate(viewW / 2 - camX * scale, skyH - groundTopW * scale);
       ctx.scale(scale, scale);
 
-      if (groundRef.current) ctx.drawImage(groundRef.current, 0, 0);
+      // Solo el pedazo de plaza que se ve: copiar los 1800 px de ancho en cada
+      // cuadro es justo lo que hace sufrir a un celular gama baja.
+      const ground = groundRef.current;
+      const desde = Math.max(0, Math.floor(camX - visibleW / 2) - 8);
+      const hasta = Math.min(WORLD.w, Math.ceil(camX + visibleW / 2) + 8);
+      // Arranca un poco mas arriba del borde del suelo: las palmeras de la
+      // primera fila asoman sobre la vereda y si no, se ven decapitadas.
+      const alto = Math.max(0, groundTopW - 90);
+      if (ground) {
+        ctx.drawImage(
+          ground,
+          desde,
+          alto,
+          hasta - desde,
+          WORLD.h - alto,
+          desde,
+          alto,
+          hasta - desde,
+          WORLD.h - alto,
+        );
+      }
 
       // 3. Gente, de atras hacia adelante para que se tapen bien
       const client = clientRef.current;
@@ -263,19 +307,23 @@ export default function LobbyPage() {
       todos.sort((a, b) => a.y - b.y);
 
       const nowMs = Date.now();
+      ctx.font = "bold 10px system-ui, sans-serif";
+      ctx.textAlign = "center";
       for (const p of todos) {
+        // Quien quedo fuera de pantalla no se dibuja.
+        if (p.x < desde - 40 || p.x > hasta + 40) continue;
+
         const frameIndex = p.w ? Math.floor((p.mine ? mine.step : nowMs / 160) % 2) : 0;
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
-        ctx.beginPath();
-        ctx.ellipse(p.x, p.y, 10, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.drawImage(sombra, Math.round(p.x) - 12, Math.round(p.y) - 5);
 
         drawSkin(ctx, skinOf(p.skin), p.x, p.y, p.d, frameIndex);
 
         if (p.name) {
-          ctx.font = "bold 10px system-ui, sans-serif";
-          ctx.textAlign = "center";
-          const w = ctx.measureText(p.name).width;
+          let w = anchos.get(p.name);
+          if (w === undefined) {
+            w = ctx.measureText(p.name).width;
+            anchos.set(p.name, w);
+          }
           ctx.fillStyle = p.mine ? "#4285f4" : "rgba(10,10,20,0.75)";
           ctx.fillRect(p.x - w / 2 - 3, p.y - 54, w + 6, 13);
           ctx.fillStyle = "#ffffff";
@@ -283,8 +331,6 @@ export default function LobbyPage() {
         }
 
         if (nowMs - p.emoteAt < 2000) {
-          ctx.font = "bold 11px system-ui, sans-serif";
-          ctx.textAlign = "center";
           ctx.fillStyle = "#fbbc04";
           ctx.strokeStyle = "#191919";
           ctx.lineWidth = 2;

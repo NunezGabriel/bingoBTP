@@ -1,7 +1,7 @@
 /**
  * El escenario del lobby: la Plaza de Armas de noche, con el Misti al fondo.
  *
- * Todo se dibuja en una rejilla de pixeles (cada "pixel" son 4 unidades del
+ * Todo se dibuja en una rejilla de pixeles (cada "pixel" son 2 unidades del
  * mundo) con rectangulos alineados a esa rejilla. Nada de curvas suaves ni
  * degradados continuos: los triangulos van escalonados y los ovalos por filas,
  * que es lo que hace que se vea pixel art y no una ilustracion plana.
@@ -11,58 +11,82 @@
  * fuera de pantalla casi siempre. El cielo va pegado arriba y se desplaza
  * despacio; el suelo va en coordenadas del mundo, debajo.
  *
+ * Sobre el rendimiento: las dos capas se pintan UNA vez en canvas aparte, por
+ * grande que sea el dibujo, y en cada cuadro solo se copia el pedazo visible.
+ * Que la plaza tenga mas detalle no cuesta un solo milisegundo mas por cuadro.
+ *
  * Para volver al dia basta cambiar HORA: los colores salen todos de PALETA.
  */
 
-/** Tamano del mundo. Ancho a proposito: la camara solo se mueve en horizontal. */
-export const WORLD = { w: 1800, h: 620 };
+/**
+ * Tamano del mundo. Ancho a proposito, porque la camara solo se mueve en
+ * horizontal; y profundo, porque cuanto mas alta es la plaza menos hay que
+ * acercar la camara para que entre, y mas gente se ve de una sola vez.
+ */
+export const WORLD = { w: 1800, h: 840 };
 /** Suelo de la plaza: por donde se puede caminar. */
-export const FLOOR = { top: 350, bottom: 596, left: 60, right: 1740 };
+export const FLOOR = { top: 360, bottom: 816, left: 60, right: 1740 };
 export const SKY = { w: 1600, h: 320 };
 /** Unidades del mundo que mide cada pixel del dibujo. */
-export const P = 4;
+export const P = 2;
 /** Donde empieza el suelo, en pixeles del dibujo. */
-export const GROUND_TOP = 76;
+export const GROUND_TOP = 152;
 
 type Ctx = CanvasRenderingContext2D;
 
 const PALETA = {
   noche: {
-    cielo: ["#0a1030", "#121a44", "#1b2a5c", "#27406f", "#365880", "#4b7190", "#6b8a9c"],
+    cielo: ["#080c28", "#0d1336", "#141d47", "#1c2a5a", "#26396d", "#32507e", "#43688c", "#5c7f98"],
     estrella: "#ffffff",
-    luna: "#f6f2d8",
-    lunaSombra: "#ddd8bb",
-    nube: "#2a3a6a",
-    cerro: "#2e3246",
-    cerroSombra: "#232636",
-    volcan: "#3a3344",
-    volcanSombra: "#2a2533",
-    nieve: "#dfe8f5",
-    nieveSombra: "#b9c6dc",
-    sillar: "#6f6a5a",
-    sillarSombra: "#5a5649",
-    sillarClaro: "#837c69",
-    vano: "#2a2722",
-    vanoLuz: "#f0b347",
-    piso: ["#4a4a52", "#44444c"],
-    junta: "#3b3b43",
-    vereda: "#55555e",
-    camino: "#585863",
-    jardin: "#2f5a33",
-    jardinSombra: "#25472a",
-    flor: "#d8b24a",
-    tronco: "#3a2a24",
+    estrellaTenue: "#b9c6e8",
+    luna: "#f8f4de",
+    lunaSombra: "#dcd6b8",
+    nube: "#232f5e",
+    cerro: "#2b2f44",
+    cerroLuz: "#363c52",
+    cerroSombra: "#1f2231",
+    volcan: "#372f42",
+    volcanLuz: "#453b52",
+    volcanSombra: "#241f2c",
+    nieve: "#e6edf8",
+    nieveSombra: "#b4c2da",
+    sillar: "#6d6858",
+    sillarLuz: "#878069",
+    sillarSombra: "#514d41",
+    vano: "#231f1a",
+    vanoLuz: "#f2b84a",
+    vanoLuzSuave: "#8a6b33",
+    piso: ["#464651", "#41414b", "#4b4b57"],
+    pisoLuz: "#54545f",
+    junta: "#36363f",
+    vereda: "#53535f",
+    veredaLuz: "#616170",
+    camino: "#5a5a66",
+    caminoLuz: "#67677a",
+    jardin: "#2d5733",
+    jardinLuz: "#386b3e",
+    jardinSombra: "#22442a",
+    flor: "#d9b44c",
+    florRosa: "#c96a9a",
+    tronco: "#3a2b24",
+    troncoLuz: "#4a382e",
     hoja: "#2a5e2f",
-    banca: "#4a3a30",
-    bancaSombra: "#36291f",
-    farol: "#2b2b31",
-    luz: "#f3c061",
-    luzSuelo: "#5d5648",
-    agua: "#2f6f96",
-    aguaClara: "#4a93b8",
+    hojaLuz: "#36763b",
+    banca: "#4b3a2f",
+    bancaLuz: "#5e4a3b",
+    sombra: "rgba(0,0,0,0.28)",
+    farol: "#2a2a30",
+    farolLuz: "#3b3b45",
+    luz: "#f5c463",
+    luzFuerte: "#fff3cd",
+    luzSuelo: ["#5a5347", "#514b42", "#49453d"],
+    agua: "#2c6a92",
+    aguaClara: "#3f87af",
     aguaBrillo: "#8fd0e8",
-    piedra: "#5f5a4e",
-    piedraClara: "#746e5e",
+    aguaEspuma: "#d6f1fb",
+    piedra: "#5c5749",
+    piedraLuz: "#726c5b",
+    piedraSombra: "#45413a",
   },
 };
 
@@ -80,13 +104,21 @@ function px(ctx: Ctx, x: number, y: number, w: number, h: number, color: string)
   );
 }
 
+/** Fila de un ovalo, escalonada. */
+function ovalo(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, color: string) {
+  for (let dy = -ry; dy <= ry; dy += 1) {
+    const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
+    if (w <= 0) continue;
+    px(ctx, cx - w, cy + dy, w * 2, 1, color);
+  }
+}
+
 /* ------------------------------------------------------- letras de 3x5 ---- */
 
 const FONT: Record<string, string[]> = {
   A: [".#.", "#.#", "###", "#.#", "#.#"],
   D: ["##.", "#.#", "#.#", "#.#", "##."],
   E: ["###", "#..", "##.", "#..", "###"],
-  F: ["###", "#..", "##.", "#..", "#.."],
   G: ["###", "#..", "#.#", "#.#", "###"],
   I: ["###", ".#.", ".#.", ".#.", "###"],
   P: ["###", "#.#", "###", "#..", "#.."],
@@ -96,20 +128,14 @@ const FONT: Record<string, string[]> = {
   " ": ["...", "...", "...", "...", "..."],
 };
 
-/** Texto en pixeles, para los carteles. Lo que no este en la fuente se salta. */
-function texto(ctx: Ctx, str: string, x: number, y: number, color: string) {
-  let cx = x;
-  for (const ch of str.toUpperCase()) {
-    const glyph = FONT[ch];
-    if (glyph) {
-      glyph.forEach((row, ry) => {
-        [...row].forEach((c, rx) => {
-          if (c === "#") px(ctx, cx + rx, y + ry, 1, 1, color);
-        });
-      });
-    }
-    cx += 4;
-  }
+function letra(ctx: Ctx, ch: string, x: number, y: number, color: string) {
+  const glyph = FONT[ch.toUpperCase()];
+  if (!glyph) return;
+  glyph.forEach((row, ry) => {
+    [...row].forEach((c, rx) => {
+      if (c === "#") px(ctx, x + rx, y + ry, 1, 1, color);
+    });
+  });
 }
 
 /* ----------------------------------------------------------- montanas ---- */
@@ -121,24 +147,29 @@ function mountain(
   halfW: number,
   height: number,
   color: string,
-  shade: string,
+  luz: string,
+  sombra: string,
 ) {
   for (let i = 0; i < height; i += 1) {
     const y = base - height + i;
     const w = Math.round(((i + 1) / height) * halfW * 2);
-    px(ctx, cx - Math.round(w / 2), y, w, 1, color);
-    px(ctx, cx, y, Math.round(w / 2), 1, shade);
+    const x = cx - Math.round(w / 2);
+    px(ctx, x, y, w, 1, color);
+    // Ladera izquierda con un toque de luna, derecha en sombra.
+    px(ctx, x, y, Math.max(1, Math.round(w * 0.22)), 1, luz);
+    px(ctx, cx, y, Math.round(w / 2), 1, sombra);
   }
 }
 
 function snowCap(ctx: Ctx, cx: number, top: number, rows: number) {
   for (let i = 0; i < rows; i += 1) {
-    const w = 3 + i * 2;
-    px(ctx, cx - Math.floor(w / 2), top + i, w, 1, i > rows - 3 ? C.nieveSombra : C.nieve);
+    const w = 5 + i * 3;
+    px(ctx, cx - Math.floor(w / 2), top + i, w, 1, i > rows - 4 ? C.nieveSombra : C.nieve);
   }
-  px(ctx, cx - Math.floor(rows / 2) - 1, top + rows, 2, 3, C.nieve);
-  px(ctx, cx + Math.floor(rows / 2) - 1, top + rows, 2, 4, C.nieve);
-  px(ctx, cx - 1, top + rows, 2, 2, C.nieveSombra);
+  // Lenguas de nieve bajando por las quebradas
+  for (const [dx, len] of [[-9, 7], [-3, 4], [4, 8], [10, 5]] as [number, number][]) {
+    px(ctx, cx + dx, top + rows, 2, len, dx > 0 ? C.nieveSombra : C.nieve);
+  }
 }
 
 function arch(ctx: Ctx, x: number, y: number, w: number, h: number, hueco: string, piedra: string) {
@@ -154,232 +185,327 @@ function arch(ctx: Ctx, x: number, y: number, w: number, h: number, hueco: strin
 /* --------------------------------------------------------------- cielo ---- */
 
 export function drawSky(ctx: Ctx) {
-  const W = SKY.w / P; // 400
-  const H = SKY.h / P; // 80
+  const W = SKY.w / P; // 800
+  const H = SKY.h / P; // 160
 
   const alto = Math.ceil(H / C.cielo.length);
   C.cielo.forEach((c, i) => px(ctx, 0, i * alto, W, alto, c));
 
-  // Estrellas: posiciones fijas, no aleatorias, para que no parpadeen al
-  // repintar y para que la escena sea siempre la misma.
-  const estrellas = [
-    [14, 6], [31, 12], [48, 4], [63, 16], [79, 9], [95, 3], [112, 14], [129, 7],
-    [146, 18], [162, 5], [178, 13], [196, 8], [213, 2], [229, 15], [246, 6],
-    [262, 11], [279, 4], [295, 17], [311, 9], [328, 3], [344, 13], [361, 7],
-    [377, 15], [392, 5], [22, 22], [57, 26], [104, 24], [188, 28], [272, 23], [356, 27],
-  ];
-  for (const [x, y] of estrellas) px(ctx, x, y, 1, 1, C.estrella);
-  for (const [x, y] of [[48, 4], [196, 8], [311, 9]]) {
-    px(ctx, x - 1, y, 3, 1, C.estrella);
-    px(ctx, x, y - 1, 1, 3, C.estrella);
+  // Estrellas fijas: si fueran aleatorias cambiarian cada vez que se repinta.
+  for (let i = 0; i < 150; i += 1) {
+    const x = (i * 97 + 13) % W;
+    const y = (i * 53 + 7) % 70;
+    px(ctx, x, y, 1, 1, i % 3 === 0 ? C.estrellaTenue : C.estrella);
+  }
+  for (const [x, y] of [[96, 18], [392, 24], [622, 14], [250, 40]]) {
+    px(ctx, x - 2, y, 5, 1, C.estrella);
+    px(ctx, x, y - 2, 1, 5, C.estrella);
   }
 
-  // Luna
-  px(ctx, 330, 10, 10, 10, C.luna);
-  px(ctx, 329, 12, 1, 6, C.luna);
-  px(ctx, 340, 12, 1, 6, C.luna);
-  px(ctx, 332, 12, 2, 2, C.lunaSombra);
-  px(ctx, 336, 16, 3, 2, C.lunaSombra);
+  // Luna con sus crateres
+  ovalo(ctx, 660, 34, 11, 11, C.luna);
+  ovalo(ctx, 663, 31, 3, 2, C.lunaSombra);
+  ovalo(ctx, 657, 38, 4, 3, C.lunaSombra);
+  ovalo(ctx, 666, 40, 2, 2, C.lunaSombra);
+  ovalo(ctx, 660, 34, 14, 14, "rgba(248,244,222,0.06)");
 
-  // Nubes muy tenues
-  const nube = (x: number, y: number) => {
-    px(ctx, x, y, 14, 3, C.nube);
-    px(ctx, x + 3, y - 2, 8, 2, C.nube);
-    px(ctx, x + 7, y - 3, 4, 2, C.nube);
+  const nube = (x: number, y: number, w: number) => {
+    px(ctx, x, y, w, 4, C.nube);
+    px(ctx, x + 4, y - 3, w - 10, 3, C.nube);
+    px(ctx, x + 10, y - 5, 8, 2, C.nube);
   };
-  nube(40, 30);
-  nube(250, 26);
+  nube(70, 62, 34);
+  nube(500, 52, 40);
+  nube(300, 74, 26);
 
   // Chachani, Misti y Pichu Pichu
-  mountain(ctx, 78, 78, 74, 40, C.cerro, C.cerroSombra);
-  mountain(ctx, 330, 78, 70, 35, C.cerro, C.cerroSombra);
-  mountain(ctx, 200, 80, 92, 58, C.volcan, C.volcanSombra);
-  snowCap(ctx, 200, 22, 8);
+  mountain(ctx, 150, 156, 150, 78, C.cerro, C.cerroLuz, C.cerroSombra);
+  mountain(ctx, 660, 156, 140, 70, C.cerro, C.cerroLuz, C.cerroSombra);
+  mountain(ctx, 400, 160, 186, 116, C.volcan, C.volcanLuz, C.volcanSombra);
+  snowCap(ctx, 400, 46, 15);
+
+  // Quebradas del Misti
   for (const [x, y, h] of [
-    [186, 44, 12],
-    [212, 40, 16],
-    [196, 58, 9],
-    [220, 56, 10],
-  ]) {
+    [372, 92, 24],
+    [424, 84, 32],
+    [392, 118, 18],
+    [440, 112, 22],
+    [358, 126, 14],
+  ] as [number, number, number][]) {
     px(ctx, x, y, 1, h, C.volcanSombra);
+    px(ctx, x + 1, y, 1, h - 4, C.volcanLuz);
   }
 
   // ---- Catedral ----
-  const cx = 200;
-  const fach = cx - 62;
-  px(ctx, fach, 52, 124, 28, C.sillar);
-  px(ctx, fach, 52, 124, 2, C.sillarClaro);
-  px(ctx, fach, 60, 124, 1, C.sillarSombra);
+  const cx = 400;
+  const fach = cx - 124;
+  px(ctx, fach, 104, 248, 56, C.sillar);
+  px(ctx, fach, 104, 248, 3, C.sillarLuz);
+  px(ctx, fach, 118, 248, 2, C.sillarSombra);
+  px(ctx, fach, 121, 248, 1, C.sillarLuz);
 
-  for (const tx of [fach - 12, fach + 118]) {
-    px(ctx, tx, 36, 16, 44, C.sillar);
-    px(ctx, tx, 36, 16, 2, C.sillarClaro);
-    arch(ctx, tx + 4, 41, 8, 8, C.vanoLuz, C.sillarSombra);
-    px(ctx, tx + 1, 32, 14, 4, C.sillarClaro);
-    px(ctx, tx + 4, 29, 8, 3, C.sillarClaro);
-    px(ctx, tx + 6, 26, 4, 3, C.sillarClaro);
-    px(ctx, tx + 7, 23, 2, 3, C.sillarSombra);
+  for (const tx of [fach - 24, fach + 236]) {
+    px(ctx, tx, 72, 32, 88, C.sillar);
+    px(ctx, tx, 72, 32, 3, C.sillarLuz);
+    px(ctx, tx, 72, 3, 88, C.sillarLuz);
+    px(ctx, tx + 29, 72, 3, 88, C.sillarSombra);
+    arch(ctx, tx + 8, 82, 16, 16, C.vanoLuz, C.sillarSombra);
+    px(ctx, tx + 2, 64, 28, 8, C.sillarLuz);
+    px(ctx, tx + 7, 57, 18, 7, C.sillarLuz);
+    px(ctx, tx + 11, 51, 10, 6, C.sillar);
+    px(ctx, tx + 14, 44, 4, 7, C.sillarSombra);
   }
 
-  // Arqueria iluminada
-  for (let i = 0; i < 8; i += 1) arch(ctx, fach + 5 + i * 15, 62, 11, 18, C.vanoLuz, C.sillarClaro);
-  // Portada central
-  px(ctx, cx - 11, 46, 22, 34, C.sillarClaro);
-  arch(ctx, cx - 8, 50, 16, 30, C.vanoLuz, C.sillar);
-  px(ctx, cx - 2, 38, 4, 8, C.sillarClaro);
-  px(ctx, cx - 1, 34, 2, 4, C.sillarSombra);
+  for (let i = 0; i < 8; i += 1) {
+    arch(ctx, fach + 10 + i * 30, 124, 22, 36, C.vanoLuz, C.sillarLuz);
+    px(ctx, fach + 10 + i * 30, 124, 22, 1, C.sillarSombra);
+  }
+  px(ctx, cx - 22, 92, 44, 68, C.sillarLuz);
+  arch(ctx, cx - 16, 100, 32, 60, C.vanoLuz, C.sillar);
+  px(ctx, cx - 4, 76, 8, 16, C.sillarLuz);
+  px(ctx, cx - 2, 68, 4, 8, C.sillarSombra);
 
   // ---- Portales ----
-  for (const x0 of [2, 286]) {
-    px(ctx, x0, 60, 112, 20, C.sillar);
-    px(ctx, x0, 60, 112, 2, C.sillarClaro);
-    for (let i = 0; i < 10; i += 1) arch(ctx, x0 + 3 + i * 11, 64, 9, 16, C.vanoLuz, C.sillarSombra);
+  for (const x0 of [4, 572] as number[]) {
+    px(ctx, x0, 120, 224, 40, C.sillar);
+    px(ctx, x0, 120, 224, 3, C.sillarLuz);
+    for (let i = 0; i < 10; i += 1) {
+      arch(ctx, x0 + 6 + i * 22, 128, 18, 32, C.vanoLuz, C.sillarSombra);
+      px(ctx, x0 + 6 + i * 22, 128, 18, 1, C.sillarLuz);
+    }
   }
 }
 
 /* --------------------------------------------------------------- avion ---- */
 
+const CARTEL = "GDG AREQUIPA";
+
 /**
- * El avioncito con el cartel. Se dibuja encima del cielo en cada cuadro (no se
- * puede hornear en la capa de fondo porque se mueve), y pasa cada tanto: si
- * estuviera siempre, dejaria de hacer gracia.
+ * El avioncito con su cartel, que va ATRAS y ondeando.
+ *
+ * El cartel se dibuja columna por columna, cada una con su propio desfase de
+ * la onda: por eso se ve como una tela y no como un rectangulo que sube y baja.
  */
-export function drawPlane(ctx: Ctx, x: number, y: number) {
-  // Cartel
-  px(ctx, x + 14, y - 3, 52, 11, "#ea4335");
-  px(ctx, x + 14, y - 3, 52, 1, "#ffffff");
-  px(ctx, x + 14, y + 7, 52, 1, "#b7271c");
-  texto(ctx, "GDG", x + 17, y, "#ffffff");
-  texto(ctx, "AREQUIPA", x + 30, y, "#ffffff");
+export function drawPlane(ctx: Ctx, x: number, y: number, fase: number) {
+  const anchoLetra = 8;
+  const ancho = CARTEL.length * anchoLetra + 8;
+  const bx = x - 22 - ancho;
+  const onda = (i: number) => Math.round(Math.sin(fase + i * 0.55) * 3);
+
+  // Tela del cartel
+  for (let i = 0; i < ancho; i += 1) {
+    const dy = onda(i / anchoLetra);
+    px(ctx, bx + i, y - 9 + dy, 1, 22, "#ea4335");
+    px(ctx, bx + i, y - 9 + dy, 1, 2, "#ff7a6f");
+    px(ctx, bx + i, y + 11 + dy, 1, 2, "#a8201a");
+  }
+  [...CARTEL].forEach((ch, i) => {
+    const dy = onda(i + 0.5);
+    letra(ctx, ch, bx + 5 + i * anchoLetra, y - 4 + dy, "#ffffff");
+  });
+
   // Cuerda
-  px(ctx, x + 10, y + 2, 4, 1, "#dcdcdc");
+  for (let i = 0; i < 12; i += 1) {
+    px(ctx, bx + ancho + i, y + 2 + onda(-0.5 + i * 0.08), 1, 1, "#d8d8d8");
+  }
+
   // Avion
-  px(ctx, x, y, 11, 3, "#e8e8e8");
-  px(ctx, x + 9, y - 1, 2, 2, "#e8e8e8");
-  px(ctx, x + 1, y + 3, 5, 1, "#c8c8c8");
-  px(ctx, x + 3, y - 2, 4, 2, "#4285f4");
-  px(ctx, x, y - 2, 2, 2, "#c8c8c8");
-  px(ctx, x + 10, y + 1, 1, 1, "#fbbc04");
+  px(ctx, x - 10, y - 2, 20, 6, "#e8e8e8");
+  px(ctx, x - 10, y - 2, 20, 2, "#ffffff");
+  px(ctx, x + 8, y - 5, 4, 4, "#e8e8e8");
+  px(ctx, x - 9, y + 4, 10, 2, "#c2c2c2");
+  px(ctx, x - 5, y - 7, 9, 5, "#4285f4");
+  px(ctx, x - 5, y - 7, 9, 1, "#7aa9f7");
+  px(ctx, x - 10, y - 6, 4, 4, "#c2c2c2");
+  px(ctx, x + 9, y, 3, 2, "#fbbc04");
+  px(ctx, x - 2, y - 1, 2, 2, "#2a3550");
 }
 
 /* --------------------------------------------------------------- suelo ---- */
 
-function ovalRow(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, color: string) {
-  for (let dy = -ry; dy <= ry; dy += 1) {
-    const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
-    if (w <= 0) continue;
-    px(ctx, cx - w, cy + dy, w * 2, 1, color);
+function palmera(ctx: Ctx, x: number, baseY: number, alto: number) {
+  ovalo(ctx, x + 1, baseY + 1, 9, 3, C.sombra);
+  for (let i = 0; i < alto; i += 1) {
+    px(ctx, x, baseY - alto + i, 4, 1, i % 4 === 3 ? C.tronco : C.troncoLuz);
+    px(ctx, x + 3, baseY - alto + i, 1, 1, C.tronco);
   }
-}
-
-function palm(ctx: Ctx, x: number, baseY: number, alto: number) {
-  px(ctx, x, baseY - alto, 2, alto, C.tronco);
-  const hoja = (dx: number, dy: number, w: number) => px(ctx, x + dx, baseY - alto + dy, w, 1, C.hoja);
-  hoja(-7, -1, 7);
-  hoja(-8, 0, 6);
-  hoja(2, -1, 7);
-  hoja(3, 0, 6);
-  hoja(-5, -3, 4);
-  hoja(2, -3, 4);
-  px(ctx, x - 1, baseY - alto - 2, 4, 2, C.hoja);
+  const hoja = (dx: number, dy: number, w: number, color: string) =>
+    px(ctx, x + dx, baseY - alto + dy, w, 1, color);
+  hoja(-15, 0, 15, C.hoja);
+  hoja(-17, 1, 13, C.hoja);
+  hoja(-12, -2, 11, C.hojaLuz);
+  hoja(5, 0, 15, C.hoja);
+  hoja(7, 1, 13, C.hoja);
+  hoja(6, -2, 11, C.hojaLuz);
+  hoja(-9, -4, 8, C.hojaLuz);
+  hoja(5, -4, 8, C.hojaLuz);
+  px(ctx, x - 2, baseY - alto - 6, 8, 4, C.hojaLuz);
+  px(ctx, x - 1, baseY - alto - 7, 6, 1, C.hoja);
+  // Cocos
+  px(ctx, x - 3, baseY - alto - 1, 2, 2, "#6b4a2a");
+  px(ctx, x + 5, baseY - alto - 1, 2, 2, "#6b4a2a");
 }
 
 function banca(ctx: Ctx, x: number, y: number) {
-  px(ctx, x, y, 12, 2, C.banca);
-  px(ctx, x, y + 2, 12, 1, C.bancaSombra);
-  px(ctx, x + 1, y + 3, 2, 2, C.bancaSombra);
-  px(ctx, x + 9, y + 3, 2, 2, C.bancaSombra);
+  ovalo(ctx, x + 12, y + 7, 14, 3, C.sombra);
+  px(ctx, x, y, 24, 3, C.bancaLuz); // respaldo
+  px(ctx, x, y + 3, 24, 1, C.banca);
+  px(ctx, x, y + 5, 24, 3, C.bancaLuz); // asiento
+  px(ctx, x, y + 8, 24, 1, C.banca);
+  px(ctx, x + 2, y + 9, 3, 4, C.banca);
+  px(ctx, x + 19, y + 9, 3, 4, C.banca);
 }
 
-/** Farol encendido, con su charco de luz en el suelo. */
+/** Farol encendido, con su charco de luz. */
 function farol(ctx: Ctx, x: number, baseY: number) {
-  // La luz primero: el poste va encima.
-  ovalRow(ctx, x + 1, baseY + 3, 11, 4, C.luzSuelo);
-  px(ctx, x, baseY - 13, 2, 13, C.farol);
-  px(ctx, x - 2, baseY - 1, 6, 1, C.farol);
-  px(ctx, x - 1, baseY - 18, 4, 5, C.luz);
-  px(ctx, x - 2, baseY - 19, 6, 1, C.farol);
-  px(ctx, x - 1, baseY - 20, 4, 1, C.farol);
-  px(ctx, x, baseY - 17, 2, 3, "#fff2c8");
+  // La luz va primero: el poste se dibuja encima.
+  ovalo(ctx, x + 1, baseY + 4, 30, 11, C.luzSuelo[2]);
+  ovalo(ctx, x + 1, baseY + 4, 21, 8, C.luzSuelo[1]);
+  ovalo(ctx, x + 1, baseY + 4, 12, 5, C.luzSuelo[0]);
+
+  px(ctx, x - 4, baseY - 2, 10, 3, C.farol);
+  px(ctx, x - 2, baseY - 26, 4, 24, C.farol);
+  px(ctx, x - 2, baseY - 26, 1, 24, C.farolLuz);
+  px(ctx, x - 4, baseY - 36, 8, 10, C.luz);
+  px(ctx, x - 3, baseY - 35, 6, 8, C.luzFuerte);
+  px(ctx, x - 5, baseY - 38, 10, 2, C.farol);
+  px(ctx, x - 3, baseY - 40, 6, 2, C.farol);
+  px(ctx, x - 1, baseY - 42, 2, 2, C.farol);
+}
+
+function jardin(ctx: Ctx, x: number, y: number, w: number, h: number) {
+  px(ctx, x, y, w, h, C.jardin);
+  px(ctx, x, y, w, 2, C.jardinLuz);
+  px(ctx, x, y + h - 3, w, 3, C.jardinSombra);
+  // Mata a mata. El reparto es pseudoaleatorio pero fijo: con un modulo simple
+  // las flores salian en diagonal y se veia una trama, no un jardin.
+  let semilla = (x * 7919 + y * 104729) >>> 0;
+  const azar = () => {
+    semilla = (semilla * 1664525 + 1013904223) >>> 0;
+    return semilla / 4294967296;
+  };
+  for (let i = 0; i < w * h * 0.035; i += 1) {
+    const fx = x + 2 + Math.floor(azar() * (w - 4));
+    const fy = y + 2 + Math.floor(azar() * (h - 5));
+    px(ctx, fx, fy, 2, 2, i % 4 === 0 ? C.florRosa : C.flor);
+    px(ctx, fx, fy, 1, 1, "#ffffff");
+  }
+  // Sardinel
+  px(ctx, x - 1, y - 1, w + 2, 1, C.veredaLuz);
+  px(ctx, x - 1, y - 1, 1, h + 2, C.veredaLuz);
+  px(ctx, x + w, y - 1, 1, h + 2, C.vereda);
+  px(ctx, x - 1, y + h, w + 2, 1, C.vereda);
 }
 
 export function drawGround(ctx: Ctx) {
-  const W = WORLD.w / P; // 450
-  const H = WORLD.h / P; // 155
+  const W = WORLD.w / P; // 900
+  const H = WORLD.h / P; // 310
   const top = GROUND_TOP;
 
-  // Baldosas
+  // Baldosas de 8x8 con tres tonos: el ruido fijo evita que se vea un damero.
   for (let y = top; y < H; y += 1) {
     for (let x = 0; x < W; x += 1) {
-      const tile = (Math.floor(x / 6) + Math.floor(y / 6)) % 2 === 0;
-      px(ctx, x, y, 1, 1, tile ? C.piso[0] : C.piso[1]);
+      const tx = Math.floor(x / 8);
+      const ty = Math.floor(y / 8);
+      const tono = (tx * 7 + ty * 13) % 3;
+      px(ctx, x, y, 1, 1, C.piso[tono]);
     }
   }
-  for (let y = top; y < H; y += 6) px(ctx, 0, y, W, 1, C.junta);
-  for (let x = 0; x < W; x += 6) px(ctx, x, top, 1, H - top, C.junta);
+  // Juntas y brillo del borde de cada baldosa
+  for (let y = top; y < H; y += 8) {
+    px(ctx, 0, y, W, 1, C.junta);
+    px(ctx, 0, y + 1, W, 1, C.pisoLuz);
+  }
+  for (let x = 0; x < W; x += 8) {
+    px(ctx, x, top, 1, H - top, C.junta);
+    px(ctx, x + 1, top, 1, H - top, C.pisoLuz);
+  }
 
-  // Vereda de arriba
-  px(ctx, 0, top, W, 2, C.vereda);
-  px(ctx, 0, top + 2, W, 1, C.junta);
+  // Vereda de arriba, con sardinel
+  px(ctx, 0, top, W, 5, C.vereda);
+  px(ctx, 0, top, W, 2, C.veredaLuz);
+  px(ctx, 0, top + 5, W, 2, C.junta);
 
-  // Camino que cruza por delante de la pileta
-  px(ctx, 0, 112, W, 9, C.camino);
-  px(ctx, 0, 112, W, 1, C.junta);
-  px(ctx, 0, 120, W, 1, C.junta);
+  // Dos caminos cruzando la plaza
+  for (const cy of [212, 344]) {
+    px(ctx, 0, cy, W, 18, C.camino);
+    px(ctx, 0, cy, W, 2, C.caminoLuz);
+    px(ctx, 0, cy + 16, W, 2, C.junta);
+    for (let x = 0; x < W; x += 12) px(ctx, x, cy + 2, 1, 14, C.junta);
+  }
 
-  // Jardines, repartidos a lo ancho
-  const jardin = (x: number, y: number, jw: number, jh: number) => {
-    px(ctx, x, y, jw, jh, C.jardin);
-    px(ctx, x, y + jh - 2, jw, 2, C.jardinSombra);
-    px(ctx, x, y, jw, 1, C.jardin);
-    for (let i = 0; i < jw * jh * 0.05; i += 1) {
-      px(ctx, x + ((i * 7) % jw), y + 1 + ((i * 5) % (jh - 3)), 1, 1, C.flor);
-    }
-    px(ctx, x, y, 1, jh, C.vereda);
-    px(ctx, x + jw - 1, y, 1, jh, C.vereda);
-  };
-  for (const jx of [14, 92, 300, 378]) {
-    jardin(jx, 84, 44, 16);
-    jardin(jx, 130, 44, 16);
+  // Jardines, en tres filas de profundidad
+  for (const jx of [28, 184, 600, 756]) {
+    jardin(ctx, jx, 166, 88, 32);
+    jardin(ctx, jx, 250, 88, 32);
+    jardin(ctx, jx, 376, 88, 28);
   }
 
   for (const [x, alto] of [
-    [26, 17],
-    [48, 13],
-    [104, 15],
-    [126, 12],
-    [312, 16],
-    [334, 12],
-    [390, 17],
-    [412, 13],
+    [52, 34],
+    [96, 26],
+    [208, 30],
+    [252, 24],
+    [624, 32],
+    [668, 24],
+    [780, 34],
+    [824, 26],
   ] as [number, number][]) {
-    palm(ctx, x, 84, alto);
+    palmera(ctx, x, 166, alto);
+  }
+  for (const [x, alto] of [
+    [60, 26],
+    [228, 22],
+    [640, 24],
+    [796, 26],
+  ] as [number, number][]) {
+    palmera(ctx, x, 376, alto);
   }
 
-  for (const bx of [62, 160, 268, 356]) {
-    banca(ctx, bx, 92);
-    banca(ctx, bx, 138);
+  for (const bx of [124, 320, 536, 712]) {
+    banca(ctx, bx, 182);
+    banca(ctx, bx, 266);
+    banca(ctx, bx, 392);
   }
 
-  for (const fx of [78, 150, 300, 372]) farol(ctx, fx, 110);
+  for (const fx of [156, 300, 600, 744]) farol(ctx, fx, 208);
+  for (const fx of [228, 672]) farol(ctx, fx, 340);
 
   // ---- Pileta ----
-  const fx = 225;
-  const fy = 128;
-  ovalRow(ctx, fx, fy, 34, 12, C.piedra);
-  ovalRow(ctx, fx, fy, 30, 10, C.piedraClara);
-  ovalRow(ctx, fx, fy, 27, 8, C.agua);
-  ovalRow(ctx, fx, fy - 1, 22, 6, C.aguaClara);
-  px(ctx, fx - 12, fy - 3, 6, 1, C.aguaBrillo);
-  px(ctx, fx + 5, fy + 2, 7, 1, C.aguaBrillo);
-  px(ctx, fx - 4, fy - 16, 8, 16, C.piedraClara);
-  px(ctx, fx - 4, fy - 16, 8, 1, C.piedra);
-  ovalRow(ctx, fx, fy - 17, 12, 4, C.piedraClara);
-  ovalRow(ctx, fx, fy - 18, 9, 2, C.aguaClara);
-  px(ctx, fx - 1, fy - 24, 2, 6, C.piedraClara);
-  px(ctx, fx - 3, fy - 25, 6, 1, C.aguaBrillo);
-  px(ctx, fx - 8, fy - 22, 1, 4, C.aguaBrillo);
-  px(ctx, fx + 7, fy - 22, 1, 4, C.aguaBrillo);
-  px(ctx, fx - 6, fy - 20, 1, 3, C.aguaBrillo);
-  px(ctx, fx + 5, fy - 20, 1, 3, C.aguaBrillo);
+  const fx = 450;
+  const fy = 280;
+  ovalo(ctx, fx, fy + 4, 76, 26, C.sombra);
+  ovalo(ctx, fx, fy, 70, 25, C.piedraSombra);
+  ovalo(ctx, fx, fy - 1, 68, 24, C.piedra);
+  ovalo(ctx, fx, fy - 2, 62, 21, C.piedraLuz);
+  ovalo(ctx, fx, fy, 58, 18, C.agua);
+  ovalo(ctx, fx, fy - 1, 50, 14, C.aguaClara);
+  // Reflejos del agua
+  for (const [dx, dy, w] of [
+    [-34, -6, 14],
+    [10, 4, 18],
+    [-14, 8, 10],
+    [24, -8, 12],
+  ] as [number, number, number][]) {
+    px(ctx, fx + dx, fy + dy, w, 1, C.aguaBrillo);
+  }
+  // Pedestal y tazas
+  px(ctx, fx - 9, fy - 34, 18, 34, C.piedraLuz);
+  px(ctx, fx + 5, fy - 34, 4, 34, C.piedra);
+  ovalo(ctx, fx, fy - 36, 26, 8, C.piedraLuz);
+  ovalo(ctx, fx, fy - 37, 22, 6, C.aguaClara);
+  px(ctx, fx - 3, fy - 50, 6, 14, C.piedraLuz);
+  ovalo(ctx, fx, fy - 51, 13, 4, C.piedraLuz);
+  ovalo(ctx, fx, fy - 52, 10, 3, C.aguaClara);
+  // Chorros
+  for (const [dx, dy, h] of [
+    [-16, -46, 10],
+    [16, -46, 10],
+    [-10, -42, 8],
+    [10, -42, 8],
+    [0, -58, 7],
+  ] as [number, number, number][]) {
+    px(ctx, fx + dx, fy + dy, 2, h, C.aguaEspuma);
+  }
+  px(ctx, fx - 6, fy - 60, 12, 2, C.aguaEspuma);
 }
