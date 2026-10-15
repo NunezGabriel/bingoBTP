@@ -169,9 +169,10 @@ async function onConnection(ws, req) {
     name: player.name,
     skin: player.skin,
     ws,
-    // Aparece cerca de la pileta, con un desvio para que no se amontonen.
-    x: Math.round(WORLD.w / 2 + (Math.random() * 180 - 90)),
-    y: Math.round(WORLD.h * 0.72 + (Math.random() * 60 - 30)),
+    // Aparece delante de la pileta, no encima, y repartido para que no se
+    // amontonen todos en el mismo pixel cuando entran de golpe.
+    x: Math.round(WORLD.w / 2 + (Math.random() * 420 - 210)),
+    y: Math.round(WORLD.h * 0.88 + (Math.random() * 44 - 22)),
     d: 0,
     w: false,
     emote: false,
