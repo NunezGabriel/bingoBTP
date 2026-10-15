@@ -30,6 +30,15 @@ type Handlers = {
 
 export class LobbyClient {
   players = new Map<number, LobbyPlayer>();
+  /**
+   * Quien es quien: nombre y personaje de cada persona conectada.
+   *
+   * Hace falta aparte de `players` porque las fotos del lobby solo traen
+   * numeros (posicion, direccion), y quien se aleja sale de la foto. Sin esta
+   * libreta, al volver a acercarse reaparecia como un desconocido y se
+   * dibujaba con el personaje por defecto.
+   */
+  private libreta = new Map<number, { name: string; skin: string | null }>();
   total = 0;
   meId = 0;
   private ws: WebSocket | null = null;
@@ -85,7 +94,9 @@ export class LobbyClient {
       const you = msg.you as LobbyPlayer;
       this.meId = you.id;
       this.players.clear();
+      this.libreta.clear();
       for (const p of msg.players as LobbyPlayer[]) {
+        this.libreta.set(p.id, { name: p.name, skin: p.skin });
         this.players.set(p.id, { ...p, w: false, emote: false, emoteAt: 0 });
       }
       this.handlers.onReady(
@@ -98,13 +109,18 @@ export class LobbyClient {
 
     if (msg.t === "join") {
       const p = msg.player as LobbyPlayer;
+      // El servidor avisa las entradas a todos, no solo a los que estan cerca:
+      // por eso la libreta termina teniendo a todo el mundo.
+      this.libreta.set(p.id, { name: p.name, skin: p.skin });
       if (p.id !== this.meId) this.players.set(p.id, { ...p, w: false, emote: false, emoteAt: 0 });
       this.handlers.onChange();
       return;
     }
 
     if (msg.t === "leave") {
-      this.players.delete(Number(msg.id));
+      const id = Number(msg.id);
+      this.players.delete(id);
+      this.libreta.delete(id);
       this.handlers.onChange();
       return;
     }
@@ -124,11 +140,12 @@ export class LobbyClient {
           prev.w = w === 1;
           if (emote === 1) prev.emoteAt = now;
         } else {
-          // Alguien que entro en nuestra zona: su nombre llega en el proximo join.
+          // Alguien que se acerco: quien es ya lo sabemos por la libreta.
+          const quien = this.libreta.get(id);
           this.players.set(id, {
             id,
-            name: "",
-            skin: null,
+            name: quien?.name ?? "",
+            skin: quien?.skin ?? null,
             x,
             y,
             d,

@@ -2,6 +2,7 @@ const { WebSocketServer } = require("ws");
 const config = require("../config");
 const { readTicket } = require("../lib/session");
 const { getPlayer } = require("../services/players");
+const { normalizeSkin } = require("../content/skins");
 
 /**
  * El lobby: donde la gente espera entre rondas, se mueve y saluda.
@@ -167,7 +168,7 @@ async function onConnection(ws, req) {
   const person = {
     id: player.id,
     name: player.name,
-    skin: player.skin,
+    skin: normalizeSkin(player.skin),
     ws,
     // Aparece delante de la pileta, no encima, y repartido para que no se
     // amontonen todos en el mismo pixel cuando entran de golpe.

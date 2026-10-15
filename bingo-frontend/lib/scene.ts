@@ -117,14 +117,31 @@ function ovalo(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, color: 
 
 const FONT: Record<string, string[]> = {
   A: [".#.", "#.#", "###", "#.#", "#.#"],
+  B: ["##.", "#.#", "##.", "#.#", "##."],
+  C: ["###", "#..", "#..", "#..", "###"],
   D: ["##.", "#.#", "#.#", "#.#", "##."],
   E: ["###", "#..", "##.", "#..", "###"],
+  F: ["###", "#..", "##.", "#..", "#.."],
   G: ["###", "#..", "#.#", "#.#", "###"],
+  H: ["#.#", "#.#", "###", "#.#", "#.#"],
   I: ["###", ".#.", ".#.", ".#.", "###"],
+  J: ["..#", "..#", "..#", "#.#", "###"],
+  K: ["#.#", "#.#", "##.", "#.#", "#.#"],
+  L: ["#..", "#..", "#..", "#..", "###"],
+  M: ["#.#", "###", "###", "#.#", "#.#"],
+  N: ["#.#", "###", "###", "###", "#.#"],
+  O: ["###", "#.#", "#.#", "#.#", "###"],
   P: ["###", "#.#", "###", "#..", "#.."],
   Q: ["###", "#.#", "#.#", "###", "..#"],
   R: ["###", "#.#", "##.", "#.#", "#.#"],
+  S: ["###", "#..", "###", "..#", "###"],
+  T: ["###", ".#.", ".#.", ".#.", ".#."],
   U: ["#.#", "#.#", "#.#", "#.#", "###"],
+  V: ["#.#", "#.#", "#.#", "#.#", ".#."],
+  W: ["#.#", "#.#", "###", "###", "#.#"],
+  X: ["#.#", "#.#", ".#.", "#.#", "#.#"],
+  Y: ["#.#", "#.#", ".#.", ".#.", ".#."],
+  Z: ["###", "..#", ".#.", "#..", "###"],
   " ": ["...", "...", "...", "...", "..."],
 };
 
@@ -136,6 +153,12 @@ function letra(ctx: Ctx, ch: string, x: number, y: number, color: string) {
       if (c === "#") px(ctx, x + rx, y + ry, 1, 1, color);
     });
   });
+}
+
+/** Una palabra centrada en x. Cada letra ocupa 4 pixeles de ancho. */
+function texto(ctx: Ctx, str: string, cx: number, y: number, color: string) {
+  const x = Math.round(cx - (str.length * 4 - 1) / 2);
+  [...str].forEach((ch, i) => letra(ctx, ch, x + i * 4, y, color));
 }
 
 /* ----------------------------------------------------------- montanas ---- */
@@ -287,7 +310,7 @@ const CARTEL = "GDG AREQUIPA";
  * la onda: por eso se ve como una tela y no como un rectangulo que sube y baja.
  */
 export function drawPlane(ctx: Ctx, x: number, y: number, fase: number) {
-  const anchoLetra = 8;
+  const anchoLetra = 4;
   const ancho = CARTEL.length * anchoLetra + 8;
   const bx = x - 22 - ancho;
   const onda = (i: number) => Math.round(Math.sin(fase + i * 0.55) * 3);
@@ -295,13 +318,13 @@ export function drawPlane(ctx: Ctx, x: number, y: number, fase: number) {
   // Tela del cartel
   for (let i = 0; i < ancho; i += 1) {
     const dy = onda(i / anchoLetra);
-    px(ctx, bx + i, y - 9 + dy, 1, 22, "#ea4335");
-    px(ctx, bx + i, y - 9 + dy, 1, 2, "#ff7a6f");
-    px(ctx, bx + i, y + 11 + dy, 1, 2, "#a8201a");
+    px(ctx, bx + i, y - 5 + dy, 1, 11, "#ea4335");
+    px(ctx, bx + i, y - 5 + dy, 1, 1, "#ff7a6f");
+    px(ctx, bx + i, y + 5 + dy, 1, 1, "#a8201a");
   }
   [...CARTEL].forEach((ch, i) => {
     const dy = onda(i + 0.5);
-    letra(ctx, ch, bx + 5 + i * anchoLetra, y - 4 + dy, "#ffffff");
+    letra(ctx, ch, bx + 4 + i * anchoLetra, y - 2 + dy, "#ffffff");
   });
 
   // Cuerda
@@ -397,6 +420,185 @@ function jardin(ctx: Ctx, x: number, y: number, w: number, h: number) {
   px(ctx, x - 1, y + h, w + 2, 1, C.vereda);
 }
 
+/* -------------------------------------------------- los organizadores ---- */
+
+type Persona = {
+  nombre: string;
+  piel: string;
+  pelo: string;
+  corte: "corto" | "largo" | "rizado" | "tazon" | "ondulado";
+  lentes?: "negros" | "claros";
+  barba?: boolean;
+};
+
+/**
+ * Los organizadores, dibujados a partir de sus fotos: lo que los hace
+ * reconocibles a 16 pixeles es el pelo y los lentes, no la cara. Todos van con
+ * el uniforme: polera negra con el logo de GDG y jean.
+ */
+const ORGANIZADORES: Persona[] = [
+  { nombre: "BENJA", piel: "#e3b183", pelo: "#241c18", corte: "ondulado", lentes: "negros", barba: true },
+  { nombre: "BRAULIO", piel: "#dfae7e", pelo: "#1f1917", corte: "corto", lentes: "claros" },
+  { nombre: "EILEEN", piel: "#e8b98a", pelo: "#201a18", corte: "largo", lentes: "claros" },
+  { nombre: "GABRIEL", piel: "#e3b183", pelo: "#15110f", corte: "rizado", barba: true },
+  { nombre: "LUCIANA", piel: "#e8b98a", pelo: "#1d1715", corte: "largo" },
+  { nombre: "MIRINA", piel: "#dfae7e", pelo: "#3a2a20", corte: "rizado", lentes: "claros" },
+  { nombre: "NELZON", piel: "#e3b183", pelo: "#15110f", corte: "corto", lentes: "negros" },
+  { nombre: "VICTOR", piel: "#dfae7e", pelo: "#231c19", corte: "corto", barba: true },
+  { nombre: "CINTIA", piel: "#e8b98a", pelo: "#201a18", corte: "largo" },
+  { nombre: "GONZALO", piel: "#e3b183", pelo: "#15110f", corte: "tazon", lentes: "negros" },
+];
+
+/** Una persona de 16x20 con el uniforme de la comunidad. */
+function persona(ctx: Ctx, ox: number, oy: number, p: Persona) {
+  const NEGRO = "#1f1f24";
+  const SOMBRA = "#15151a";
+  const JEAN = "#3f5f8c";
+  const ZAPA = "#e4e4e4";
+  const OJO = "#1d1d1d";
+  const pielSombra = "#00000022";
+
+  // Polera negra con el logo de GDG
+  px(ctx, ox + 2, oy + 10, 12, 1, NEGRO);
+  px(ctx, ox + 1, oy + 11, 14, 5, NEGRO);
+  px(ctx, ox + 1, oy + 15, 14, 1, SOMBRA);
+  px(ctx, ox + 5, oy + 12, 2, 1, "#ea4335");
+  px(ctx, ox + 9, oy + 12, 2, 1, "#34a853");
+  px(ctx, ox + 4, oy + 13, 2, 1, "#4285f4");
+  px(ctx, ox + 10, oy + 13, 2, 1, "#fbbc04");
+
+  // Jean y zapatillas
+  px(ctx, ox + 3, oy + 16, 4, 3, JEAN);
+  px(ctx, ox + 9, oy + 16, 4, 3, JEAN);
+  px(ctx, ox + 3, oy + 19, 4, 1, ZAPA);
+  px(ctx, ox + 9, oy + 19, 4, 1, ZAPA);
+
+  // Cara y cuello
+  px(ctx, ox + 6, oy + 9, 4, 1, p.piel);
+  px(ctx, ox + 4, oy + 3, 8, 7, p.piel);
+  px(ctx, ox + 4, oy + 8, 8, 1, pielSombra);
+
+  // Pelo
+  const pelo = p.pelo;
+  if (p.corte === "corto") {
+    px(ctx, ox + 4, oy + 1, 8, 2, pelo);
+    px(ctx, ox + 3, oy + 2, 10, 2, pelo);
+    px(ctx, ox + 3, oy + 4, 1, 2, pelo);
+    px(ctx, ox + 12, oy + 4, 1, 2, pelo);
+  } else if (p.corte === "tazon") {
+    px(ctx, ox + 3, oy + 1, 10, 4, pelo);
+    px(ctx, ox + 2, oy + 2, 12, 3, pelo);
+    px(ctx, ox + 2, oy + 5, 2, 2, pelo);
+    px(ctx, ox + 12, oy + 5, 2, 2, pelo);
+  } else if (p.corte === "ondulado") {
+    px(ctx, ox + 3, oy + 1, 10, 3, pelo);
+    px(ctx, ox + 2, oy + 2, 12, 2, pelo);
+    px(ctx, ox + 2, oy + 4, 2, 3, pelo);
+    px(ctx, ox + 12, oy + 4, 2, 3, pelo);
+    px(ctx, ox + 4, oy + 0, 3, 1, pelo);
+    px(ctx, ox + 9, oy + 0, 3, 1, pelo);
+  } else if (p.corte === "rizado") {
+    px(ctx, ox + 3, oy + 0, 10, 4, pelo);
+    px(ctx, ox + 2, oy + 1, 12, 3, pelo);
+    px(ctx, ox + 1, oy + 2, 2, 4, pelo);
+    px(ctx, ox + 13, oy + 2, 2, 4, pelo);
+    px(ctx, ox + 4, oy - 1, 2, 1, pelo);
+    px(ctx, ox + 10, oy - 1, 2, 1, pelo);
+  } else {
+    // largo: cae por los lados hasta los hombros
+    px(ctx, ox + 3, oy + 1, 10, 3, pelo);
+    px(ctx, ox + 2, oy + 2, 12, 2, pelo);
+    px(ctx, ox + 2, oy + 4, 2, 8, pelo);
+    px(ctx, ox + 12, oy + 4, 2, 8, pelo);
+    px(ctx, ox + 2, oy + 11, 2, 1, pelo);
+  }
+
+  // Ojos y lentes
+  px(ctx, ox + 5, oy + 6, 1, 1, OJO);
+  px(ctx, ox + 10, oy + 6, 1, 1, OJO);
+  if (p.lentes) {
+    const marco = p.lentes === "negros" ? "#1d1d1d" : "#8a6a4a";
+    px(ctx, ox + 4, oy + 5, 3, 3, marco);
+    px(ctx, ox + 9, oy + 5, 3, 3, marco);
+    px(ctx, ox + 5, oy + 6, 1, 1, "#cfe8f5");
+    px(ctx, ox + 10, oy + 6, 1, 1, "#cfe8f5");
+    px(ctx, ox + 7, oy + 6, 2, 1, marco);
+  }
+
+  // Barba ligera
+  if (p.barba) {
+    px(ctx, ox + 4, oy + 8, 8, 1, "#00000044");
+    px(ctx, ox + 5, oy + 7, 1, 1, "#00000033");
+    px(ctx, ox + 10, oy + 7, 1, 1, "#00000033");
+  }
+}
+
+/** El logo de GDG en pixeles, para el telon del escenario. */
+function logoGdg(ctx: Ctx, x: number, y: number) {
+  // <
+  px(ctx, x + 6, y, 4, 2, "#ea4335");
+  px(ctx, x + 3, y + 2, 4, 2, "#ea4335");
+  px(ctx, x + 1, y + 4, 4, 2, "#4285f4");
+  px(ctx, x + 4, y + 6, 4, 2, "#4285f4");
+  // >
+  px(ctx, x + 12, y, 4, 2, "#34a853");
+  px(ctx, x + 15, y + 2, 4, 2, "#34a853");
+  px(ctx, x + 17, y + 4, 4, 2, "#fbbc04");
+  px(ctx, x + 14, y + 6, 4, 2, "#fbbc04");
+}
+
+/**
+ * El escenario delante de la catedral, con los organizadores.
+ *
+ * Son parte del dibujo del suelo, no personajes vivos: no se mueven, no
+ * ocupan conexion y no cuestan nada por cuadro.
+ */
+function escenario(ctx: Ctx) {
+  const x0 = 296;
+  const ancho = 308;
+
+  // Telon. Va claro a proposito: las poleras de los organizadores son negras y
+  // contra un fondo oscuro no se distinguia a nadie.
+  px(ctx, x0, 104, ancho, 52, "#f1ece0");
+  px(ctx, x0, 104, ancho, 3, "#ffffff");
+  px(ctx, x0, 153, ancho, 3, "#cfc7b4");
+  px(ctx, x0, 104, 3, 52, "#ffffff");
+  px(ctx, x0 + ancho - 3, 104, 3, 52, "#cfc7b4");
+  // Franja de colores de Google arriba
+  const franja = ["#4285f4", "#ea4335", "#fbbc04", "#34a853"];
+  for (let i = 0; i < ancho - 6; i += 1) {
+    px(ctx, x0 + 3 + i, 107, 1, 2, franja[Math.floor(i / ((ancho - 6) / 4)) % 4]);
+  }
+  logoGdg(ctx, x0 + ancho / 2 - 11, 114);
+  texto(ctx, "GDG AREQUIPA", x0 + ancho / 2, 126, "#191919");
+  texto(ctx, "DEVFEST", x0 + ancho / 2, 134, "#4285f4");
+
+  // Tarima
+  px(ctx, x0 - 6, 156, ancho + 12, 6, "#8a6c53");
+  px(ctx, x0 - 6, 156, ancho + 12, 2, "#a88565");
+  px(ctx, x0 - 6, 162, ancho + 12, 8, "#5c4838");
+  for (let i = 0; i < ancho + 12; i += 8) px(ctx, x0 - 6 + i, 162, 1, 8, "#4a392c");
+  px(ctx, x0 - 6, 169, ancho + 12, 1, "#3a2d23");
+  // Escalerita
+  px(ctx, x0 + ancho / 2 - 10, 170, 20, 3, "#4b3a2d");
+  px(ctx, x0 + ancho / 2 - 14, 173, 28, 3, "#5a4636");
+
+  // Focos
+  for (const fx of [x0 + 10, x0 + ancho - 14]) {
+    px(ctx, fx, 148, 4, 4, "#2a2a30");
+    px(ctx, fx + 1, 152, 2, 3, "#fff3cd");
+    ovalo(ctx, fx + 2, 158, 10, 3, "#5d5648");
+  }
+
+  // Los diez, en fila sobre la tarima
+  ORGANIZADORES.forEach((p, i) => {
+    const px0 = x0 + 8 + i * 30;
+    ovalo(ctx, px0 + 8, 157, 7, 2, "#00000044");
+    persona(ctx, px0, 137, p);
+    texto(ctx, p.nombre, px0 + 8, 164, "#f3ead8");
+  });
+}
+
 export function drawGround(ctx: Ctx) {
   const W = WORLD.w / P; // 900
   const H = WORLD.h / P; // 310
@@ -426,6 +628,9 @@ export function drawGround(ctx: Ctx) {
   px(ctx, 0, top, W, 2, C.veredaLuz);
   px(ctx, 0, top + 5, W, 2, C.junta);
 
+  // El escenario de los organizadores, delante de la catedral
+  escenario(ctx);
+
   // Dos caminos cruzando la plaza
   for (const cy of [212, 344]) {
     px(ctx, 0, cy, W, 18, C.camino);
@@ -434,22 +639,23 @@ export function drawGround(ctx: Ctx) {
     for (let x = 0; x < W; x += 12) px(ctx, x, cy + 2, 1, 14, C.junta);
   }
 
-  // Jardines, en tres filas de profundidad
+  // Jardines, en tres filas de profundidad. La primera fila se abre a los
+  // lados para dejarle sitio al escenario, que va al centro.
+  for (const jx of [20, 128, 672, 780]) jardin(ctx, jx, 166, 88, 32);
   for (const jx of [28, 184, 600, 756]) {
-    jardin(ctx, jx, 166, 88, 32);
     jardin(ctx, jx, 250, 88, 32);
     jardin(ctx, jx, 376, 88, 28);
   }
 
   for (const [x, alto] of [
-    [52, 34],
-    [96, 26],
-    [208, 30],
-    [252, 24],
-    [624, 32],
-    [668, 24],
-    [780, 34],
-    [824, 26],
+    [44, 34],
+    [88, 26],
+    [152, 30],
+    [196, 24],
+    [696, 32],
+    [740, 24],
+    [804, 34],
+    [848, 26],
   ] as [number, number][]) {
     palmera(ctx, x, 166, alto);
   }
@@ -462,13 +668,14 @@ export function drawGround(ctx: Ctx) {
     palmera(ctx, x, 376, alto);
   }
 
+  for (const bx of [240, 640]) banca(ctx, bx, 186);
   for (const bx of [124, 320, 536, 712]) {
-    banca(ctx, bx, 182);
     banca(ctx, bx, 266);
     banca(ctx, bx, 392);
   }
 
-  for (const fx of [156, 300, 600, 744]) farol(ctx, fx, 208);
+  for (const fx of [240, 660]) farol(ctx, fx, 176);
+  for (const fx of [156, 600]) farol(ctx, fx, 208);
   for (const fx of [228, 672]) farol(ctx, fx, 340);
 
   // ---- Pileta ----

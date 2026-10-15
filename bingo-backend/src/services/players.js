@@ -1,9 +1,15 @@
 const { prisma } = require("../lib/prisma");
+const { normalizeSkin } = require("../content/skins");
 
-/** Lo minimo para mostrar a alguien en el ranking, el lobby o una casilla firmada. */
+/**
+ * Lo minimo para mostrar a alguien en el ranking, el lobby o una casilla
+ * firmada. El personaje pasa por normalizeSkin: si se cambio la lista y el
+ * suyo ya no existe, sale como null y la app le vuelve a preguntar en vez de
+ * dibujarlo con uno que no eligio.
+ */
 function publicPlayer(p) {
   if (!p) return null;
-  return { id: p.id, name: p.name, skin: p.skin ?? null };
+  return { id: p.id, name: p.name, skin: normalizeSkin(p.skin) };
 }
 
 function selfPlayer(p) {
@@ -12,7 +18,7 @@ function selfPlayer(p) {
     name: p.name,
     code: p.code,
     role: p.role,
-    skin: p.skin ?? null,
+    skin: normalizeSkin(p.skin),
     createdAt: p.createdAt,
   };
 }

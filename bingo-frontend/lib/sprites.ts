@@ -1,25 +1,26 @@
 /**
  * Los personajes del lobby, dibujados a mano en pixeles.
  *
+ * Todos son gente de la comunidad: polera negra con el logo de GDG en el
+ * pecho y jean, que es el uniforme real de un evento de devs. El mago, el
+ * esqueleto y el robot son el mismo cuerpo con otra cabeza: asi todos se ven
+ * de la misma familia aunque cada uno tenga su chiste.
+ *
  * Cada uno es una rejilla de 16x20: el cuerpo son las 16 primeras filas y las
  * piernas van aparte, con dos frames, para que caminar sea cambiar solo las
  * piernas y el cuerpo nunca se desalinee.
- *
- * Cada letra es un color de la paleta y el punto es transparente. Se pintan una
- * sola vez en un canvas aparte y despues solo se copian: dibujar pixel por
- * pixel a 60 fps con decenas de personajes se comeria el celular.
  */
 
-export type SkinId = "characato" | "rocoto" | "toro" | "misti" | "alpaca";
+export type SkinId = "dev" | "lead" | "mago" | "esqueleto" | "robot";
 
-export const SKIN_IDS: SkinId[] = ["characato", "rocoto", "toro", "misti", "alpaca"];
+export const SKIN_IDS: SkinId[] = ["dev", "lead", "mago", "esqueleto", "robot"];
 
 export const SKIN_NAMES: Record<SkinId, string> = {
-  characato: "Characato",
-  rocoto: "Rocoto",
-  toro: "Toro",
-  misti: "Misti",
-  alpaca: "Alpaca",
+  dev: "Dev",
+  lead: "Tech lead",
+  mago: "Mago",
+  esqueleto: "Esqueleto",
+  robot: "Bot",
 };
 
 type Sprite = {
@@ -30,190 +31,180 @@ type Sprite = {
   legs: [string[], string[]];
 };
 
-const CHARACATO: Sprite = {
+/** Colores que comparten todos: la polera negra con el logo y el jean. */
+const COMUN = {
+  s: "#1f1f24", // polera negra
+  S: "#15151a", // sombra de la polera
+  r: "#ea4335", // logo GDG
+  b: "#4285f4",
+  g: "#34a853",
+  y: "#fbbc04",
+  j: "#3f5f8c", // jean
+  J: "#31496e",
+  z: "#e4e4e4", // zapatillas
+};
+
+/** El torso con el logo, igual para todos. */
+const TORSO = [
+  "..ssssssssssss..",
+  ".ssssssssssssss.",
+  ".ssssrrssggssss.",
+  ".sssbbssssyysss.",
+  ".ssssssssssssss.",
+  "..SssssssssssS..",
+];
+
+const PIERNAS: [string[], string[]] = [
+  ["...jjjj..jjjj...", "...jjjj..jjjj...", "...zzzz..zzzz...", "................"],
+  ["..jjjj....jjjj..", "..jjjj....jjjj..", "..zzzz....zzzz..", "................"],
+];
+
+const DEV: Sprite = {
   palette: {
-    h: "#f0d08a", // paja del sombrero
-    H: "#c9a227", // ala
-    b: "#8a6d1b", // cinta
-    f: "#e8b98a", // piel
-    F: "#cf9c6c", // sombra de la piel
+    ...COMUN,
+    p: "#e8b98a", // piel
+    P: "#c99a6b",
+    h: "#241c18", // pelo
+    H: "#3b2e26",
     e: "#1d1d1d",
-    m: "#9c4a33", // boca
-    p: "#d7342a", // poncho
-    P: "#f7f1e6", // franja
-    q: "#a3281f", // sombra del poncho
-    L: "#2f4858", // pantalon
-    B: "#4a2f1b", // zapatos
   },
   body: [
     "................",
-    ".....hhhhhh.....",
     "....hhhhhhhh....",
-    "....hbbbbbbh....",
-    "..HHHHHHHHHHHH..",
-    "....ffffffff....",
-    "....feffffef....",
-    "....ffffffff....",
-    "....fFmmmmFf....",
-    ".....ffffff.....",
+    "...hhhhhhhhhh...",
+    "...hhppppppph...",
+    "...hpppppppph...",
     "...pppppppppp...",
-    "..pppppppppppp..",
-    "..pPPPPPPPPPPp..",
-    "..pppppppppppp..",
-    "..qppppppppppq..",
+    "...pepppppppe...",
     "...pppppppppp...",
+    "....pPPPPPPp....",
+    ".....pppppp.....",
+    ...TORSO,
   ],
-  legs: [
-    ["....LLL..LLL....", "....LLL..LLL....", "...BBBB..BBBB...", "................"],
-    ["...LLL....LLL...", "...LLL....LLL...", "..BBBB....BBBB..", "................"],
-  ],
+  legs: PIERNAS,
 };
 
-const ROCOTO: Sprite = {
+const LEAD: Sprite = {
   palette: {
-    r: "#d62828", // rojo
-    R: "#9d1c1c", // sombra
-    W: "#ff8a7a", // brillo
-    g: "#2e7d32", // tallo
+    ...COMUN,
+    p: "#e3b183",
+    P: "#c2905f",
+    h: "#2b1d17", // pelo largo
+    H: "#432f24",
     e: "#1d1d1d",
-    w: "#ffffff",
-    m: "#7a1414", // boca
-    L: "#6b3f1d",
   },
   body: [
     "................",
-    ".......gg.......",
-    "......gggg......",
-    ".....ggggg......",
-    "...rrrrrrrrrr...",
-    "..rrrrrrrrrrrr..",
-    ".rrrrrrrrrrrrrr.",
-    ".rWrrrrrrrrrrrr.",
-    ".rWrrwerrewrrrr.",
-    ".rrrrwerrewrrrr.",
-    ".rrrrrrrrrrrrrr.",
-    ".rrrrrmmmmrrrrr.",
-    ".rrrrrrrrrrrrRR.",
-    "..rrrrrrrrrrRR..",
-    "...rrrrrrrrrr...",
-    "....rrrrrrrr....",
+    "....hhhhhhhh....",
+    "..hhhhhhhhhhhh..",
+    "..hhhhhhhhhhhh..",
+    "..hhpppppppphh..",
+    "..hhpppppppphh..",
+    "..hhpeppppephh..",
+    "..hhpppppppphh..",
+    "..hhpPPPPPPphh..",
+    "...hpppppppph...",
+    ".hssssssssssssh.",
+    ".hssssssssssssh.",
+    ".ssssrrssggssss.",
+    ".sssbbssssyysss.",
+    ".ssssssssssssss.",
+    "..SssssssssssS..",
   ],
-  legs: [
-    ["....LL....LL....", "....LL....LL....", "...LLL....LLL...", "................"],
-    ["...LL......LL...", "...LL......LL...", "..LLL......LLL..", "................"],
-  ],
+  legs: PIERNAS,
 };
 
-const TORO: Sprite = {
+const MAGO: Sprite = {
   palette: {
-    n: "#4a3b32", // pelaje
-    N: "#2f251f", // sombra
-    c: "#efe6d2", // cuernos
+    ...COMUN,
+    m: "#5b3b8c", // tunica
+    M: "#452c6b",
+    p: "#e8b98a",
+    P: "#c99a6b",
+    w: "#eceff4", // barba
+    W: "#c7ccd6",
     e: "#1d1d1d",
-    w: "#ffffff",
-    p: "#d9a7a7", // hocico
-    P: "#8a5a5a", // fosas nasales
-    B: "#201914", // pezunas
+    a: "#fbbc04", // estrella del sombrero
   },
   body: [
-    "................",
-    "..c..........c..",
-    "..cc........cc..",
-    "...cc......cc...",
-    "...nnnnnnnnnn...",
-    "..nnnnnnnnnnnn..",
-    "..nnnnnnnnnnnn..",
-    "..nweennnneewn..",
-    "..nnnnnnnnnnnn..",
-    "...pppppppppp...",
-    "...pPpppppppPp..",
-    "...pppppppppp...",
-    "..nnnnnnnnnnnn..",
-    ".nnnnnnnnnnnnnn.",
-    ".nnNNNNNNNNNNnn.",
-    ".nnnnnnnnnnnnnn.",
-  ],
-  legs: [
-    ["..nnnn....nnnn..", "..nnnn....nnnn..", "..BBBB....BBBB..", "................"],
-    [".nnnn......nnnn.", ".nnnn......nnnn.", ".BBBB......BBBB.", "................"],
-  ],
-};
-
-const MISTI: Sprite = {
-  palette: {
-    m: "#8d6e63", // ladera
-    M: "#5d4037", // sombra
-    s: "#ffffff", // nieve
-    S: "#d8e4ea", // nieve en sombra
-    e: "#1d1d1d",
-    w: "#ffffff",
-    f: "#cfcfcf", // humo
-    L: "#5d4037",
-  },
-  body: [
-    "................",
-    ".......ff.......",
-    "......ff........",
-    ".......ss.......",
-    "......ssss......",
-    "......ssss......",
-    ".....ssssss.....",
-    "....ssssssss....",
-    "....sSmmmmSs....",
-    "...mmmmmmmmmm...",
-    "..mmweemmeewmm..",
+    "......mm........",
+    ".....mmmm.......",
+    "....mmmamm......",
+    "...mmmmmmmm.....",
+    "..MMMMMMMMMMM...",
+    "....pppppppp....",
+    "....peppppep....",
+    "....pppppppp....",
+    "...wwwwwwwwww...",
+    "....wWWWWWWw....",
     "..mmmmmmmmmmmm..",
     ".mmmmmmmmmmmmmm.",
-    ".mmmMMMMMMMMmmm.",
-    "mmmmmmmmmmmmmmmm",
-    "MMMMMMMMMMMMMMMM",
+    ".mmmmrrmmggmmmm.",
+    ".mmmbbmmmmyymmm.",
+    ".mmmmmmmmmmmmmm.",
+    "..MmmmmmmmmmmM..",
   ],
   legs: [
-    ["....LLL..LLL....", "....LLL..LLL....", "...LLLL..LLLL...", "................"],
-    ["...LLL....LLL...", "...LLL....LLL...", "..LLLL....LLLL..", "................"],
+    ["...mmmm..mmmm...", "...mmmm..mmmm...", "...zzzz..zzzz...", "................"],
+    ["..mmmm....mmmm..", "..mmmm....mmmm..", "..zzzz....zzzz..", "................"],
   ],
 };
 
-const ALPACA: Sprite = {
+const ESQUELETO: Sprite = {
   palette: {
-    a: "#f5ecd8", // lana
-    A: "#ddcfae", // sombra de la lana
-    e: "#1d1d1d",
-    m: "#c89a8a", // hocico
-    c: "#e4572e", // chullo
-    C: "#2a9d8f", // franja del chullo
-    L: "#8a7250", // pezunas
+    ...COMUN,
+    o: "#ece7d9", // hueso
+    O: "#c9c3b2",
+    e: "#15151a",
+    c: "#9fe8ff", // chispita en la cuenca
   },
   body: [
-    "....a......a....",
-    ".....cccccc.....",
-    "....cCCCCCCc....",
-    "....cccccccc....",
-    ".....aaaaaa.....",
-    ".....aeaaea.....",
-    ".....aammaa.....",
-    "......aaaa......",
-    "......aaaa......",
-    "......aaaa......",
-    "....aaaaaaaa....",
-    "..aaaaaaaaaaaa..",
-    ".aaaaaaaaaaaaaa.",
-    ".aaAAAAAAAAAAaa.",
-    ".aaaaaaaaaaaaaa.",
-    "..aaaaaaaaaaaa..",
+    "................",
+    "....oooooooo....",
+    "...oooooooooo...",
+    "...oooooooooo...",
+    "...oeeooooeeo...",
+    "...oceooooceo...",
+    "...oooooooooo...",
+    "....oooooooo....",
+    "....oOoOoOoo....",
+    ".....oooooo.....",
+    ...TORSO,
   ],
-  legs: [
-    ["...aa......aa...", "...aa......aa...", "...LL......LL...", "................"],
-    ["..aa........aa..", "..aa........aa..", "..LL........LL..", "................"],
+  legs: PIERNAS,
+};
+
+const ROBOT: Sprite = {
+  palette: {
+    ...COMUN,
+    m: "#9aa3ad", // carcasa
+    M: "#6f7985",
+    v: "#10182a", // pantalla
+    c: "#4dd0e1",
+    a: "#ea4335", // antena
+  },
+  body: [
+    "......aa........",
+    "......mm........",
+    "...mmmmmmmmmm...",
+    "..mmmmmmmmmmmm..",
+    "..mmvvvvvvvvmm..",
+    "..mmvccvvccvmm..",
+    "..mmvvvvvvvvmm..",
+    "..mmvvcccccvmm..",
+    "..MMMMMMMMMMMM..",
+    "....mmmmmmmm....",
+    ...TORSO,
   ],
+  legs: PIERNAS,
 };
 
 const SPRITES: Record<SkinId, Sprite> = {
-  characato: CHARACATO,
-  rocoto: ROCOTO,
-  toro: TORO,
-  misti: MISTI,
-  alpaca: ALPACA,
+  dev: DEV,
+  lead: LEAD,
+  mago: MAGO,
+  esqueleto: ESQUELETO,
+  robot: ROBOT,
 };
 
 export const SPRITE_W = 16;
@@ -242,7 +233,7 @@ function paint(skin: SkinId, frame: number, flip: boolean): HTMLCanvasElement {
   const hit = cache[key];
   if (hit) return hit;
 
-  const sprite = SPRITES[skin] ?? SPRITES.characato;
+  const sprite = SPRITES[skin] ?? SPRITES.dev;
   const rows = rowsOf(sprite, frame);
   const canvas = document.createElement("canvas");
   canvas.width = SPRITE_W * PIXEL;
@@ -282,4 +273,4 @@ export function drawSkin(
 }
 
 export const skinOf = (value: string | null | undefined): SkinId =>
-  SKIN_IDS.includes(value as SkinId) ? (value as SkinId) : "characato";
+  SKIN_IDS.includes(value as SkinId) ? (value as SkinId) : "dev";
