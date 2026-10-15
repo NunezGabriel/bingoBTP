@@ -158,6 +158,9 @@ function LiveBridge() {
       sfx.ok();
       setRoundOver(r.results);
     }
+    // Terminada la ronda todos vuelven a la plaza, que es donde se espera a la
+    // siguiente; asi los que llegaron tarde ya estan ahi cuando el admin la empieza.
+    if (pathname === "/cartilla") router.push("/lobby");
   });
 
   useRealtime("event:update", () => window.setTimeout(() => void refresh(), Math.random() * 2500));

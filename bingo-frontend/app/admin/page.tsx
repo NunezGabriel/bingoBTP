@@ -9,6 +9,7 @@ import { useSession } from "@/lib/session";
 import type { AdminEventRow, Overview, Round, RoundResults } from "@/lib/types";
 import { BingoWordmark, GdgLogo } from "@/components/Brand";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
+import { MissionsReport } from "@/components/admin/MissionsReport";
 import { PlayersPanel } from "@/components/admin/PlayersPanel";
 import { Scanner } from "@/components/admin/Scanner";
 import { Icon, type IconName } from "@/components/ui/Icon";
@@ -85,6 +86,16 @@ function EventTab({ overview, reload }: { overview: Overview; reload: () => void
               <p className="text-[12px] font-bold uppercase text-muted">Conectados</p>
             </div>
           </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="card-soft p-3 text-center text-ink">
+              <p className="text-2xl font-black">{overview.lobby}</p>
+              <p className="text-[12px] font-bold uppercase text-muted">En el lobby</p>
+            </div>
+            <div className="card-soft p-3 text-center text-ink">
+              <p className="text-2xl font-black">{overview.missions?.completas ?? 0}</p>
+              <p className="text-[12px] font-bold uppercase text-muted">Tarjetas listas</p>
+            </div>
+          </div>
           <p className="mt-3 text-[14px] opacity-95">
             Quien se registre o entre con su cuenta ahora queda en este evento.
           </p>
@@ -105,6 +116,8 @@ function EventTab({ overview, reload }: { overview: Overview; reload: () => void
           </p>
         </section>
       )}
+
+      {live && <MissionsReport />}
 
       <section className="card p-5">
         <h2 className="font-extrabold">Crear evento</h2>
