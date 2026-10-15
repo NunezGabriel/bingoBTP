@@ -197,17 +197,17 @@ export function PlayersPanel({ onChanged }: { onChanged: () => void }) {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                void act(() => admin.resetPin(selected.id, pin), `PIN nuevo: ${pin}. Diselo al jugador.`);
+                void act(() => admin.resetClave(selected.id, pin), `Clave nueva: ${pin}. Disela al jugador.`);
                 setPin("");
               }}
             >
-              <label className="block text-[13px] font-extrabold uppercase text-muted">Si olvido su PIN</label>
+              <label className="block text-[13px] font-extrabold uppercase text-muted">Si olvido su clave</label>
               <div className="mt-1 flex gap-2">
                 <input
                   className="input"
                   inputMode="numeric"
-                  placeholder="PIN nuevo"
-                  aria-label="PIN nuevo"
+                  placeholder="Clave nueva"
+                  aria-label="Clave nueva"
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
                 />

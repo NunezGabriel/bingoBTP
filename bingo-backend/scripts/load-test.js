@@ -15,7 +15,8 @@ require("dotenv").config({ quiet: true });
 const http = require("node:http");
 
 const API = new URL(process.env.API_URL || "http://localhost:3001");
-const ADMIN_CODE = process.env.ADMIN_CODE;
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_CLAVE = process.env.ADMIN_CLAVE || process.env.ADMIN_CODE;
 const PLAYERS = Number(process.argv[2] || 300);
 const DURATION_S = Number(process.argv[3] || 90);
 const RUN = Date.now().toString(36).slice(-4);
@@ -122,12 +123,12 @@ async function inBatches(items, size, fn) {
 
 async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("No corras la prueba de carga en produccion");
-  if (!ADMIN_CODE) throw new Error("Define ADMIN_CODE en el .env");
+  if (!ADMIN_CLAVE) throw new Error("Define ADMIN_CLAVE en el .env");
   console.log(`\nPrueba de carga: ${PLAYERS} jugadores, ${DURATION_S}s contra ${API.origin}\n`);
 
-  const adminLogin = await request("POST", "/admin/login", { code: ADMIN_CODE });
+  const adminLogin = await request("POST", "/auth/entrar", { usuario: ADMIN_USER, clave: ADMIN_CLAVE });
   const adminCookie = adminLogin.headers["set-cookie"]?.[0]?.split(";")[0];
-  if (!adminCookie) throw new Error("No se pudo entrar al panel admin (ADMIN_CODE)");
+  if (!adminCookie) throw new Error("No se pudo entrar con la cuenta de admin (ADMIN_USER / ADMIN_CLAVE)");
 
   const { data: evs } = await request("GET", "/admin/events", null, adminCookie);
   const live = evs.events.find((e) => e.status === "LIVE");
@@ -146,7 +147,7 @@ async function main() {
   const t0 = performance.now();
   const players = (
     await inBatches([...Array(PLAYERS).keys()], 50, async (i) => {
-      const r = await request("POST", "/auth/register", { name: `lt${RUN}_${i}`, pin: "1234" }, null, "registro");
+      const r = await request("POST", "/auth/entrar", { usuario: `lt${RUN}_${i}`, clave: "1234" }, null, "registro");
       const cookie = r.headers["set-cookie"]?.[0]?.split(";")[0];
       return cookie ? { cookie, id: r.data.player.id, code: r.data.player.code } : null;
     })

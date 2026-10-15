@@ -10,29 +10,42 @@ import { BingoWordmark } from "@/components/Brand";
 import { Icon } from "@/components/ui/Icon";
 import { Loading } from "@/components/ui/Blocks";
 
-function Login() {
+/**
+ * Una sola puerta para todos.
+ *
+ * Si el usuario no existe, la cuenta se crea con esa clave; si existe, se
+ * valida. Sin correo, sin pantalla de registro aparte y sin elegir entre
+ * "entrar" o "crear cuenta": en la puerta de un evento cada toque de mas es
+ * una persona menos que llega a jugar.
+ */
+function Entrar() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = safeNext(params.get("next"));
-  const { status, refresh } = useSession();
-  const [name, setName] = useState("");
-  const [pin, setPin] = useState("");
+  const next = safeNext(params.get("next"), "/lobby");
+  const { status, me, refresh } = useSession();
+  const [usuario, setUsuario] = useState("");
+  const [clave, setClave] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (status === "ready") router.replace(next);
-  }, [status, router, next]);
+    if (status !== "ready" || !me) return;
+    if (me.player.role === "ADMIN") router.replace("/admin");
+    else if (!me.player.skin) router.replace("/personaje");
+    else router.replace(next);
+  }, [status, me, router, next]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
-      await auth.login(name.trim(), pin);
+      const { player } = await auth.entrar(usuario.trim(), clave);
       sfx.ok();
       await refresh();
-      router.replace(next);
+      if (player.role === "ADMIN") router.replace("/admin");
+      else router.replace(player.skin ? next : "/personaje");
     } catch (err) {
       sfx.error();
       setError(errorMessage(err));
@@ -52,34 +65,38 @@ function Login() {
 
       <form onSubmit={submit} className="card mt-7 p-5">
         <h1 className="text-2xl font-extrabold">Entrar</h1>
-        <p className="mt-1 text-[15px] text-muted">Con el nombre y el PIN que usaste al crear tu cartilla.</p>
+        <p className="mt-1 text-[15px] text-muted">
+          Elige un usuario y una clave de 4 numeros. Si es tu primera vez, tu cuenta se crea sola.
+        </p>
 
-        <label htmlFor="name" className="mt-5 block text-[13px] font-extrabold uppercase text-muted">
-          Tu nombre
+        <label htmlFor="usuario" className="mt-5 block text-[13px] font-extrabold uppercase text-muted">
+          Usuario
         </label>
         <input
-          id="name"
+          id="usuario"
           className="input mt-1"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={usuario}
+          onChange={(e) => setUsuario(e.target.value)}
           maxLength={20}
-          autoCapitalize="words"
-          autoComplete="nickname"
+          placeholder="Como quieres que te vean"
+          autoCapitalize="none"
+          autoComplete="username"
           required
           autoFocus
         />
 
-        <label htmlFor="pin" className="mt-4 block text-[13px] font-extrabold uppercase text-muted">
-          PIN
+        <label htmlFor="clave" className="mt-4 block text-[13px] font-extrabold uppercase text-muted">
+          Clave
         </label>
         <input
-          id="pin"
-          className="input mt-1"
+          id="clave"
+          className="input input-code mt-1"
           type="password"
           inputMode="numeric"
           autoComplete="current-password"
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
+          placeholder="----"
+          value={clave}
+          onChange={(e) => setClave(e.target.value.replace(/\D/g, "").slice(0, 8))}
           required
         />
 
@@ -89,19 +106,17 @@ function Login() {
           </p>
         )}
 
-        <button type="submit" className="btn btn-blue btn-lg mt-5 w-full" disabled={busy || !name || pin.length < 4}>
+        <button
+          type="submit"
+          className="btn btn-blue btn-lg mt-5 w-full"
+          disabled={busy || usuario.trim().length < 2 || clave.length < 4}
+        >
           {busy ? "Entrando..." : "Entrar"}
         </button>
       </form>
 
       <p className="mt-5 text-center text-[15px] text-muted">
-        Olvidaste tu PIN? Pidele al staff que te lo reinicie: no pierdes tus puntos.
-      </p>
-      <p className="mt-2 text-center text-[15px] text-muted">
-        Primera vez?{" "}
-        <Link href="/crear" className="font-bold text-gblue underline">
-          Crea tu cartilla
-        </Link>
+        Olvidaste tu clave? Pidele al staff que te la reinicie: no pierdes tus puntos ni tus misiones.
       </p>
     </main>
   );
@@ -110,7 +125,7 @@ function Login() {
 export default function Page() {
   return (
     <Suspense fallback={<Loading />}>
-      <Login />
+      <Entrar />
     </Suspense>
   );
 }

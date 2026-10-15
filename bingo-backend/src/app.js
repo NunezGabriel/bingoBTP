@@ -4,6 +4,7 @@ const cors = require("cors");
 const { prisma } = require("./lib/prisma");
 const { HttpError } = require("./lib/http");
 const { attachPlayer, requireCsrfHeader } = require("./middleware/auth");
+const lobby = require("./realtime/lobby");
 const rounds = require("./services/rounds");
 
 const app = express();
@@ -84,8 +85,8 @@ async function waitForDatabase({ attempts = 30, delayMs = 2000 } = {}) {
 
 async function start() {
   await waitForDatabase();
-  if (!config.adminCode) {
-    console.warn("ADMIN_CODE no esta configurado: nadie podra entrar al panel /admin.");
+  if (!config.adminClave) {
+    console.warn("ADMIN_CLAVE no esta configurada: el seeder no creara la cuenta de admin.");
   }
   const recovered = await rounds.recoverRounds();
   if (recovered) console.log(`Rondas: ${recovered} cuenta(s) regresiva(s) reprogramada(s).`);
@@ -93,6 +94,8 @@ async function start() {
   const server = app.listen(config.port, () => {
     console.log(`Bingo GDG API en puerto ${config.port}`);
   });
+  // El lobby viaja por WebSocket sobre el mismo servidor y el mismo puerto.
+  lobby.attach(server);
   // Detras de proxies (Render, nginx) conviene que el keep-alive del servidor
   // dure mas que el del proxy, o aparecen 502 intermitentes.
   server.keepAliveTimeout = 65_000;

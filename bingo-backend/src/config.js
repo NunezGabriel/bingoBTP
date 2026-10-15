@@ -21,9 +21,12 @@ if (isProduction && sessionSecret.length < 16) {
 const cookieSecure =
   process.env.COOKIE_SECURE !== undefined ? process.env.COOKIE_SECURE === "true" : isProduction;
 
-const adminCode = (process.env.ADMIN_CODE || "").trim();
-if (isProduction && adminCode.length < 4) {
-  throw new Error("ADMIN_CODE es obligatorio (4 caracteres o mas) en produccion.");
+// La cuenta de admin no se registra desde la app: la crea el seeder con estos
+// valores. ADMIN_CODE se sigue aceptando para no romper despliegues viejos.
+const adminUser = (process.env.ADMIN_USER || "admin").trim();
+const adminClave = (process.env.ADMIN_CLAVE || process.env.ADMIN_CODE || "").trim();
+if (isProduction && adminClave.length < 8) {
+  throw new Error("ADMIN_CLAVE es obligatoria (8 caracteres o mas) en produccion.");
 }
 
 module.exports = {
@@ -32,17 +35,30 @@ module.exports = {
   databaseUrl: process.env.DATABASE_URL,
   dbPoolMax: int("DB_POOL_MAX", 10),
 
-  /** Codigo con el que se entra al panel admin (/admin). */
-  adminCode,
+  /** Cuenta de admin que crea el seeder. No se puede registrar desde la app. */
+  adminUser,
+  adminClave,
 
   sessionSecret: sessionSecret || "dev-only-secret-no-usar-en-produccion",
   cookie: {
     name: "bg.sid",
-    adminName: "bg.adm",
     secure: cookieSecure,
     sameSite: process.env.COOKIE_SAMESITE || (cookieSecure ? "none" : "lax"),
-    maxAgeMs: 1000 * 60 * 60 * 24 * 60, // 60 dias: la cartilla sobrevive a recargas
-    adminMaxAgeMs: 1000 * 60 * 60 * 12, // 12 horas: dura el evento
+    // Dia y medio de evento mas margen: la sesion sobrevive a recargas y a
+    // cerrar el navegador, pero no se queda viva para siempre.
+    maxAgeMs: 1000 * 60 * 60 * 24 * 10,
+  },
+
+  lobby: {
+    /** El ticket del WebSocket se pide con la cookie y dura lo justo para conectar. */
+    ticketMaxAgeMs: 60_000,
+    /** Fotos del lobby por segundo que se mandan a cada celular. */
+    snapshotHz: int("LOBBY_HZ", 6),
+    /** Un saludo cada 30 s por persona. */
+    emoteCooldownMs: 30_000,
+    /** Tamano del escenario en pixeles del mundo. */
+    width: 960,
+    height: 540,
   },
 
   frontendOrigins: [

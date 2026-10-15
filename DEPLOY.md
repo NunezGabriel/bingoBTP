@@ -47,15 +47,34 @@ migraciones tiene aplicadas antes de desplegar.
 | `SESSION_SECRET` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `FRONTEND_URL` | `https://tu-app.vercel.app` |
 | `TRUST_PROXY` | `2` (el tráfico entra por Vercel y luego por Render) |
-| `ADMIN_CODE` | El codigo con el que entras a `/admin` (elige uno largo) |
+| `ADMIN_USER` | Usuario de la cuenta de admin (por defecto `admin`) |
+| `ADMIN_CLAVE` | Su clave: 8 caracteres o mas. La cuenta la crea el seeder |
 
-Las preguntas del bingo no van en la base: se editan en
-`bingo-backend/src/content/bingo.js` y viajan con el despliegue.
+Las preguntas del bingo, las misiones y los personajes no van en la base: se
+editan en `bingo-backend/src/content/` y viajan con el despliegue.
+
+Despues del primer despliegue, crea la cuenta de admin una sola vez desde la
+shell de Render:
+
+```bash
+npm run seed
+```
 
 ### 3. Web en Vercel
 
 - Root directory: `bingo-frontend`
-- Variables: `NEXT_PUBLIC_API_URL=/api` y `BACKEND_URL=https://tu-api.onrender.com`
+- Variables:
+
+| Variable | Valor |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | `/api` |
+| `BACKEND_URL` | `https://tu-api.onrender.com` |
+| `NEXT_PUBLIC_WS_URL` | `wss://tu-api.onrender.com/ws/lobby` |
+
+> **El lobby va directo al backend, no por el proxy de Vercel.** El rewrite de
+> `/api` no reenvia conexiones WebSocket: si `NEXT_PUBLIC_WS_URL` falta o apunta
+> a Vercel, la plaza se ve vacia (cada quien se ve solo a si mismo). El resto de
+> la app sigue funcionando, por eso es facil que pase desapercibido.
 
 ### Plan gratis de Render: cuidado
 
@@ -113,7 +132,15 @@ Sirviendo por HTTP plano se descarta en silencio y **nadie puede iniciar sesión
 - Por **HTTP** (red local): `COOKIE_SECURE=false`
 - Por **HTTPS**: `COOKIE_SECURE=true`
 
-### Sin cámara: funciona igual por HTTP
+### La cámara del escáner SÍ necesita HTTPS
+
+El bingo funciona completo por HTTP porque las firmas se escriben a mano. El
+**escáner de misiones no**: el navegador no da acceso a la cámara en una página
+servida por HTTP plano. Por HTTP el organizador tendrá que escribir el código de
+6 letras de cada participante, que valida exactamente igual pero es más lento.
+Si vas a usar el escáner con la cámara, sirve la app por HTTPS.
+
+### Sin cámara: el bingo funciona igual por HTTP
 
 La app no usa la cámara: las firmas se hacen escribiendo el código de 6 letras de
 cada jugador. Por eso funciona completa también por HTTP en la red local. El QR
@@ -122,7 +149,8 @@ dirección se muestra escrita al lado.
 
 ### Tiempo real y nginx
 
-Toda la app (puntos, cuenta regresiva de la ronda, pantalla gigante) llega por Server-Sent Events.
+El juego (puntos, cuenta regresiva, pantalla gigante) llega por Server-Sent Events,
+y el lobby por WebSocket en `/ws/`.
 `nginx/default.conf` trae `proxy_buffering off` y `proxy_read_timeout 24h` en
 `/api/`. **Si alguien los quita, nada se actualiza en vivo.**
 
@@ -146,7 +174,8 @@ Con la app corriendo (nunca contra producción real):
 
 ```bash
 cd bingo-backend
-npm test                     # 80 verificaciones de punta a punta (crea y borra sus datos)
+npm test                     # 88 verificaciones de punta a punta (crea y borra sus datos)
+npm run flowtest             # 39 verificaciones del flujo nuevo: roles, lobby y misiones
 npm run demo -- 24           # llena el evento abierto con 24 jugadores y una ronda en curso
 npm run loadtest -- 300 90   # 300 celulares simultáneos durante 90 s (crea y borra sus datos)
 ```

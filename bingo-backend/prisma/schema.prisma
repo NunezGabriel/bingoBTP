@@ -1,16 +1,18 @@
-// Bingo GDG - el bingo humano de los eventos de GDG Arequipa.
+// Bingo GDG - la app de los eventos de GDG Arequipa.
 //
 // Modelo mental:
-//   Player      = la persona que juega. Entra con su nombre y un PIN.
-//   Event       = un evento (DevFest, I/O Extended...). Solo uno abierto a la vez.
-//   EventPlayer = inscripcion de un jugador a un evento y sus puntos ahi.
-//   Round       = una ronda de bingo: al crearla todos reciben cartilla nueva.
-//   Card / Cell = la cartilla de 9 casillas y cada casilla con quien la firmo.
-//   PointLedger = libro de puntos. Su clave unica (evento, jugador, refKey)
-//                 evita cobrar dos veces lo mismo.
+//   Player       = la persona. Entra con usuario y clave; su rol decide que ve.
+//   Event        = un evento (DevFest, I/O Extended...). Solo uno abierto a la vez.
+//   EventPlayer  = inscripcion de un jugador a un evento y sus puntos ahi.
+//   Round        = una ronda de bingo: al crearla todos reciben cartilla nueva.
+//   Card / Cell  = la cartilla de 9 casillas y cada casilla con quien la firmo.
+//   MissionClaim = una mision de la tarjeta, validada por un admin con el QR.
+//   PointLedger  = libro de puntos. Su clave unica (evento, jugador, refKey)
+//                  evita cobrar dos veces lo mismo.
 //
-// Las preguntas de las casillas no estan en la base: se editan en el codigo,
-// en src/content/bingo.js.
+// Lo que NO esta en la base: las preguntas del bingo, las misiones y los
+// personajes se editan en el codigo, en src/content/. La posicion de cada
+// quien en el lobby vive solo en memoria: no tiene sentido guardarla.
 
 generator client {
   provider        = "prisma-client-js"
@@ -19,6 +21,11 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  PLAYER
+  ADMIN
 }
 
 enum EventStatus {
@@ -35,20 +42,27 @@ enum RoundStatus {
 
 model Player {
   id             Int      @id @default(autoincrement())
+  /// Usuario tal como lo escribio; es tambien el nombre sobre su personaje.
   name           String
-  /// nombre en minusculas: unico sin importar mayusculas ni tildes.
+  /// El mismo en minusculas: unico sin importar mayusculas ni tildes.
   nameKey        String   @unique
-  pinHash        String
-  /// Se incrementa al cambiar el PIN: invalida las sesiones abiertas.
+  claveHash      String
+  /// PLAYER no ve nada de admin; ADMIN no juega: no tiene cartilla ni lobby.
+  role           Role     @default(PLAYER)
+  /// Personaje elegido (id de src/content/skins.js). Null hasta que elige.
+  skin           String?
+  /// Se incrementa al cambiar la clave: invalida las sesiones abiertas.
   sessionVersion Int      @default(1)
-  /// Codigo de 6 caracteres que se dicta para firmar cartillas.
+  /// Codigo de 6 caracteres: se dicta para firmar y es lo que lleva su QR.
   code           String   @unique
   createdAt      DateTime @default(now())
 
-  events EventPlayer[]
-  ledger PointLedger[]
-  cards  Card[]
-  signed Cell[]
+  events    EventPlayer[]
+  ledger    PointLedger[]
+  cards     Card[]
+  signed    Cell[]
+  missions  MissionClaim[] @relation("MissionOwner")
+  validated MissionClaim[] @relation("MissionValidator")
 }
 
 model Event {
@@ -59,9 +73,10 @@ model Event {
   startedAt DateTime?
   closedAt  DateTime?
 
-  players EventPlayer[]
-  ledger  PointLedger[]
-  rounds  Round[]
+  players  EventPlayer[]
+  ledger   PointLedger[]
+  rounds   Round[]
+  missions MissionClaim[]
 }
 
 model EventPlayer {
@@ -86,7 +101,8 @@ model PointLedger {
   eventId   Int
   playerId  Int
   amount    Int
-  /// Identificador de la recompensa, ej. "r12:cell:4", "r12:bingo", "ajuste:<uuid>".
+  /// Identificador de la recompensa, ej. "r12:cell:4", "r12:bingo",
+  /// "mision:redes", "ajuste:<uuid>".
   refKey    String
   label     String
   createdAt DateTime @default(now())
@@ -150,4 +166,23 @@ model Cell {
   @@unique([cardId, position])
   /// Una misma persona no puede firmar dos casillas de la misma cartilla.
   @@unique([cardId, signedById])
+}
+
+model MissionClaim {
+  id            Int      @id @default(autoincrement())
+  eventId       Int
+  playerId      Int
+  /// id de la mision en src/content/missions.js
+  missionId     String
+  /// El admin que escaneo su QR. Queda para poder auditar los premios.
+  validatedById Int
+  createdAt     DateTime @default(now())
+
+  event       Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  player      Player @relation("MissionOwner", fields: [playerId], references: [id], onDelete: Cascade)
+  validatedBy Player @relation("MissionValidator", fields: [validatedById], references: [id])
+
+  /// Una mision se valida una sola vez por persona y evento.
+  @@unique([eventId, playerId, missionId])
+  @@index([eventId, createdAt])
 }

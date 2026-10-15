@@ -44,6 +44,8 @@ router.get("/", async (req, res) => {
       id: p.id,
       name: p.name,
       code: p.code,
+      role: p.role,
+      skin: p.skin,
       createdAt: p.createdAt,
       inEvent: Boolean(p.events?.length),
       points: p.events?.[0]?.points ?? null,
@@ -78,23 +80,27 @@ router.post("/:id/points", async (req, res) => {
   res.json({ ok: true, points: results[0]?.points ?? null });
 });
 
-/** Si alguien olvido su PIN: el admin le pone uno nuevo y se lo dice. */
-router.post("/:id/pin", async (req, res) => {
+/** Si alguien olvido su clave: el admin le pone una nueva y se la dice. */
+router.post("/:id/clave", async (req, res) => {
   const player = await playerOrFail(req);
-  const pin = String(req.body?.pin ?? "");
-  if (!isValidPin(pin)) throw badRequest("El PIN debe tener de 4 a 8 digitos");
+  const clave = String(req.body?.clave ?? req.body?.pin ?? "");
+  if (!isValidPin(clave)) throw badRequest("La clave debe tener de 4 a 8 digitos");
 
   await prisma.player.update({
     where: { id: player.id },
-    data: { pinHash: await hashPin(pin), sessionVersion: { increment: 1 } },
+    data: { claveHash: await hashPin(clave), sessionVersion: { increment: 1 } },
   });
   invalidatePlayer(player.id);
   res.json({ ok: true });
 });
 
-/** Borra a todos los jugadores (cuentas, cartillas y puntos). Para empezar de cero. */
+/**
+ * Borra a todos los jugadores (cuentas, cartillas y puntos). Para empezar de
+ * cero. Las cuentas de admin no se tocan: si se borraran, nadie podria volver
+ * a entrar al panel.
+ */
 router.delete("/", async (req, res) => {
-  const deleted = await prisma.player.deleteMany({});
+  const deleted = await prisma.player.deleteMany({ where: { role: "PLAYER" } });
   invalidatePlayer([]);
   forgetJoined();
   const event = await getLiveEvent();
@@ -105,6 +111,7 @@ router.delete("/", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   const player = await playerOrFail(req);
+  if (player.role === "ADMIN") throw conflict("Las cuentas de admin no se borran desde aqui");
   // Las relaciones tienen ON DELETE CASCADE: cartillas, firmas y puntos.
   await prisma.player.delete({ where: { id: player.id } });
   invalidatePlayer(player.id);

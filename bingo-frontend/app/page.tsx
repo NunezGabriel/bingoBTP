@@ -54,21 +54,22 @@ export default function Landing() {
 
       <div className="card mt-6 w-full p-5">
         <p className="text-[17px] font-semibold leading-snug">
-          Tu cartilla tiene <b>9 casillas</b>{" "}con cosas como &quot;alguien que use Flutter&quot;.
-          Busca a quien cumpla cada una y pidele su <b>codigo</b> para firmarla.
+          Eliges tu personaje y entras a la <b>Plaza de Armas</b>. Ahi esperas, saludas y, cuando
+          empieza el bingo, todos reciben su cartilla a la vez.
         </p>
         <p className="mt-3 text-[15px] text-muted">
-          Cada persona solo puede firmarte una casilla: para completar tienes que conocer a 9.
+          Tu cartilla tiene 9 casillas y cada persona solo puede firmarte una: para completarla
+          tienes que conocer a 9. Ademas llevas una tarjeta de 4 misiones con premio al final.
         </p>
       </div>
 
       <div className="mt-6 flex w-full flex-col gap-3">
-        <Link href="/crear" className="btn btn-blue btn-lg">
-          Crear mi cartilla
+        <Link href="/entrar" className="btn btn-blue btn-lg">
+          Entrar al evento
         </Link>
-        <Link href="/entrar" className="btn">
-          Ya tengo cuenta
-        </Link>
+        <p className="text-center text-[14px] text-muted">
+          Con un usuario y una clave de 4 numeros. Si es tu primera vez, se crea sola.
+        </p>
       </div>
 
       <div className="mt-auto flex w-full items-center justify-center gap-3 pt-10" aria-hidden>

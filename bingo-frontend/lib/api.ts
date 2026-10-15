@@ -6,10 +6,15 @@ import type {
   HistoryEvent,
   LeaderboardRow,
   MeResponse,
+  Mission,
+  MissionCard,
+  MissionReport,
   Overview,
+  Player,
   Round,
   RoundResults,
   SelfPlayer,
+  Skin,
   Standing,
 } from "./types";
 
@@ -73,17 +78,20 @@ export function cleanCode(raw: string) {
 /* ---------- Jugador ---------- */
 
 export const auth = {
-  checkName: (name: string) =>
-    get<{ available: boolean; reason: string | null }>(`/auth/name/${encodeURIComponent(name)}`),
-  register: (name: string, pin: string) => post<{ player: SelfPlayer }>("/auth/register", { name, pin }),
-  login: (name: string, pin: string) => post<{ player: SelfPlayer }>("/auth/login", { name, pin }),
-  logout: () => post<{ ok: true }>("/auth/logout"),
+  /** Una sola puerta: si el usuario no existe, se crea con esa clave. */
+  entrar: (usuario: string, clave: string) =>
+    post<{ player: SelfPlayer; nuevo: boolean }>("/auth/entrar", { usuario, clave }),
+  logout: () => post<{ ok: true }>("/auth/salir"),
 };
 
 export const me = {
   get: () => get<MeResponse>("/me"),
   history: () => get<{ events: HistoryEvent[] }>("/me/history"),
-  pin: (currentPin: string, newPin: string) => post<{ ok: true }>("/me/pin", { currentPin, newPin }),
+  clave: (actual: string, nueva: string) => post<{ ok: true }>("/me/clave", { actual, nueva }),
+  skins: () => get<{ skins: Skin[]; skin: string | null }>("/me/skins"),
+  setSkin: (skin: string) => post<{ player: SelfPlayer }>("/me/skin", { skin }),
+  lobbyTicket: () => post<{ ticket: string }>("/me/lobby-ticket"),
+  misiones: () => get<MissionCard>("/me/misiones"),
 };
 
 export const game = {
@@ -107,12 +115,9 @@ export const publicApi = {
   screen: () => get<ScreenData>("/public/screen"),
 };
 
-/* ---------- Admin (entra solo con el codigo) ---------- */
+/* ---------- Admin (su cuenta tiene rol ADMIN) ---------- */
 
 export const admin = {
-  login: (code: string) => post<{ ok: true }>("/admin/login", { code }),
-  logout: () => post<{ ok: true }>("/admin/logout"),
-  session: () => get<{ admin: boolean }>("/admin/session"),
   overview: () => get<Overview>("/admin/overview"),
 
   events: () => get<{ events: AdminEventRow[] }>("/admin/events"),
@@ -134,7 +139,15 @@ export const admin = {
   },
   adjustPoints: (id: number, amount: number, reason: string) =>
     post<{ ok: true; points: number | null }>(`/admin/players/${id}/points`, { amount, reason }),
-  resetPin: (id: number, pin: string) => post<{ ok: true }>(`/admin/players/${id}/pin`, { pin }),
+  resetClave: (id: number, clave: string) => post<{ ok: true }>(`/admin/players/${id}/clave`, { clave }),
   deletePlayer: (id: number) => del<{ ok: true; name: string }>(`/admin/players/${id}`),
   deleteAllPlayers: () => del<{ ok: true; deleted: number }>("/admin/players"),
+
+  missions: () => get<{ missions: Omit<Mission, "done" | "doneAt">[] }>("/admin/missions"),
+  validateMission: (code: string, missionId: string) =>
+    post<{ player: Player; mission: string; card: MissionCard }>("/admin/missions/validate", {
+      code,
+      missionId,
+    }),
+  missionReport: () => get<MissionReport>("/admin/missions/report"),
 };

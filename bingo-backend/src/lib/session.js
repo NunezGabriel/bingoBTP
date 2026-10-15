@@ -4,12 +4,16 @@ const config = require("../config");
 /**
  * Sesiones en cookie firmada (HMAC-SHA256), sin tabla en la base de datos.
  *
- * - Jugador: { p: playerId, v: sessionVersion, t: emitida }. Cambiar el PIN
- *   sube sessionVersion y deja invalidas las cookies anteriores.
- * - Admin:   { a: 1, t: emitida }. Se emite al escribir el codigo del panel.
+ * Hay una sola sesion: { p: playerId, v: sessionVersion, t: emitida }. El rol
+ * (jugador o admin) no viaja en la cookie, se lee de la base en cada peticion:
+ * asi quitarle el admin a alguien tiene efecto inmediato. Cambiar la clave sube
+ * sessionVersion y deja invalidas las cookies anteriores.
+ *
+ * El ticket es aparte: un permiso de un minuto para abrir el WebSocket del
+ * lobby, porque el navegador no manda cookies de otro dominio en un WebSocket.
  */
 
-const REFRESH_AFTER_MS = 1000 * 60 * 60 * 24 * 7;
+const REFRESH_AFTER_MS = 1000 * 60 * 60 * 24 * 2;
 
 function sign(payload) {
   return crypto.createHmac("sha256", config.sessionSecret).update(payload).digest("base64url");
@@ -62,8 +66,6 @@ function cookieOptions(maxAge) {
   };
 }
 
-/* ---------- Jugador ---------- */
-
 function issueSession(res, player) {
   res.cookie(
     config.cookie.name,
@@ -86,24 +88,15 @@ function shouldRefresh(session) {
   return Date.now() - session.t > REFRESH_AFTER_MS;
 }
 
-/* ---------- Admin ---------- */
+/* ---------- Ticket del lobby ---------- */
 
-function issueAdmin(res) {
-  res.cookie(
-    config.cookie.adminName,
-    encode({ a: 1, t: Date.now() }),
-    cookieOptions(config.cookie.adminMaxAgeMs),
-  );
+function issueTicket(player) {
+  return encode({ p: player.id, v: player.sessionVersion, t: Date.now() });
 }
 
-function readAdmin(req) {
-  const data = decode(readCookie(req, config.cookie.adminName), config.cookie.adminMaxAgeMs);
-  return data?.a === 1;
-}
-
-function clearAdmin(res) {
-  const { maxAge, ...opts } = cookieOptions(0);
-  res.clearCookie(config.cookie.adminName, opts);
+function readTicket(value) {
+  const data = decode(value, config.lobby.ticketMaxAgeMs);
+  return data && Number.isInteger(data.p) && Number.isInteger(data.v) ? data : null;
 }
 
 module.exports = {
@@ -111,7 +104,6 @@ module.exports = {
   readSession,
   clearSession,
   shouldRefresh,
-  issueAdmin,
-  readAdmin,
-  clearAdmin,
+  issueTicket,
+  readTicket,
 };

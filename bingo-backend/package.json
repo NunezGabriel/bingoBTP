@@ -11,6 +11,7 @@
     "seed": "node prisma/seed.js",
     "seed:reset": "node prisma/seed.js --reset",
     "test": "node scripts/smoke-test.js",
+    "flowtest": "node scripts/flow-test.js",
     "loadtest": "node scripts/load-test.js",
     "demo": "node scripts/demo-players.js",
     "db": "node scripts/db.js",
@@ -26,7 +27,8 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",

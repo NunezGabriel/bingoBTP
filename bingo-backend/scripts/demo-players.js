@@ -9,7 +9,8 @@
 require("dotenv").config({ quiet: true });
 
 const API = (process.env.API_URL || "http://localhost:3001").replace(/\/$/, "");
-const ADMIN_CODE = process.env.ADMIN_CODE;
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_CLAVE = process.env.ADMIN_CLAVE || process.env.ADMIN_CODE;
 const COUNT = Number(process.argv[2] || 24);
 const NAMES = [
   "Pixelita", "ByteMan", "LaVicuna", "DevCondor", "Kotlina", "NullPointer", "SrDeploy", "GlitchQueen",
@@ -38,10 +39,10 @@ class Device {
 }
 
 async function main() {
-  if (!ADMIN_CODE) throw new Error("Define ADMIN_CODE en el .env");
+  if (!ADMIN_CLAVE) throw new Error("Define ADMIN_CLAVE en el .env");
   const admin = new Device();
-  const login = await admin.req("POST", "/admin/login", { code: ADMIN_CODE });
-  if (login.status !== 200) throw new Error("No se pudo entrar al panel admin (ADMIN_CODE)");
+  const login = await admin.req("POST", "/auth/entrar", { usuario: ADMIN_USER, clave: ADMIN_CLAVE });
+  if (login.status !== 200) throw new Error("No se pudo entrar con la cuenta de admin (ADMIN_USER / ADMIN_CLAVE)");
 
   const { data: evs } = await admin.req("GET", "/admin/events");
   let live = evs.events.find((e) => e.status === "LIVE");
@@ -58,7 +59,7 @@ async function main() {
   for (let i = 0; i < COUNT; i += 1) {
     const d = new Device();
     const name = `${NAMES[i % NAMES.length]}${i >= NAMES.length ? i : ""}`.slice(0, 16) + suffix;
-    const r = await d.req("POST", "/auth/register", { name, pin: "1234" });
+    const r = await d.req("POST", "/auth/entrar", { usuario: name, clave: "1234" });
     if (r.status !== 201) {
       console.warn(`registro ${name}: ${r.status} ${r.data?.error}`);
       continue;

@@ -1,9 +1,9 @@
-const { readSession, issueSession, clearSession, shouldRefresh, readAdmin } = require("../lib/session");
+const { readSession, issueSession, clearSession, shouldRefresh } = require("../lib/session");
 const { unauthorized, forbidden, conflict } = require("../lib/http");
 const { getPlayer } = require("../services/players");
 const { getLiveEvent, ensureJoined } = require("../services/events");
 
-/** Carga al jugador de la cookie (si hay). No bloquea: eso lo hacen los require*. */
+/** Carga a quien sea que venga en la cookie. No bloquea: eso lo hacen los require*. */
 async function attachPlayer(req, res, next) {
   const session = readSession(req);
   if (!session) return next();
@@ -19,14 +19,25 @@ async function attachPlayer(req, res, next) {
   return next();
 }
 
-function requirePlayer(req, res, next) {
+function requireSession(req, res, next) {
   if (!req.player) throw unauthorized();
   next();
 }
 
-/** Panel admin: basta con la cookie que se emite al escribir el codigo. */
+/**
+ * Solo jugadores. Un admin no juega: no tiene cartilla, ni lobby, ni misiones,
+ * y es mejor decirselo claro que dejarle media app a medio funcionar.
+ */
+function requirePlayer(req, res, next) {
+  if (!req.player) throw unauthorized();
+  if (req.player.role === "ADMIN") throw forbidden("Esta cuenta es de administracion, no juega");
+  next();
+}
+
+/** Solo el rol ADMIN, que se lee de la base en cada peticion. */
 function requireAdmin(req, res, next) {
-  if (!readAdmin(req)) throw unauthorized("Escribe el codigo de admin");
+  if (!req.player) throw unauthorized("Entra con tu cuenta de admin");
+  if (req.player.role !== "ADMIN") throw forbidden("No tienes permisos de administracion");
   next();
 }
 
@@ -35,7 +46,7 @@ async function requireLiveEvent(req, res, next) {
   const event = await getLiveEvent();
   if (!event) throw conflict("No hay un evento abierto ahora mismo");
   req.event = event;
-  if (req.player) await ensureJoined(event.id, req.player.id);
+  if (req.player && req.player.role === "PLAYER") await ensureJoined(event.id, req.player.id);
   next();
 }
 
@@ -49,4 +60,11 @@ function requireCsrfHeader(req, res, next) {
   next();
 }
 
-module.exports = { attachPlayer, requirePlayer, requireAdmin, requireLiveEvent, requireCsrfHeader };
+module.exports = {
+  attachPlayer,
+  requireSession,
+  requirePlayer,
+  requireAdmin,
+  requireLiveEvent,
+  requireCsrfHeader,
+};

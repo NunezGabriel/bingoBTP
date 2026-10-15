@@ -11,23 +11,30 @@ const { getLiveEvent, ensureJoined } = require("../services/events");
 const router = express.Router();
 
 const NAME_RE = /^[\p{L}\p{N} _.-]{2,20}$/u;
-const RESERVED = new Set(["admin", "administrador", "staff", "gdg", "gdgarequipa", "bingo", "soporte"]);
+/** Nombres que nadie puede crearse. La cuenta de admin ya existe y entra igual. */
+const RESERVED = new Set([
+  "admin",
+  "administrador",
+  "staff",
+  "gdg",
+  "gdgarequipa",
+  "bingo",
+  "soporte",
+  "organizador",
+]);
 
 function nameKeyOf(name) {
   return name.normalize("NFC").toLowerCase();
 }
 
-function validateName(raw) {
-  const name = typeof raw === "string" ? raw.trim().replace(/\s+/g, " ").normalize("NFC") : "";
-  if (!NAME_RE.test(name)) throw badRequest("El nombre debe tener 2 a 20 letras o numeros");
-  if (RESERVED.has(nameKeyOf(name))) throw badRequest("Ese nombre esta reservado, usa otro");
-  return name;
+function cleanName(raw) {
+  return typeof raw === "string" ? raw.trim().replace(/\s+/g, " ").normalize("NFC") : "";
 }
 
 /**
  * Inscribe al jugador en el evento abierto. No es critico: si falla, /api/me
- * lo reintenta. Lo que NO puede pasar es que un fallo aqui convierta un
- * registro exitoso en un error para el celular.
+ * lo reintenta. Lo que NO puede pasar es que un fallo aqui convierta una
+ * entrada exitosa en un error para el celular.
  */
 async function joinLiveEvent(playerId) {
   try {
@@ -38,87 +45,76 @@ async function joinLiveEvent(playerId) {
   }
 }
 
-router.get("/name/:name", async (req, res) => {
-  let name;
-  try {
-    name = validateName(req.params.name);
-  } catch (error) {
-    return res.json({ available: false, reason: error.message });
+/**
+ * Una sola puerta: escribes usuario y clave. Si el usuario no existe se crea
+ * la cuenta ahi mismo; si existe, se valida la clave. Es lo mas corto posible
+ * sin perder la identidad, que hace falta porque hay premios de por medio.
+ */
+router.post("/entrar", async (req, res) => {
+  const name = cleanName(req.body?.usuario ?? req.body?.name);
+  const clave = String(req.body?.clave ?? req.body?.pin ?? "");
+  if (!name || !clave) throw badRequest("Escribe tu usuario y tu clave");
+  if (!NAME_RE.test(name)) throw badRequest("El usuario debe tener de 2 a 20 letras o numeros");
+
+  const key = nameKeyOf(name);
+  // La defensa real contra adivinar claves es por usuario: 6 fallos y esa
+  // cuenta queda en pausa 10 minutos, venga de donde venga el intento.
+  const nameLock = rateLimit.peek(`entrar:name:${key}`, 6);
+  if (!nameLock.ok) {
+    throw tooMany(
+      "Demasiados intentos con ese usuario. Espera unos minutos o pide ayuda al staff",
+      nameLock.retryAfterMs,
+    );
   }
-  const taken = await prisma.player.findUnique({
-    where: { nameKey: nameKeyOf(name) },
-    select: { id: true },
-  });
-  res.json({ available: !taken, reason: taken ? "Ese nombre ya esta tomado" : null });
-});
-
-router.post("/register", async (req, res) => {
   // En un evento cientos de personas comparten la IP del WiFi: este limite es
-  // solo un freno anti-spam muy holgado, jamas debe bloquear la fila de entrada.
-  const ipLimit = rateLimit.hit(`register:${req.ip}`, 3000, 10 * 60_000);
-  if (!ipLimit.ok) throw tooMany("Demasiados registros desde esta red", ipLimit.retryAfterMs);
+  // solo un freno anti-spam muy holgado, jamas debe frenar la fila de entrada.
+  const ipLimit = rateLimit.peek(`entrar:ip:${req.ip}`, 3000);
+  if (!ipLimit.ok) throw tooMany("Demasiados intentos desde esta red", ipLimit.retryAfterMs);
 
-  const name = validateName(req.body?.name);
-  const pin = String(req.body?.pin ?? "");
-  if (!isValidPin(pin)) throw badRequest("El PIN debe tener de 4 a 8 digitos");
+  const existing = await prisma.player.findUnique({ where: { nameKey: key } });
 
-  const pinHash = await hashPin(pin);
+  if (existing) {
+    const valid = await verifyPin(clave, existing.claveHash);
+    if (!valid) {
+      rateLimit.hit(`entrar:name:${key}`, 6, 10 * 60_000);
+      rateLimit.hit(`entrar:ip:${req.ip}`, 3000, 10 * 60_000);
+      throw unauthorized("Usuario o clave incorrectos");
+    }
+    rateLimit.reset(`entrar:name:${key}`);
+    invalidatePlayer(existing.id);
+    if (existing.role === "PLAYER") await joinLiveEvent(existing.id);
+    issueSession(res, existing);
+    return res.json({ player: selfPlayer(existing), nuevo: false });
+  }
 
+  // Cuenta nueva.
+  if (RESERVED.has(key)) throw badRequest("Ese usuario esta reservado, usa otro");
+  if (!isValidPin(clave)) throw badRequest("Tu clave debe ser de 4 a 8 numeros");
+
+  const claveHash = await hashPin(clave);
   let player = null;
   for (let attempt = 0; attempt < 5 && !player; attempt += 1) {
     try {
       player = await prisma.player.create({
-        data: { name, nameKey: nameKeyOf(name), pinHash, code: newPlayerCode() },
+        data: { name, nameKey: key, claveHash, code: newPlayerCode() },
       });
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
-      const exists = await prisma.player.findUnique({
-        where: { nameKey: nameKeyOf(name) },
-        select: { id: true },
-      });
-      if (exists) throw conflict("Ese nombre ya existe. Si es tuyo, entra con tu PIN");
-      // si no, fue colision del codigo: se reintenta
+      const taken = await prisma.player.findUnique({ where: { nameKey: key }, select: { id: true } });
+      // Dos personas escribiendo el mismo usuario a la vez: la segunda entra
+      // por la puerta de siempre, con su clave.
+      if (taken) throw conflict("Ese usuario se acaba de crear. Vuelve a intentar con tu clave");
+      // si no, fue colision del codigo de 6 letras: se reintenta
     }
   }
   if (!player) throw conflict("No se pudo crear tu cuenta, intenta de nuevo");
 
   await joinLiveEvent(player.id);
   issueSession(res, player);
-  res.status(201).json({ player: selfPlayer(player) });
+  res.status(201).json({ player: selfPlayer(player), nuevo: true });
 });
 
-router.post("/login", async (req, res) => {
-  const rawName = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-  const pin = String(req.body?.pin ?? "");
-  if (!rawName || !pin) throw badRequest("Escribe tu nombre y tu PIN");
-
-  const key = nameKeyOf(rawName.replace(/\s+/g, " "));
-  // La defensa real contra adivinar PINs es por nombre: 6 fallos y esa cuenta
-  // queda en pausa 10 minutos, venga de donde venga el intento.
-  const nameLock = rateLimit.peek(`login:name:${key}`, 6);
-  if (!nameLock.ok) {
-    throw tooMany("Demasiados intentos con ese nombre. Espera unos minutos o pide ayuda al staff", nameLock.retryAfterMs);
-  }
-  const ipLimit = rateLimit.peek(`login:ip:${req.ip}`, 2000);
-  if (!ipLimit.ok) throw tooMany("Demasiados intentos desde esta red", ipLimit.retryAfterMs);
-
-  const player = await prisma.player.findUnique({ where: { nameKey: key } });
-  const valid = player ? await verifyPin(pin, player.pinHash) : false;
-
-  if (!valid) {
-    rateLimit.hit(`login:name:${key}`, 6, 10 * 60_000);
-    rateLimit.hit(`login:ip:${req.ip}`, 2000, 10 * 60_000);
-    throw unauthorized("Nombre o PIN incorrectos");
-  }
-
-  rateLimit.reset(`login:name:${key}`);
-  invalidatePlayer(player.id);
-  await joinLiveEvent(player.id);
-  issueSession(res, player);
-  res.json({ player: selfPlayer(player) });
-});
-
-router.post("/logout", (req, res) => {
+router.post("/salir", (req, res) => {
   clearSession(res);
   res.json({ ok: true });
 });

@@ -1,22 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { admin, errorMessage } from "@/lib/api";
 import { RealtimeProvider, useRealtime } from "@/lib/realtime";
+import { useSession } from "@/lib/session";
 import type { AdminEventRow, Overview, Round, RoundResults } from "@/lib/types";
 import { BingoWordmark, GdgLogo } from "@/components/Brand";
 import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { PlayersPanel } from "@/components/admin/PlayersPanel";
+import { Scanner } from "@/components/admin/Scanner";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { ErrorBox, Loading, Pill } from "@/components/ui/Blocks";
 import { useToast } from "@/components/ui/Toasts";
 
-type Tab = "evento" | "ronda" | "jugadores";
+type Tab = "evento" | "ronda" | "escaner" | "jugadores";
 
 const TABS: { key: Tab; label: string; icon: IconName }[] = [
   { key: "evento", label: "Evento", icon: "flag" },
   { key: "ronda", label: "Ronda", icon: "grid" },
+  { key: "escaner", label: "Escaner", icon: "qr" },
   { key: "jugadores", label: "Jugadores", icon: "users" },
 ];
 
@@ -26,55 +30,6 @@ const STATUS: Record<AdminEventRow["status"], { label: string; color: string; te
   LIVE: { label: "Abierto", color: "#34a853", text: "#fff" },
   CLOSED: { label: "Cerrado", color: "#4285f4", text: "#fff" },
 };
-
-/* ---------- Entrada con el codigo ---------- */
-
-function CodeGate({ onOk }: { onOk: () => void }) {
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      await admin.login(code.trim());
-      onOk();
-    } catch (err) {
-      setError(errorMessage(err));
-      setBusy(false);
-    }
-  }
-
-  return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 pb-8">
-      <div className="self-center">
-        <BingoWordmark size={38} subtitle="Panel admin" />
-      </div>
-      <form onSubmit={submit} className="card mt-8 p-5">
-        <h1 className="text-xl font-extrabold">Codigo de admin</h1>
-        <p className="mt-1 text-[15px] text-muted">Solo el codigo: no hace falta usuario.</p>
-        <input
-          className="input input-code mt-4"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          type="password"
-          autoComplete="one-time-code"
-          aria-label="Codigo de admin"
-          autoFocus
-        />
-        {error && <p className="mt-3 text-center font-semibold text-gred">{error}</p>}
-        <button type="submit" className="btn btn-ink btn-lg mt-4 w-full" disabled={busy || code.trim().length < 3}>
-          {busy ? "Entrando..." : "Entrar al panel"}
-        </button>
-      </form>
-      <Link href="/" className="mt-6 text-center text-[15px] font-bold text-gblue underline">
-        Volver al bingo
-      </Link>
-    </main>
-  );
-}
 
 /* ---------- Pestana: evento ---------- */
 
@@ -457,7 +412,7 @@ function Panel({ onLogout }: { onLogout: () => void }) {
         </div>
       </header>
 
-      <nav className="mt-3 grid grid-cols-3 gap-2">
+      <nav className="mt-3 grid grid-cols-4 gap-2">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -480,6 +435,8 @@ function Panel({ onLogout }: { onLogout: () => void }) {
           <EventTab overview={overview} reload={load} />
         ) : tab === "ronda" ? (
           <RoundTab overview={overview} reload={load} />
+        ) : tab === "escaner" ? (
+          <Scanner onChanged={load} />
         ) : (
           <PlayersPanel onChanged={load} />
         )}
@@ -488,31 +445,52 @@ function Panel({ onLogout }: { onLogout: () => void }) {
   );
 }
 
+/**
+ * Al panel se entra con una cuenta de rol ADMIN, por la misma puerta que
+ * todos. No hay codigo suelto ni cuenta compartida: cada validacion de mision
+ * queda firmada por quien la hizo.
+ */
 export default function AdminPage() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const { status, me, logout } = useSession();
+  const router = useRouter();
 
   useEffect(() => {
-    admin
-      .session()
-      .then((r) => setAuthed(r.admin))
-      .catch(() => setAuthed(false));
-  }, []);
+    if (status === "guest") router.replace("/entrar?next=%2Fadmin");
+  }, [status, router]);
 
-  if (authed === null) {
+  if (status === "loading" || status === "guest" || !me) {
     return (
       <main className="flex min-h-dvh items-center justify-center">
         <Loading label="Verificando" />
       </main>
     );
   }
-  if (!authed) return <CodeGate onOk={() => setAuthed(true)} />;
+
+  if (me.player.role !== "ADMIN") {
+    return (
+      <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 px-5">
+        <div className="self-center">
+          <BingoWordmark size={34} subtitle="Panel admin" />
+        </div>
+        <div className="card p-5 text-center">
+          <h1 className="text-xl font-extrabold">Esta cuenta no es de admin</h1>
+          <p className="mt-1 text-[15px] text-muted">
+            Entraste como {me.player.name}. El panel es solo para las cuentas de organizacion.
+          </p>
+          <Link href="/lobby" className="btn btn-blue mt-4 w-full">
+            Ir al lobby
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <RealtimeProvider enabled>
       <Panel
         onLogout={async () => {
-          await admin.logout().catch(() => {});
-          setAuthed(false);
+          await logout();
+          router.replace("/entrar");
         }}
       />
     </RealtimeProvider>

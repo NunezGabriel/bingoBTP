@@ -16,10 +16,15 @@ import { ErrorBox, Loading } from "@/components/ui/Blocks";
 import { useToast } from "@/components/ui/Toasts";
 
 const NAV: { href: string; label: string; icon: IconName }[] = [
+  { href: "/lobby", label: "Lobby", icon: "home" },
   { href: "/cartilla", label: "Cartilla", icon: "grid" },
+  { href: "/misiones", label: "Misiones", icon: "check" },
   { href: "/ranking", label: "Ranking", icon: "trophy" },
-  { href: "/cuenta", label: "Mi cuenta", icon: "user" },
+  { href: "/cuenta", label: "Cuenta", icon: "user" },
 ];
+
+/** El lobby ocupa toda la pantalla: sin barra de arriba ni margenes. */
+const FULL_BLEED = "/lobby";
 
 const PODIUM = ["#fbbc04", "#c9c9c9", "#cd7f32"];
 
@@ -45,7 +50,7 @@ function BottomNav() {
   const pathname = usePathname();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-ink bg-card pb-[env(safe-area-inset-bottom)]">
-      <ul className="mx-auto grid max-w-md grid-cols-3">
+      <ul className="mx-auto grid max-w-md grid-cols-5">
         {NAV.map((item) => {
           const active = pathname === item.href;
           return (
@@ -195,10 +200,22 @@ export function GameShell({ children }: { children: ReactNode }) {
   const { status, me, refresh } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  const full = pathname === FULL_BLEED;
 
   useEffect(() => {
-    if (status === "guest") router.replace(`/entrar?next=${encodeURIComponent(pathname)}`);
-  }, [status, router, pathname]);
+    if (status === "guest") {
+      router.replace(`/entrar?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    if (status !== "ready" || !me) return;
+    // Un admin no juega: se va derecho a su panel.
+    if (me.player.role === "ADMIN") {
+      router.replace("/admin");
+      return;
+    }
+    // Sin personaje elegido no tiene nada que hacer en el lobby.
+    if (!me.player.skin) router.replace(`/personaje?next=${encodeURIComponent(pathname)}`);
+  }, [status, me, router, pathname]);
 
   // Desbloquea el audio en iOS con el primer toque.
   useEffect(() => {
@@ -225,8 +242,8 @@ export function GameShell({ children }: { children: ReactNode }) {
   return (
     <RealtimeProvider enabled>
       <LiveBridge />
-      <TopBar />
-      <main className="mx-auto w-full max-w-md px-4 pb-24 pt-4">{children}</main>
+      {!full && <TopBar />}
+      <main className={full ? "w-full" : "mx-auto w-full max-w-md px-4 pb-24 pt-4"}>{children}</main>
       <BottomNav />
     </RealtimeProvider>
   );

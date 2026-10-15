@@ -43,11 +43,11 @@ export default function AccountPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      await meApi.pin(pins.current, pins.next);
+      await meApi.clave(pins.current, pins.next);
       setPins({ current: "", next: "" });
-      toast.ok("PIN actualizado");
+      toast.ok("Clave actualizada");
     } catch (err) {
-      toast.error("No se cambio el PIN", errorMessage(err));
+      toast.error("No se cambio la clave", errorMessage(err));
     } finally {
       setBusy(false);
     }

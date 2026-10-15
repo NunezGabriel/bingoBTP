@@ -1,16 +1,23 @@
 const { prisma } = require("../lib/prisma");
 
-/** Lo minimo para mostrar a alguien en el ranking o en una casilla firmada. */
+/** Lo minimo para mostrar a alguien en el ranking, el lobby o una casilla firmada. */
 function publicPlayer(p) {
   if (!p) return null;
-  return { id: p.id, name: p.name };
+  return { id: p.id, name: p.name, skin: p.skin ?? null };
 }
 
 function selfPlayer(p) {
-  return { id: p.id, name: p.name, code: p.code, createdAt: p.createdAt };
+  return {
+    id: p.id,
+    name: p.name,
+    code: p.code,
+    role: p.role,
+    skin: p.skin ?? null,
+    createdAt: p.createdAt,
+  };
 }
 
-const PUBLIC_SELECT = { id: true, name: true };
+const PUBLIC_SELECT = { id: true, name: true, skin: true };
 
 // Cache corto por proceso: cada peticion autenticada necesita al jugador, y
 // contra una base remota eso son ~100 ms por peticion si no se cachea.

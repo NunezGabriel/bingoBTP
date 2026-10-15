@@ -221,6 +221,30 @@ body {
   border: 2px solid var(--color-ink);
 }
 
+/* ---------- Lobby ---------- */
+
+/* Cruceta de movimiento: grande para el pulgar, discreta para no tapar la plaza. */
+.dpad {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 2px solid var(--color-ink);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--color-ink);
+  cursor: pointer;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.dpad:active {
+  background: var(--color-gblue);
+  color: #fff;
+}
+
 /* ---------- Animaciones ---------- */
 
 @keyframes bg-pop {

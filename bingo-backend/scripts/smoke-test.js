@@ -1,7 +1,7 @@
 /**
  * Prueba de punta a punta de la API contra un servidor corriendo.
  *
- *   npm test        (usa API_URL y ADMIN_CODE del .env)
+ *   npm test        (usa API_URL y ADMIN_CLAVE del .env)
  *
  * Crea sus propios eventos y jugadores, juega rondas completas y al final
  * borra todo lo que creo. NO la corras contra produccion: se niega si hay un
@@ -12,7 +12,8 @@ require("dotenv").config({ quiet: true });
 const BINGO = require("../src/content/bingo");
 
 const API = (process.env.API_URL || "http://localhost:3001").replace(/\/$/, "");
-const ADMIN_CODE = process.env.ADMIN_CODE;
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_CLAVE = process.env.ADMIN_CLAVE || process.env.ADMIN_CODE;
 const RUN = Date.now().toString(36).slice(-5);
 
 let passed = 0;
@@ -148,7 +149,7 @@ const created = { players: [], events: [] };
 
 async function register(label) {
   const device = new Device(label);
-  const r = await device.post("/auth/register", { name: `smk${RUN}${label}`, pin: "1234" });
+  const r = await device.post("/auth/entrar", { usuario: `smk${RUN}${label}`, clave: "1234" });
   if (r.status !== 201) throw new Error(`registro ${label}: ${r.status} ${JSON.stringify(r.data)}`);
   device.player = r.data.player;
   created.players.push(device.player.id);
@@ -157,7 +158,7 @@ async function register(label) {
 
 async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("No corras la prueba en produccion");
-  if (!ADMIN_CODE) throw new Error("Define ADMIN_CODE en el .env");
+  if (!ADMIN_CLAVE) throw new Error("Define ADMIN_CLAVE en el .env");
 
   console.log(`\nPrueba de humo contra ${API} (corrida ${RUN})\n`);
 
@@ -165,17 +166,22 @@ async function main() {
   const anon = new Device("anon");
   check("health responde", (await anon.get("/health")).status === 200);
   check("/me sin sesion -> 401", (await anon.get("/me")).status === 401);
-  const noCsrf = await anon.req("POST", "/auth/login", { name: "x", pin: "1234" }, { csrf: false });
+  const noCsrf = await anon.req("POST", "/auth/entrar", { usuario: "x", clave: "1234" }, { csrf: false });
   check("escritura sin cabecera anti-CSRF -> 403", noCsrf.status === 403, noCsrf);
 
-  console.log("\n[admin: entra solo con el codigo]");
+  console.log("\n[admin: una cuenta con rol, no un codigo suelto]");
   const admin = new Device("admin");
-  check("sin codigo el panel responde 401", (await admin.get("/admin/overview")).status === 401);
-  check("codigo incorrecto -> 401", (await admin.post("/admin/login", { code: `no-${ADMIN_CODE}` })).status === 401);
-  const adminLogin = await admin.post("/admin/login", { code: ADMIN_CODE });
-  check("con el codigo correcto entra", adminLogin.status === 200, adminLogin);
-  check("y queda la sesion de admin", (await admin.get("/admin/session")).data?.admin === true);
-  check("un jugador cualquiera no ve el panel", (await anon.get("/admin/overview")).status === 401);
+  check("sin sesion el panel responde 401", (await admin.get("/admin/overview")).status === 401);
+  check(
+    "clave incorrecta -> 401",
+    (await admin.post("/auth/entrar", { usuario: ADMIN_USER, clave: `no-${ADMIN_CLAVE}` })).status === 401,
+  );
+  const adminLogin = await admin.post("/auth/entrar", { usuario: ADMIN_USER, clave: ADMIN_CLAVE });
+  check("con su clave entra", adminLogin.status === 200, adminLogin);
+  check("y la app sabe que es admin", adminLogin.data?.player?.role === "ADMIN");
+  check("el admin no juega: /game -> 403", (await admin.get("/game/current")).status === 403);
+  check("el admin no tiene tarjeta: /me/misiones -> 403", (await admin.get("/me/misiones")).status === 403);
+  check("un anonimo no ve el panel", (await anon.get("/admin/overview")).status === 401);
 
   console.log("\n[eventos]");
   const eventsBefore = await admin.get("/admin/events");
@@ -205,15 +211,28 @@ async function main() {
   check("10 jugadores con codigo de 6", p.every((d) => d.player.code.length === 6));
   check("la portada cuenta a los 10", (await anon.get("/public/event")).data.players === 10);
 
-  const dup = await new Device("dup").post("/auth/register", { name: `SMK${RUN}P0`, pin: "1234" });
-  check("nombre repetido (sin importar mayusculas) -> 409", dup.status === 409, dup);
-  check("nombre de una letra -> 400", (await new Device("x").post("/auth/register", { name: "a", pin: "1234" })).status === 400);
-  check("PIN de 2 digitos -> 400", (await new Device("x").post("/auth/register", { name: `smk${RUN}zz`, pin: "12" })).status === 400);
+  const dup = await new Device("dup").post("/auth/entrar", { usuario: `SMK${RUN}P0`, clave: "9999" });
+  check("el mismo usuario con otra clave -> 401", dup.status === 401, dup);
+  const mismo = await new Device("mismo").post("/auth/entrar", { usuario: `SMK${RUN}P0`, clave: "1234" });
+  check(
+    "y con su clave entra a la misma cuenta",
+    mismo.data?.player?.id === p[0].player.id && mismo.data?.nuevo === false,
+  );
+  check("usuario de una letra -> 400", (await new Device("x").post("/auth/entrar", { usuario: "a", clave: "1234" })).status === 400);
+  check(
+    "clave de 2 digitos en cuenta nueva -> 400",
+    (await new Device("x").post("/auth/entrar", { usuario: `smk${RUN}zz`, clave: "12" })).status === 400,
+  );
+  check("un jugador no entra al panel -> 403", (await p[0].get("/admin/overview")).status === 403);
+  check("nace sin personaje", p[0].player.skin === null);
+  check("elige personaje", (await p[0].post("/me/skin", { skin: "toro" })).data?.player?.skin === "toro");
+  check("un personaje inventado -> 400", (await p[0].post("/me/skin", { skin: "dragon" })).status === 400);
+  check("recibe su ticket del lobby", typeof (await p[0].post("/me/lobby-ticket")).data?.ticket === "string");
 
   const me0 = await p[0].get("/me");
   check("/me trae el evento abierto y su codigo", me0.data.event?.id === A && me0.data.player.code === p[0].player.code, me0.data);
   const phone2 = new Device("p0-otro-celular");
-  const relog = await phone2.post("/auth/login", { name: p[0].player.name, pin: "1234" });
+  const relog = await phone2.post("/auth/entrar", { usuario: p[0].player.name, clave: "1234" });
   check("entrar desde otro celular recupera la misma cuenta", relog.data?.player?.id === p[0].player.id, relog);
 
   console.log("\n[ronda 1]");
@@ -323,10 +342,13 @@ async function main() {
   const penalty = await admin.post(`/admin/players/${p[2].player.id}/points`, { amount: -5000, reason: "Penalizacion" });
   check("los puntos nunca bajan de 0", penalty.status === 200 && (await p[2].get("/me")).data.standing.points === 0);
 
-  const reset = await admin.post(`/admin/players/${p[9].player.id}/pin`, { pin: "4321" });
-  check("reiniciar el PIN de quien lo olvido", reset.status === 200, reset);
+  const reset = await admin.post(`/admin/players/${p[9].player.id}/clave`, { clave: "4321" });
+  check("reiniciar la clave de quien la olvido", reset.status === 200, reset);
   check("su sesion vieja se cierra -> 401", (await p[9].get("/me")).status === 401);
-  check("y entra con el PIN nuevo", (await new Device("p9").post("/auth/login", { name: p[9].player.name, pin: "4321" })).status === 200);
+  check(
+    "y entra con la clave nueva",
+    (await new Device("p9").post("/auth/entrar", { usuario: p[9].player.name, clave: "4321" })).status === 200,
+  );
 
   check("borrar un jugador", (await admin.del(`/admin/players/${p[8].player.id}`)).status === 200);
   created.players = created.players.filter((id) => id !== p[8].player.id);
@@ -335,10 +357,10 @@ async function main() {
   const attempts = [];
   const brute = new Device("fuerza-bruta");
   for (let i = 0; i < 7; i += 1) {
-    attempts.push((await brute.post("/auth/login", { name: p[7].player.name, pin: `99${i}0` })).status);
+    attempts.push((await brute.post("/auth/entrar", { usuario: p[7].player.name, clave: `99${i}0` })).status);
   }
-  check("PIN incorrecto se bloquea tras 6 intentos (429)", attempts.slice(0, 6).every((s) => s === 401) && attempts[6] === 429, attempts);
-  check("cambiar mi PIN", (await p[5].post("/me/pin", { currentPin: "1234", newPin: "5678" })).status === 200);
+  check("clave incorrecta se bloquea tras 6 intentos (429)", attempts.slice(0, 6).every((s) => s === 401) && attempts[6] === 429, attempts);
+  check("cambiar mi clave", (await p[5].post("/me/clave", { actual: "1234", nueva: "5678" })).status === 200);
   const forged = new Device("cookie-falsa");
   forged.cookies.set("bg.sid", "x.y");
   check("cookie falsificada -> 401", (await forged.get("/me")).status === 401);
@@ -405,7 +427,7 @@ async function main() {
 /** Borra todo lo que creo la prueba, pase lo que pase. */
 async function cleanup() {
   const admin = new Device("admin-limpieza");
-  const login = await admin.post("/admin/login", { code: ADMIN_CODE }).catch(() => null);
+  const login = await admin.post("/auth/entrar", { usuario: ADMIN_USER, clave: ADMIN_CLAVE }).catch(() => null);
   if (login?.status !== 200) return;
   for (const id of created.events) await admin.post(`/admin/events/${id}/close`).catch(() => {});
   for (const id of created.players) await admin.del(`/admin/players/${id}`).catch(() => {});
