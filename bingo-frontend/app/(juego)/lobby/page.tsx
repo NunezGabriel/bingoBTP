@@ -5,10 +5,12 @@ import { useSession } from "@/lib/session";
 import { LobbyClient, type LobbyPlayer } from "@/lib/lobby";
 import { guardarMusica, musica, musicaActiva } from "@/lib/music";
 import {
+  drawConfeti,
   drawGround,
   drawPantalla,
   drawPlane,
   drawSky,
+  ESCENARIO,
   FLOOR,
   GROUND_TOP,
   MENSAJES_TOTAL,
@@ -303,6 +305,8 @@ export default function LobbyPage() {
       // La pantalla del escenario: vuela, asi que va aqui y no horneada en el
       // suelo. Cambia de mensaje cada seis segundos.
       drawPantalla(ctx, now / 700, Math.floor(now / 6000) % MENSAJES_TOTAL);
+      // Y cada tanto los organizadores sueltan confeti.
+      drawConfeti(ctx, now, ESCENARIO.x0, ESCENARIO.cuantos);
 
       // 3. Gente, de atras hacia adelante para que se tapen bien
       const client = clientRef.current;

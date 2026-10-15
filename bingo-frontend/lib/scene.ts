@@ -435,47 +435,46 @@ function jardin(ctx: Ctx, x: number, y: number, w: number, h: number) {
 
 type Persona = {
   nombre: string;
-  piel: string;
-  pelo: string;
-  corte: "corto" | "fleco" | "tupido" | "rizado" | "tazon" | "largo" | "largoRizado";
-  lentes?: "negros" | "claros";
-  barba?: "corta" | "bigote";
+  /** Pelo largo si es chica, corto si no: un solo diseno para cada uno. */
+  chica?: boolean;
+  lentes?: boolean;
 };
 
 /**
- * Los organizadores, dibujados a partir de sus fotos: lo que los hace
- * reconocibles a 16 pixeles es el pelo y los lentes, no la cara. Todos van con
- * el uniforme: polera negra con el logo de GDG y jean.
+ * Los organizadores del escenario.
+ *
+ * Dos disenos y nada mas: a 16 pixeles, diez peinados distintos no se leen,
+ * se ven como ruido. Lo que importa es que se distinga al staff del resto y
+ * que cada quien se reconozca por su nombre debajo.
  */
 const ORGANIZADORES: Persona[] = [
-  { nombre: "BENJA", piel: "#e3b183", pelo: "#2a211b", corte: "tupido", lentes: "negros", barba: "corta" },
-  { nombre: "BRAULIO", piel: "#dfae7e", pelo: "#1f1917", corte: "corto", lentes: "claros" },
-  { nombre: "EILEEN", piel: "#e8b98a", pelo: "#201a18", corte: "largo", lentes: "claros" },
-  { nombre: "GABRIEL", piel: "#e3b183", pelo: "#15110f", corte: "rizado", barba: "corta" },
-  { nombre: "LUCIANA", piel: "#e8b98a", pelo: "#1d1715", corte: "largo", lentes: "claros" },
-  { nombre: "MIRINA", piel: "#dfae7e", pelo: "#3f2b20", corte: "largoRizado", lentes: "claros" },
-  { nombre: "NELZON", piel: "#e3b183", pelo: "#15110f", corte: "fleco", lentes: "negros" },
-  { nombre: "VICTOR", piel: "#dfae7e", pelo: "#231c19", corte: "tupido", lentes: "negros", barba: "bigote" },
-  { nombre: "CINTIA", piel: "#e8b98a", pelo: "#201a18", corte: "largo" },
-  { nombre: "GONZALO", piel: "#e3b183", pelo: "#15110f", corte: "tazon", lentes: "negros" },
+  { nombre: "BENJA", lentes: true },
+  { nombre: "BRAULIO", lentes: true },
+  { nombre: "EILEEN", chica: true, lentes: true },
+  { nombre: "GABRIEL" },
+  { nombre: "LUCIANA", chica: true, lentes: true },
+  { nombre: "MIRINA", chica: true, lentes: true },
+  { nombre: "NELZON", lentes: true },
+  { nombre: "VICTOR", lentes: true },
+  { nombre: "CINTIA", chica: true },
+  { nombre: "GONZALO", lentes: true },
+  { nombre: "CHRIS", lentes: true },
 ];
 
-/** Una version mas clara de un color, para los brillos del pelo. */
-function aclarar(hex: string) {
-  const n = parseInt(hex.slice(1), 16);
-  const sube = (v: number) => Math.min(255, v + 26);
-  return `#${((sube(n >> 16) << 16) | (sube((n >> 8) & 255) << 8) | sube(n & 255)).toString(16).padStart(6, "0")}`;
-}
+/** Donde empieza la tarima y cuanta gente hay en ella (lo usa el confeti). */
+export const ESCENARIO = { x0: 280, cuantos: ORGANIZADORES.length };
+
+const PIEL = "#e3b183";
+const PIEL_SOMBRA = "#00000018";
+const PELO = "#241c18";
+const PELO_LUZ = "#3b2e26";
 
 /**
- * Una persona de 16x20 con el uniforme del staff.
+ * Una persona de 16x20 con el uniforme del staff: polera negra con el logo de
+ * GDG y jean.
  *
  * El cuerpo es angosto a proposito: hombros de 10 pixeles sobre una cabeza de
  * 8. Con el torso tan ancho como los hombros, todos parecian corpulentos.
- * Los brazos son una columna de 1 pixel a cada lado, con su mano.
- *
- * Lo que hace reconocible a alguien a esta escala es la silueta del pelo y los
- * lentes, no la cara: por eso cada corte esta dibujado aparte.
  */
 function persona(ctx: Ctx, ox: number, oy: number, p: Persona) {
   const NEGRO = "#1f1f24";
@@ -484,20 +483,18 @@ function persona(ctx: Ctx, ox: number, oy: number, p: Persona) {
   const JEANSOMBRA = "#324c73";
   const ZAPA = "#e4e4e4";
   const OJO = "#1d1d1d";
-  const pelo = p.pelo;
-  const peloLuz = aclarar(pelo);
 
   // ---- Cuerpo ----
-  px(ctx, ox + 7, oy + 9, 2, 2, p.piel); // cuello
+  px(ctx, ox + 7, oy + 9, 2, 2, PIEL); // cuello
   px(ctx, ox + 3, oy + 10, 10, 1, NEGRO); // hombros
   px(ctx, ox + 4, oy + 11, 8, 5, NEGRO); // torso
   px(ctx, ox + 4, oy + 15, 8, 1, SOMBRA);
   px(ctx, ox + 3, oy + 11, 1, 4, NEGRO); // brazos
   px(ctx, ox + 12, oy + 11, 1, 4, NEGRO);
-  px(ctx, ox + 3, oy + 15, 1, 1, p.piel); // manos
-  px(ctx, ox + 12, oy + 15, 1, 1, p.piel);
+  px(ctx, ox + 3, oy + 15, 1, 1, PIEL); // manos
+  px(ctx, ox + 12, oy + 15, 1, 1, PIEL);
 
-  // Logo de GDG en el pecho: esto distingue al staff de los jugadores
+  // El logo en el pecho: esto distingue al staff de los jugadores
   px(ctx, ox + 6, oy + 12, 2, 1, "#ea4335");
   px(ctx, ox + 9, oy + 12, 2, 1, "#34a853");
   px(ctx, ox + 5, oy + 13, 2, 1, "#4285f4");
@@ -512,80 +509,35 @@ function persona(ctx: Ctx, ox: number, oy: number, p: Persona) {
   px(ctx, ox + 9, oy + 19, 3, 1, ZAPA);
 
   // ---- Cara ----
-  px(ctx, ox + 4, oy + 3, 8, 7, p.piel);
-  px(ctx, ox + 4, oy + 8, 8, 1, "#00000018"); // menton
+  px(ctx, ox + 4, oy + 3, 8, 7, PIEL);
+  px(ctx, ox + 4, oy + 8, 8, 1, PIEL_SOMBRA);
 
   // ---- Pelo ----
-  if (p.corte === "corto") {
-    px(ctx, ox + 4, oy + 1, 8, 2, pelo);
-    px(ctx, ox + 3, oy + 2, 10, 2, pelo);
-    px(ctx, ox + 5, oy + 1, 5, 1, peloLuz);
-    px(ctx, ox + 3, oy + 4, 1, 2, pelo);
-    px(ctx, ox + 12, oy + 4, 1, 2, pelo);
-  } else if (p.corte === "fleco") {
-    // Corto con el flequillo cargado a un lado
-    px(ctx, ox + 4, oy + 1, 8, 2, pelo);
-    px(ctx, ox + 3, oy + 2, 10, 2, pelo);
-    px(ctx, ox + 4, oy + 4, 5, 1, pelo);
-    px(ctx, ox + 5, oy + 1, 4, 1, peloLuz);
-    px(ctx, ox + 3, oy + 4, 1, 2, pelo);
-    px(ctx, ox + 12, oy + 4, 1, 2, pelo);
-  } else if (p.corte === "tupido") {
-    // Mas volumen arriba, tipo despeinado
-    px(ctx, ox + 4, oy, 8, 1, pelo);
-    px(ctx, ox + 3, oy + 1, 10, 3, pelo);
-    px(ctx, ox + 5, oy, 4, 1, peloLuz);
-    px(ctx, ox + 2, oy + 2, 1, 3, pelo);
-    px(ctx, ox + 13, oy + 2, 1, 3, pelo);
-    px(ctx, ox + 3, oy + 4, 1, 2, pelo);
-    px(ctx, ox + 12, oy + 4, 1, 2, pelo);
-  } else if (p.corte === "rizado") {
-    // Rulos: bultos arriba y a los lados
-    px(ctx, ox + 4, oy, 8, 2, pelo);
-    px(ctx, ox + 3, oy + 1, 10, 3, pelo);
-    px(ctx, ox + 2, oy + 1, 2, 4, pelo);
-    px(ctx, ox + 12, oy + 1, 2, 4, pelo);
-    px(ctx, ox + 5, oy - 1, 2, 1, pelo);
-    px(ctx, ox + 9, oy - 1, 2, 1, pelo);
-    px(ctx, ox + 6, oy, 2, 1, peloLuz);
-    px(ctx, ox + 2, oy + 5, 1, 2, pelo);
-    px(ctx, ox + 13, oy + 5, 1, 2, pelo);
-  } else if (p.corte === "tazon") {
-    // Flequillo recto y parejo
-    px(ctx, ox + 3, oy + 1, 10, 4, pelo);
-    px(ctx, ox + 2, oy + 2, 12, 3, pelo);
-    px(ctx, ox + 5, oy + 1, 5, 1, peloLuz);
-    px(ctx, ox + 2, oy + 5, 2, 2, pelo);
-    px(ctx, ox + 12, oy + 5, 2, 2, pelo);
+  if (p.chica) {
+    // Largo: cae por delante de los hombros hasta la cintura. A esta escala
+    // es lo unico que lo diferencia del corto.
+    px(ctx, ox + 4, oy + 1, 8, 2, PELO);
+    px(ctx, ox + 3, oy + 1, 10, 3, PELO);
+    px(ctx, ox + 5, oy + 1, 3, 1, PELO_LUZ);
+    px(ctx, ox + 2, oy + 3, 2, 14, PELO);
+    px(ctx, ox + 12, oy + 3, 2, 14, PELO);
+    px(ctx, ox + 3, oy + 10, 1, 7, PELO);
+    px(ctx, ox + 12, oy + 10, 1, 7, PELO);
+    px(ctx, ox + 2, oy + 16, 2, 1, PELO_LUZ);
+    px(ctx, ox + 12, oy + 16, 2, 1, PELO_LUZ);
   } else {
-    // Pelo largo. Cae por delante de los hombros hasta la cintura: a 16
-    // pixeles es lo unico que lo diferencia del corto.
-    const rizado = p.corte === "largoRizado";
-    px(ctx, ox + 4, oy + 1, 8, 2, pelo);
-    px(ctx, ox + 3, oy + 1, 10, 3, pelo);
-    px(ctx, ox + 5, oy + 1, 4, 1, peloLuz);
-    px(ctx, ox + 2, oy + 3, 2, 13, pelo);
-    px(ctx, ox + 12, oy + 3, 2, 13, pelo);
-    px(ctx, ox + 3, oy + 10, 1, 6, pelo);
-    px(ctx, ox + 12, oy + 10, 1, 6, pelo);
-    if (rizado) {
-      // Melena con volumen: se abre a los lados en vez de caer lacia
-      px(ctx, ox + 1, oy + 4, 1, 9, pelo);
-      px(ctx, ox + 14, oy + 4, 1, 9, pelo);
-      px(ctx, ox + 2, oy + 2, 12, 1, pelo);
-      px(ctx, ox + 2, oy + 13, 2, 2, peloLuz);
-      px(ctx, ox + 12, oy + 13, 2, 2, peloLuz);
-    } else {
-      px(ctx, ox + 2, oy + 16, 2, 1, pelo);
-      px(ctx, ox + 12, oy + 16, 2, 1, pelo);
-    }
+    px(ctx, ox + 4, oy + 1, 8, 2, PELO);
+    px(ctx, ox + 3, oy + 2, 10, 2, PELO);
+    px(ctx, ox + 5, oy + 1, 4, 1, PELO_LUZ);
+    px(ctx, ox + 3, oy + 4, 1, 2, PELO);
+    px(ctx, ox + 12, oy + 4, 1, 2, PELO);
   }
 
   // ---- Ojos y lentes ----
   px(ctx, ox + 5, oy + 6, 1, 1, OJO);
   px(ctx, ox + 10, oy + 6, 1, 1, OJO);
   if (p.lentes) {
-    const marco = p.lentes === "negros" ? "#15151a" : "#9a7450";
+    const marco = "#15151a";
     px(ctx, ox + 4, oy + 5, 3, 1, marco);
     px(ctx, ox + 9, oy + 5, 3, 1, marco);
     px(ctx, ox + 4, oy + 7, 3, 1, marco);
@@ -597,14 +549,52 @@ function persona(ctx: Ctx, ox: number, oy: number, p: Persona) {
     px(ctx, ox + 7, oy + 6, 2, 1, marco); // puente
     px(ctx, ox + 5, oy + 6, 1, 1, "#d8ecf7"); // reflejo
   }
+}
 
-  // ---- Barba ----
-  if (p.barba === "corta") {
-    px(ctx, ox + 4, oy + 8, 8, 2, "#00000055");
-    px(ctx, ox + 4, oy + 7, 1, 1, "#00000044");
-    px(ctx, ox + 11, oy + 7, 1, 1, "#00000044");
-  } else if (p.barba === "bigote") {
-    px(ctx, ox + 6, oy + 8, 4, 1, "#00000066");
+/* ------------------------------------------------------------- confeti ---- */
+
+const CONFETI_COLORES = ["#4285f4", "#ea4335", "#fbbc04", "#34a853", "#ffffff"];
+/** Cada cuanto lanzan confeti, y cuanto dura cada tirada. */
+const CONFETI_CICLO = 14_000;
+const CONFETI_DURA = 3400;
+
+/** Azar fijo por particula: la misma tirada se ve igual siempre. */
+const azarFijo = (n: number) => {
+  const v = Math.sin(n * 127.1) * 43758.5453;
+  return v - Math.floor(v);
+};
+
+/**
+ * El confeti que lanzan los organizadores cada tanto.
+ *
+ * No guarda estado: la posicion de cada papelito sale de una parabola en
+ * funcion del tiempo, asi que no hay lista de particulas que actualizar ni
+ * basura que recoger. Fuera de la tirada no dibuja nada y no cuesta nada.
+ */
+export function drawConfeti(ctx: Ctx, ms: number, x0: number, cuantos: number) {
+  const t = ms % CONFETI_CICLO;
+  if (t > CONFETI_DURA) return;
+  const u = t / 1000;
+
+  for (let i = 0; i < cuantos * 6; i += 1) {
+    const quien = i % cuantos;
+    const a = azarFijo(i);
+    const b = azarFijo(i + 97);
+    const c = azarFijo(i + 311);
+    const salida = u - b * 0.5; // no todos sueltan a la vez
+    if (salida <= 0) continue;
+
+    const ox = x0 + 8 + quien * 30 + 8;
+    const vx = (a - 0.5) * 30;
+    const vy = 30 + c * 22;
+    const x = ox + vx * salida;
+    const y = 134 - vy * salida + 22 * salida * salida;
+    if (y > 158) continue; // ya toco el piso de la tarima
+
+    const color = CONFETI_COLORES[Math.floor(c * CONFETI_COLORES.length)];
+    // El papelito gira: alterna entre tumbado y de canto
+    const gira = (salida * 7 + a * 6) % 2 < 1;
+    px(ctx, x, y, gira ? 2 : 1, gira ? 1 : 2, color);
   }
 }
 
@@ -702,8 +692,8 @@ export function drawPantalla(ctx: Ctx, fase: number, mensaje: number) {
  * ocupan conexion y no cuestan nada por cuadro.
  */
 function escenario(ctx: Ctx) {
-  const x0 = 296;
-  const ancho = 308;
+  const x0 = 280;
+  const ancho = 340;
 
   // Donde iba el telon ahora vuela la pantalla (drawPantalla), que se dibuja
   // en cada cuadro porque se mueve. Aqui solo queda el piso del escenario.
