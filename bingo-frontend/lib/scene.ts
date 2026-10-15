@@ -437,9 +437,9 @@ type Persona = {
   nombre: string;
   piel: string;
   pelo: string;
-  corte: "corto" | "largo" | "rizado" | "tazon" | "ondulado";
+  corte: "corto" | "fleco" | "tupido" | "rizado" | "tazon" | "largo" | "largoRizado";
   lentes?: "negros" | "claros";
-  barba?: boolean;
+  barba?: "corta" | "bigote";
 };
 
 /**
@@ -448,105 +448,163 @@ type Persona = {
  * el uniforme: polera negra con el logo de GDG y jean.
  */
 const ORGANIZADORES: Persona[] = [
-  { nombre: "BENJA", piel: "#e3b183", pelo: "#241c18", corte: "corto", lentes: "negros", barba: true },
+  { nombre: "BENJA", piel: "#e3b183", pelo: "#2a211b", corte: "tupido", lentes: "negros", barba: "corta" },
   { nombre: "BRAULIO", piel: "#dfae7e", pelo: "#1f1917", corte: "corto", lentes: "claros" },
   { nombre: "EILEEN", piel: "#e8b98a", pelo: "#201a18", corte: "largo", lentes: "claros" },
-  { nombre: "GABRIEL", piel: "#e3b183", pelo: "#15110f", corte: "rizado", barba: true },
+  { nombre: "GABRIEL", piel: "#e3b183", pelo: "#15110f", corte: "rizado", barba: "corta" },
   { nombre: "LUCIANA", piel: "#e8b98a", pelo: "#1d1715", corte: "largo", lentes: "claros" },
-  { nombre: "MIRINA", piel: "#dfae7e", pelo: "#3a2a20", corte: "largo", lentes: "claros" },
-  { nombre: "NELZON", piel: "#e3b183", pelo: "#15110f", corte: "corto", lentes: "negros" },
-  { nombre: "VICTOR", piel: "#dfae7e", pelo: "#231c19", corte: "corto", lentes: "negros", barba: true },
+  { nombre: "MIRINA", piel: "#dfae7e", pelo: "#3f2b20", corte: "largoRizado", lentes: "claros" },
+  { nombre: "NELZON", piel: "#e3b183", pelo: "#15110f", corte: "fleco", lentes: "negros" },
+  { nombre: "VICTOR", piel: "#dfae7e", pelo: "#231c19", corte: "tupido", lentes: "negros", barba: "bigote" },
   { nombre: "CINTIA", piel: "#e8b98a", pelo: "#201a18", corte: "largo" },
-  { nombre: "GONZALO", piel: "#e3b183", pelo: "#15110f", corte: "corto", lentes: "negros" },
+  { nombre: "GONZALO", piel: "#e3b183", pelo: "#15110f", corte: "tazon", lentes: "negros" },
 ];
 
-/** Una persona de 16x20 con el uniforme de la comunidad. */
+/** Una version mas clara de un color, para los brillos del pelo. */
+function aclarar(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  const sube = (v: number) => Math.min(255, v + 26);
+  return `#${((sube(n >> 16) << 16) | (sube((n >> 8) & 255) << 8) | sube(n & 255)).toString(16).padStart(6, "0")}`;
+}
+
+/**
+ * Una persona de 16x20 con el uniforme del staff.
+ *
+ * El cuerpo es angosto a proposito: hombros de 10 pixeles sobre una cabeza de
+ * 8. Con el torso tan ancho como los hombros, todos parecian corpulentos.
+ * Los brazos son una columna de 1 pixel a cada lado, con su mano.
+ *
+ * Lo que hace reconocible a alguien a esta escala es la silueta del pelo y los
+ * lentes, no la cara: por eso cada corte esta dibujado aparte.
+ */
 function persona(ctx: Ctx, ox: number, oy: number, p: Persona) {
   const NEGRO = "#1f1f24";
   const SOMBRA = "#15151a";
   const JEAN = "#3f5f8c";
+  const JEANSOMBRA = "#324c73";
   const ZAPA = "#e4e4e4";
   const OJO = "#1d1d1d";
-  const pielSombra = "#00000022";
+  const pelo = p.pelo;
+  const peloLuz = aclarar(pelo);
 
-  // Polera negra con el logo de GDG
-  px(ctx, ox + 2, oy + 10, 12, 1, NEGRO);
-  px(ctx, ox + 1, oy + 11, 14, 5, NEGRO);
-  px(ctx, ox + 1, oy + 15, 14, 1, SOMBRA);
-  px(ctx, ox + 5, oy + 12, 2, 1, "#ea4335");
+  // ---- Cuerpo ----
+  px(ctx, ox + 7, oy + 9, 2, 2, p.piel); // cuello
+  px(ctx, ox + 3, oy + 10, 10, 1, NEGRO); // hombros
+  px(ctx, ox + 4, oy + 11, 8, 5, NEGRO); // torso
+  px(ctx, ox + 4, oy + 15, 8, 1, SOMBRA);
+  px(ctx, ox + 3, oy + 11, 1, 4, NEGRO); // brazos
+  px(ctx, ox + 12, oy + 11, 1, 4, NEGRO);
+  px(ctx, ox + 3, oy + 15, 1, 1, p.piel); // manos
+  px(ctx, ox + 12, oy + 15, 1, 1, p.piel);
+
+  // Logo de GDG en el pecho: esto distingue al staff de los jugadores
+  px(ctx, ox + 6, oy + 12, 2, 1, "#ea4335");
   px(ctx, ox + 9, oy + 12, 2, 1, "#34a853");
-  px(ctx, ox + 4, oy + 13, 2, 1, "#4285f4");
+  px(ctx, ox + 5, oy + 13, 2, 1, "#4285f4");
   px(ctx, ox + 10, oy + 13, 2, 1, "#fbbc04");
 
   // Jean y zapatillas
-  px(ctx, ox + 3, oy + 16, 4, 3, JEAN);
-  px(ctx, ox + 9, oy + 16, 4, 3, JEAN);
-  px(ctx, ox + 3, oy + 19, 4, 1, ZAPA);
-  px(ctx, ox + 9, oy + 19, 4, 1, ZAPA);
+  px(ctx, ox + 4, oy + 16, 3, 3, JEAN);
+  px(ctx, ox + 9, oy + 16, 3, 3, JEAN);
+  px(ctx, ox + 6, oy + 16, 1, 3, JEANSOMBRA);
+  px(ctx, ox + 11, oy + 16, 1, 3, JEANSOMBRA);
+  px(ctx, ox + 4, oy + 19, 3, 1, ZAPA);
+  px(ctx, ox + 9, oy + 19, 3, 1, ZAPA);
 
-  // Cara y cuello
-  px(ctx, ox + 6, oy + 9, 4, 1, p.piel);
+  // ---- Cara ----
   px(ctx, ox + 4, oy + 3, 8, 7, p.piel);
-  px(ctx, ox + 4, oy + 8, 8, 1, pielSombra);
+  px(ctx, ox + 4, oy + 8, 8, 1, "#00000018"); // menton
 
-  // Pelo
-  const pelo = p.pelo;
+  // ---- Pelo ----
   if (p.corte === "corto") {
     px(ctx, ox + 4, oy + 1, 8, 2, pelo);
     px(ctx, ox + 3, oy + 2, 10, 2, pelo);
+    px(ctx, ox + 5, oy + 1, 5, 1, peloLuz);
     px(ctx, ox + 3, oy + 4, 1, 2, pelo);
     px(ctx, ox + 12, oy + 4, 1, 2, pelo);
+  } else if (p.corte === "fleco") {
+    // Corto con el flequillo cargado a un lado
+    px(ctx, ox + 4, oy + 1, 8, 2, pelo);
+    px(ctx, ox + 3, oy + 2, 10, 2, pelo);
+    px(ctx, ox + 4, oy + 4, 5, 1, pelo);
+    px(ctx, ox + 5, oy + 1, 4, 1, peloLuz);
+    px(ctx, ox + 3, oy + 4, 1, 2, pelo);
+    px(ctx, ox + 12, oy + 4, 1, 2, pelo);
+  } else if (p.corte === "tupido") {
+    // Mas volumen arriba, tipo despeinado
+    px(ctx, ox + 4, oy, 8, 1, pelo);
+    px(ctx, ox + 3, oy + 1, 10, 3, pelo);
+    px(ctx, ox + 5, oy, 4, 1, peloLuz);
+    px(ctx, ox + 2, oy + 2, 1, 3, pelo);
+    px(ctx, ox + 13, oy + 2, 1, 3, pelo);
+    px(ctx, ox + 3, oy + 4, 1, 2, pelo);
+    px(ctx, ox + 12, oy + 4, 1, 2, pelo);
+  } else if (p.corte === "rizado") {
+    // Rulos: bultos arriba y a los lados
+    px(ctx, ox + 4, oy, 8, 2, pelo);
+    px(ctx, ox + 3, oy + 1, 10, 3, pelo);
+    px(ctx, ox + 2, oy + 1, 2, 4, pelo);
+    px(ctx, ox + 12, oy + 1, 2, 4, pelo);
+    px(ctx, ox + 5, oy - 1, 2, 1, pelo);
+    px(ctx, ox + 9, oy - 1, 2, 1, pelo);
+    px(ctx, ox + 6, oy, 2, 1, peloLuz);
+    px(ctx, ox + 2, oy + 5, 1, 2, pelo);
+    px(ctx, ox + 13, oy + 5, 1, 2, pelo);
   } else if (p.corte === "tazon") {
+    // Flequillo recto y parejo
     px(ctx, ox + 3, oy + 1, 10, 4, pelo);
     px(ctx, ox + 2, oy + 2, 12, 3, pelo);
+    px(ctx, ox + 5, oy + 1, 5, 1, peloLuz);
     px(ctx, ox + 2, oy + 5, 2, 2, pelo);
     px(ctx, ox + 12, oy + 5, 2, 2, pelo);
-  } else if (p.corte === "ondulado") {
-    px(ctx, ox + 3, oy + 1, 10, 3, pelo);
-    px(ctx, ox + 2, oy + 2, 12, 2, pelo);
-    px(ctx, ox + 2, oy + 4, 2, 3, pelo);
-    px(ctx, ox + 12, oy + 4, 2, 3, pelo);
-    px(ctx, ox + 4, oy + 0, 3, 1, pelo);
-    px(ctx, ox + 9, oy + 0, 3, 1, pelo);
-  } else if (p.corte === "rizado") {
-    px(ctx, ox + 3, oy + 0, 10, 4, pelo);
-    px(ctx, ox + 2, oy + 1, 12, 3, pelo);
-    px(ctx, ox + 1, oy + 2, 2, 4, pelo);
-    px(ctx, ox + 13, oy + 2, 2, 4, pelo);
-    px(ctx, ox + 4, oy - 1, 2, 1, pelo);
-    px(ctx, ox + 10, oy - 1, 2, 1, pelo);
   } else {
-    // Largo: tiene que leerse a 16 pixeles, asi que cae ancho y hasta la
-    // cintura, por delante de la polera. Si solo rozara los hombros no se
-    // distinguiria del pelo corto.
-    px(ctx, ox + 3, oy, 10, 4, pelo);
-    px(ctx, ox + 1, oy + 1, 14, 3, pelo);
-    px(ctx, ox + 1, oy + 4, 3, 12, pelo);
-    px(ctx, ox + 12, oy + 4, 3, 12, pelo);
-    px(ctx, ox + 1, oy + 15, 3, 2, pelo);
-    px(ctx, ox + 12, oy + 15, 3, 2, pelo);
-    // Mechones sobre los hombros
-    px(ctx, ox + 4, oy + 10, 1, 4, pelo);
-    px(ctx, ox + 11, oy + 10, 1, 4, pelo);
+    // Pelo largo. Cae por delante de los hombros hasta la cintura: a 16
+    // pixeles es lo unico que lo diferencia del corto.
+    const rizado = p.corte === "largoRizado";
+    px(ctx, ox + 4, oy + 1, 8, 2, pelo);
+    px(ctx, ox + 3, oy + 1, 10, 3, pelo);
+    px(ctx, ox + 5, oy + 1, 4, 1, peloLuz);
+    px(ctx, ox + 2, oy + 3, 2, 13, pelo);
+    px(ctx, ox + 12, oy + 3, 2, 13, pelo);
+    px(ctx, ox + 3, oy + 10, 1, 6, pelo);
+    px(ctx, ox + 12, oy + 10, 1, 6, pelo);
+    if (rizado) {
+      // Melena con volumen: se abre a los lados en vez de caer lacia
+      px(ctx, ox + 1, oy + 4, 1, 9, pelo);
+      px(ctx, ox + 14, oy + 4, 1, 9, pelo);
+      px(ctx, ox + 2, oy + 2, 12, 1, pelo);
+      px(ctx, ox + 2, oy + 13, 2, 2, peloLuz);
+      px(ctx, ox + 12, oy + 13, 2, 2, peloLuz);
+    } else {
+      px(ctx, ox + 2, oy + 16, 2, 1, pelo);
+      px(ctx, ox + 12, oy + 16, 2, 1, pelo);
+    }
   }
 
-  // Ojos y lentes
+  // ---- Ojos y lentes ----
   px(ctx, ox + 5, oy + 6, 1, 1, OJO);
   px(ctx, ox + 10, oy + 6, 1, 1, OJO);
   if (p.lentes) {
-    const marco = p.lentes === "negros" ? "#1d1d1d" : "#8a6a4a";
-    px(ctx, ox + 4, oy + 5, 3, 3, marco);
-    px(ctx, ox + 9, oy + 5, 3, 3, marco);
-    px(ctx, ox + 5, oy + 6, 1, 1, "#cfe8f5");
-    px(ctx, ox + 10, oy + 6, 1, 1, "#cfe8f5");
-    px(ctx, ox + 7, oy + 6, 2, 1, marco);
+    const marco = p.lentes === "negros" ? "#15151a" : "#9a7450";
+    px(ctx, ox + 4, oy + 5, 3, 1, marco);
+    px(ctx, ox + 9, oy + 5, 3, 1, marco);
+    px(ctx, ox + 4, oy + 7, 3, 1, marco);
+    px(ctx, ox + 9, oy + 7, 3, 1, marco);
+    px(ctx, ox + 4, oy + 6, 1, 1, marco);
+    px(ctx, ox + 6, oy + 6, 1, 1, marco);
+    px(ctx, ox + 9, oy + 6, 1, 1, marco);
+    px(ctx, ox + 11, oy + 6, 1, 1, marco);
+    px(ctx, ox + 7, oy + 6, 2, 1, marco); // puente
+    px(ctx, ox + 5, oy + 6, 1, 1, "#d8ecf7"); // reflejo
   }
 
-  // Barba ligera
-  if (p.barba) {
-    px(ctx, ox + 4, oy + 8, 8, 1, "#00000044");
-    px(ctx, ox + 5, oy + 7, 1, 1, "#00000033");
-    px(ctx, ox + 10, oy + 7, 1, 1, "#00000033");
+  // ---- Barba ----
+  if (p.barba === "corta") {
+    px(ctx, ox + 4, oy + 8, 8, 2, "#00000055");
+    px(ctx, ox + 4, oy + 7, 1, 1, "#00000044");
+    px(ctx, ox + 11, oy + 7, 1, 1, "#00000044");
+  } else if (p.barba === "bigote") {
+    px(ctx, ox + 6, oy + 8, 4, 1, "#00000066");
   }
 }
 
