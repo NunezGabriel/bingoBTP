@@ -4,7 +4,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "@/lib/session";
 import { LobbyClient, type LobbyPlayer } from "@/lib/lobby";
 import { guardarMusica, musica, musicaActiva } from "@/lib/music";
-import { drawGround, drawPlane, drawSky, FLOOR, GROUND_TOP, P, SKY, WORLD } from "@/lib/scene";
+import {
+  drawGround,
+  drawPantalla,
+  drawPlane,
+  drawSky,
+  FLOOR,
+  GROUND_TOP,
+  MENSAJES_TOTAL,
+  P,
+  SKY,
+  WORLD,
+} from "@/lib/scene";
 import { drawSkin, skinOf } from "@/lib/sprites";
 import { Icon } from "@/components/ui/Icon";
 
@@ -288,6 +299,10 @@ export default function LobbyPage() {
           WORLD.h - alto,
         );
       }
+
+      // La pantalla del escenario: vuela, asi que va aqui y no horneada en el
+      // suelo. Cambia de mensaje cada seis segundos.
+      drawPantalla(ctx, now / 700, Math.floor(now / 6000) % MENSAJES_TOTAL);
 
       // 3. Gente, de atras hacia adelante para que se tapen bien
       const client = clientRef.current;

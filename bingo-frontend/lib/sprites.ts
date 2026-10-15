@@ -31,25 +31,27 @@ type Sprite = {
   legs: [string[], string[]];
 };
 
-/** Colores que comparten todos: la polera negra con el logo y el jean. */
+/** Colores que comparten todos: la polera negra y el jean. */
 const COMUN = {
   s: "#1f1f24", // polera negra
   S: "#15151a", // sombra de la polera
-  r: "#ea4335", // logo GDG
-  b: "#4285f4",
-  g: "#34a853",
-  y: "#fbbc04",
+  w: "#e8e8ec", // el <> del pecho
   j: "#3f5f8c", // jean
   J: "#31496e",
   z: "#e4e4e4", // zapatillas
 };
 
-/** El torso con el logo, igual para todos. */
+/**
+ * El torso, igual para todos: polera negra con un <> blanco.
+ *
+ * El logo de GDG no va aqui a proposito: ese lo llevan solo los organizadores
+ * del escenario, para que se note quien es del staff.
+ */
 const TORSO = [
   "..ssssssssssss..",
-  ".ssssssssssssss.",
-  ".ssssrrssggssss.",
-  ".sssbbssssyysss.",
+  ".ssssswsswsssss.",
+  ".sssswsssswssss.",
+  ".ssssswsswsssss.",
   ".ssssssssssssss.",
   "..SssssssssssS..",
 ];
@@ -95,7 +97,7 @@ const LEAD: Sprite = {
   },
   body: [
     "................",
-    "....hhhhhhhh....",
+    "...hhhhhhhhhh...",
     "..hhhhhhhhhhhh..",
     "..hhhhhhhhhhhh..",
     "..hhpppppppphh..",
@@ -103,12 +105,12 @@ const LEAD: Sprite = {
     "..hhpeppppephh..",
     "..hhpppppppphh..",
     "..hhpPPPPPPphh..",
-    "...hpppppppph...",
+    "..hhpppppppphh..",
+    ".hhsssssssssshh.",
+    ".hhssswsswssshh.",
+    ".hhsswsssswsshh.",
+    ".hhssswsswssshh.",
     ".hssssssssssssh.",
-    ".hssssssssssssh.",
-    ".ssssrrssggssss.",
-    ".sssbbssssyysss.",
-    ".ssssssssssssss.",
     "..SssssssssssS..",
   ],
   legs: PIERNAS,

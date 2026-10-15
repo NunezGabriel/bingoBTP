@@ -225,7 +225,7 @@ async function main() {
   );
   check("un jugador no entra al panel -> 403", (await p[0].get("/admin/overview")).status === 403);
   check("nace sin personaje", p[0].player.skin === null);
-  check("elige personaje", (await p[0].post("/me/skin", { skin: "toro" })).data?.player?.skin === "toro");
+  check("elige personaje", (await p[0].post("/me/skin", { skin: "lead" })).data?.player?.skin === "lead");
   check("un personaje inventado -> 400", (await p[0].post("/me/skin", { skin: "dragon" })).status === 400);
   check("recibe su ticket del lobby", typeof (await p[0].post("/me/lobby-ticket")).data?.ticket === "string");
 

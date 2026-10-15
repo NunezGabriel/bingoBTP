@@ -159,8 +159,8 @@ async function main() {
   const malSkin = await phone.post("/me/skin", { skin: "dragon" });
   check("un personaje inventado -> 400", malSkin.status === 400, `(${malSkin.status})`);
 
-  const elige = await phone.post("/me/skin", { skin: "rocoto" });
-  check("elige personaje", elige.data?.player?.skin === "rocoto");
+  const elige = await phone.post("/me/skin", { skin: "mago" });
+  check("elige personaje", elige.data?.player?.skin === "mago");
 
   /* ---------- lobby ---------- */
   console.log("\nLobby");

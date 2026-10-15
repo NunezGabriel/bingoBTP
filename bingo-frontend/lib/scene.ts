@@ -142,6 +142,17 @@ const FONT: Record<string, string[]> = {
   X: ["#.#", "#.#", ".#.", "#.#", "#.#"],
   Y: ["#.#", "#.#", ".#.", ".#.", ".#."],
   Z: ["###", "..#", ".#.", "#..", "###"],
+  "0": ["###", "#.#", "#.#", "#.#", "###"],
+  "1": [".#.", "##.", ".#.", ".#.", "###"],
+  "2": ["###", "..#", "###", "#..", "###"],
+  "3": ["###", "..#", "###", "..#", "###"],
+  "4": ["#.#", "#.#", "###", "..#", "..#"],
+  "5": ["###", "#..", "###", "..#", "###"],
+  "6": ["###", "#..", "###", "#.#", "###"],
+  "7": ["###", "..#", "..#", "..#", "..#"],
+  "8": ["###", "#.#", "###", "#.#", "###"],
+  "9": ["###", "#.#", "###", "..#", "###"],
+  "!": [".#.", ".#.", ".#.", "...", ".#."],
   " ": ["...", "...", "...", "...", "..."],
 };
 
@@ -437,16 +448,16 @@ type Persona = {
  * el uniforme: polera negra con el logo de GDG y jean.
  */
 const ORGANIZADORES: Persona[] = [
-  { nombre: "BENJA", piel: "#e3b183", pelo: "#241c18", corte: "ondulado", lentes: "negros", barba: true },
+  { nombre: "BENJA", piel: "#e3b183", pelo: "#241c18", corte: "corto", lentes: "negros", barba: true },
   { nombre: "BRAULIO", piel: "#dfae7e", pelo: "#1f1917", corte: "corto", lentes: "claros" },
   { nombre: "EILEEN", piel: "#e8b98a", pelo: "#201a18", corte: "largo", lentes: "claros" },
   { nombre: "GABRIEL", piel: "#e3b183", pelo: "#15110f", corte: "rizado", barba: true },
-  { nombre: "LUCIANA", piel: "#e8b98a", pelo: "#1d1715", corte: "largo" },
-  { nombre: "MIRINA", piel: "#dfae7e", pelo: "#3a2a20", corte: "rizado", lentes: "claros" },
+  { nombre: "LUCIANA", piel: "#e8b98a", pelo: "#1d1715", corte: "largo", lentes: "claros" },
+  { nombre: "MIRINA", piel: "#dfae7e", pelo: "#3a2a20", corte: "largo", lentes: "claros" },
   { nombre: "NELZON", piel: "#e3b183", pelo: "#15110f", corte: "corto", lentes: "negros" },
-  { nombre: "VICTOR", piel: "#dfae7e", pelo: "#231c19", corte: "corto", barba: true },
+  { nombre: "VICTOR", piel: "#dfae7e", pelo: "#231c19", corte: "corto", lentes: "negros", barba: true },
   { nombre: "CINTIA", piel: "#e8b98a", pelo: "#201a18", corte: "largo" },
-  { nombre: "GONZALO", piel: "#e3b183", pelo: "#15110f", corte: "tazon", lentes: "negros" },
+  { nombre: "GONZALO", piel: "#e3b183", pelo: "#15110f", corte: "corto", lentes: "negros" },
 ];
 
 /** Una persona de 16x20 con el uniforme de la comunidad. */
@@ -505,12 +516,18 @@ function persona(ctx: Ctx, ox: number, oy: number, p: Persona) {
     px(ctx, ox + 4, oy - 1, 2, 1, pelo);
     px(ctx, ox + 10, oy - 1, 2, 1, pelo);
   } else {
-    // largo: cae por los lados hasta los hombros
-    px(ctx, ox + 3, oy + 1, 10, 3, pelo);
-    px(ctx, ox + 2, oy + 2, 12, 2, pelo);
-    px(ctx, ox + 2, oy + 4, 2, 8, pelo);
-    px(ctx, ox + 12, oy + 4, 2, 8, pelo);
-    px(ctx, ox + 2, oy + 11, 2, 1, pelo);
+    // Largo: tiene que leerse a 16 pixeles, asi que cae ancho y hasta la
+    // cintura, por delante de la polera. Si solo rozara los hombros no se
+    // distinguiria del pelo corto.
+    px(ctx, ox + 3, oy, 10, 4, pelo);
+    px(ctx, ox + 1, oy + 1, 14, 3, pelo);
+    px(ctx, ox + 1, oy + 4, 3, 12, pelo);
+    px(ctx, ox + 12, oy + 4, 3, 12, pelo);
+    px(ctx, ox + 1, oy + 15, 3, 2, pelo);
+    px(ctx, ox + 12, oy + 15, 3, 2, pelo);
+    // Mechones sobre los hombros
+    px(ctx, ox + 4, oy + 10, 1, 4, pelo);
+    px(ctx, ox + 11, oy + 10, 1, 4, pelo);
   }
 
   // Ojos y lentes
@@ -547,6 +564,79 @@ function logoGdg(ctx: Ctx, x: number, y: number) {
   px(ctx, x + 14, y + 6, 4, 2, "#fbbc04");
 }
 
+/* ------------------------------------------------------ pantalla que vuela */
+
+/**
+ * Donde flota la pantalla, en pixeles del dibujo. Va por encima de las cabezas
+ * de los organizadores (que estan a 137) para no taparlos.
+ */
+export const PANTALLA = { x: 450, y: 88, w: 132, h: 40 };
+
+/** Lo que va mostrando, en vueltas de unos segundos cada una. */
+const MENSAJES: string[][] = [
+  ["DEVFEST", "AREQUIPA 2026"],
+  ["NO OLVIDES", "TUS MISIONES"],
+  ["CONOCE A 9", "Y GANA EL BINGO"],
+  ["MUESTRA TU QR", "A UN ORGANIZADOR"],
+];
+
+export const MENSAJES_TOTAL = MENSAJES.length;
+
+/**
+ * La pantalla voladora sobre el escenario.
+ *
+ * Flota en vez de ser un telon para no taparle la catedral ni el Misti, que
+ * son el fondo de toda la escena. Se dibuja en cada cuadro (no se puede
+ * hornear en el suelo) porque sube y baja y las helices giran.
+ *
+ * @param fase avanza con el tiempo: de ahi salen el balanceo y las helices
+ * @param mensaje indice del texto que toca mostrar
+ */
+export function drawPantalla(ctx: Ctx, fase: number, mensaje: number) {
+  const { w, h } = PANTALLA;
+  const x = PANTALLA.x - w / 2;
+  const y = PANTALLA.y + Math.round(Math.sin(fase) * 3);
+
+  // Helices a los lados: dos aspas que alternan, como un dron
+  const aspa = Math.floor(fase * 6) % 2 === 0;
+  for (const hx of [x - 9, x + w + 1]) {
+    px(ctx, hx + 2, y + 10, 4, 10, "#3d4452");
+    px(ctx, hx + 1, y + 19, 6, 2, "#2b313c");
+    if (aspa) {
+      px(ctx, hx - 4, y + 8, 16, 2, "#9fb0c6");
+      px(ctx, hx - 2, y + 7, 12, 1, "#cfdcea");
+    } else {
+      px(ctx, hx + 2, y + 5, 4, 8, "#9fb0c6");
+      px(ctx, hx + 3, y + 4, 2, 10, "#cfdcea");
+    }
+    px(ctx, hx + 1, y + 8, 6, 3, "#4f5867");
+  }
+
+  // Marco
+  px(ctx, x - 2, y - 2, w + 4, h + 4, "#2b313c");
+  px(ctx, x - 2, y - 2, w + 4, 2, "#4f5867");
+  px(ctx, x - 2, y + h, w + 4, 2, "#1b2029");
+  // Pantalla
+  px(ctx, x, y, w, h, "#0f1b2e");
+  px(ctx, x, y, w, 1, "#1d3350");
+  // Lineas de escaneo, para que se vea encendida
+  for (let i = 2; i < h; i += 4) px(ctx, x + 1, y + i, w - 2, 1, "#132338");
+
+  const cx = PANTALLA.x;
+  const lineas = MENSAJES[mensaje % MENSAJES.length];
+  const colores = ["#4285f4", "#fbbc04"];
+  // El primer mensaje es el del evento: lleva el logo encima.
+  const conLogo = mensaje % MENSAJES.length === 0;
+  if (conLogo) logoGdg(ctx, cx - 11, y + 5);
+  const base = conLogo ? y + 16 : y + 11;
+  lineas.forEach((linea, i) => {
+    texto(ctx, linea, cx, base + i * 11, colores[i % colores.length]);
+  });
+
+  // Lucecita de encendido
+  px(ctx, x + w - 5, y + h - 4, 2, 2, "#34a853");
+}
+
 /**
  * El escenario delante de la catedral, con los organizadores.
  *
@@ -557,21 +647,8 @@ function escenario(ctx: Ctx) {
   const x0 = 296;
   const ancho = 308;
 
-  // Telon. Va claro a proposito: las poleras de los organizadores son negras y
-  // contra un fondo oscuro no se distinguia a nadie.
-  px(ctx, x0, 104, ancho, 52, "#f1ece0");
-  px(ctx, x0, 104, ancho, 3, "#ffffff");
-  px(ctx, x0, 153, ancho, 3, "#cfc7b4");
-  px(ctx, x0, 104, 3, 52, "#ffffff");
-  px(ctx, x0 + ancho - 3, 104, 3, 52, "#cfc7b4");
-  // Franja de colores de Google arriba
-  const franja = ["#4285f4", "#ea4335", "#fbbc04", "#34a853"];
-  for (let i = 0; i < ancho - 6; i += 1) {
-    px(ctx, x0 + 3 + i, 107, 1, 2, franja[Math.floor(i / ((ancho - 6) / 4)) % 4]);
-  }
-  logoGdg(ctx, x0 + ancho / 2 - 11, 114);
-  texto(ctx, "GDG AREQUIPA", x0 + ancho / 2, 126, "#191919");
-  texto(ctx, "DEVFEST", x0 + ancho / 2, 134, "#4285f4");
+  // Donde iba el telon ahora vuela la pantalla (drawPantalla), que se dibuja
+  // en cada cuadro porque se mueve. Aqui solo queda el piso del escenario.
 
   // Tarima
   px(ctx, x0 - 6, 156, ancho + 12, 6, "#8a6c53");
