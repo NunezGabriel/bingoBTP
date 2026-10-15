@@ -5,6 +5,10 @@ import type { NextConfig } from "next";
 const BACKEND_URL = process.env.BACKEND_URL || "https://bingobtp.onrender.com";
 
 const nextConfig: NextConfig = {
+  // El indicador flotante de Next tapa una esquina del lobby y se confunde con
+  // un boton del juego. Solo sale en desarrollo, pero ahi es donde se prueba.
+  devIndicators: false,
+
   // Solo para la imagen Docker: empaqueta un server.js autocontenido.
   // En Vercel la variable no existe, asi que el build sigue siendo el de siempre.
   ...(process.env.DOCKER_BUILD === "true"

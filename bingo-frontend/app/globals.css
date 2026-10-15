@@ -236,18 +236,19 @@ body {
 
 /* ---------- Lobby ---------- */
 
-/* Cruceta de movimiento: grande para el pulgar, discreta para no tapar la plaza. */
+/* Cruceta de movimiento: grande para el pulgar y translucida para no tapar la
+   plaza. Sobre un escenario de noche, un boton blanco se come la pantalla. */
 .dpad {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 58px;
   height: 58px;
-  border: 3px solid var(--color-ink);
+  border: 2px solid rgba(255, 255, 255, 0.55);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 3px 0 var(--color-ink);
-  color: var(--color-ink);
+  background: rgba(12, 16, 40, 0.3);
+  backdrop-filter: blur(2px);
+  color: #ffffff;
   cursor: pointer;
   touch-action: none;
   -webkit-user-select: none;
@@ -255,8 +256,8 @@ body {
 }
 
 .dpad:active {
-  background: var(--color-gblue);
-  color: #fff;
+  background: rgba(66, 133, 244, 0.75);
+  border-color: #ffffff;
 }
 
 /* ---------- Animaciones ---------- */

@@ -56,9 +56,13 @@ module.exports = {
     snapshotHz: int("LOBBY_HZ", 6),
     /** Un saludo cada 30 s por persona. */
     emoteCooldownMs: 30_000,
-    /** Tamano del escenario en pixeles del mundo. */
-    width: 960,
-    height: 540,
+    /**
+     * Tamano del escenario en unidades del mundo. Es ancho a proposito: la
+     * camara solo se mueve en horizontal, asi que lo que da espacio para que
+     * entren cientos de personas es el ancho, no el alto.
+     */
+    width: 1800,
+    height: 620,
   },
 
   frontendOrigins: [

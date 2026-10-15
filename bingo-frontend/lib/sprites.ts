@@ -218,8 +218,11 @@ const SPRITES: Record<SkinId, Sprite> = {
 
 export const SPRITE_W = 16;
 export const SPRITE_H = 20;
-/** Cada pixel del dibujo son 3x3 del mundo: el personaje mide 48x60. */
-export const PIXEL = 3;
+/**
+ * Cada pixel del dibujo son 2x2 del mundo: el personaje mide 32x40. Chico a
+ * proposito: en la plaza tienen que entrar cientos sin taparse entre si.
+ */
+export const PIXEL = 2;
 
 /** Avisa en desarrollo si una fila quedo con el ancho equivocado. */
 function rowsOf(sprite: Sprite, frame: number): string[] {

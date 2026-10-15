@@ -23,7 +23,7 @@ const { getPlayer } = require("../services/players");
  */
 
 const WORLD = { w: config.lobby.width, h: config.lobby.height };
-const CELL = 160;
+const CELL = 240;
 const COLS = Math.ceil(WORLD.w / CELL);
 const ROWS = Math.ceil(WORLD.h / CELL);
 const VISIBLE_MAX = 60;
@@ -171,8 +171,8 @@ async function onConnection(ws, req) {
     ws,
     // Aparece delante de la pileta, no encima, y repartido para que no se
     // amontonen todos en el mismo pixel cuando entran de golpe.
-    x: Math.round(WORLD.w / 2 + (Math.random() * 420 - 210)),
-    y: Math.round(WORLD.h * 0.88 + (Math.random() * 44 - 22)),
+    x: Math.round(WORLD.w / 2 + (Math.random() * 700 - 350)),
+    y: Math.round(WORLD.h * 0.9 + (Math.random() * 50 - 25)),
     d: 0,
     w: false,
     emote: false,
