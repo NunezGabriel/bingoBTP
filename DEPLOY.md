@@ -15,17 +15,23 @@ Dos caminos, el mismo código:
 
 ### 1. La base de datos: la misma de siempre
 
-No hace falta una base nueva. La migración `20260927203000_bingo_gdg` transforma el
-esquema de la versión anterior en el de este bingo, y `prisma migrate deploy` la aplica
-sola en cada despliegue.
+No hace falta una base nueva: la de Neon que ya existe sirve, y
+`prisma migrate deploy` se encarga sola en cada despliegue.
 
-- **Se conserva:** jugadores (la columna `nickname` pasa a `name`), eventos,
-  inscripciones y el libro de puntos.
-- **Se borra:** lo que ya no existe en el juego: conexiones, trofeos, cartillas y
-  partidas de la versión anterior.
+Lo que esa base tiene hoy (octubre de 2026) es el bingo de marzo: `Usuario`,
+`Ronda`, `Cartilla`, `Casilla`, `Firma`, `RelacionCasilla`, `session` y tres
+migraciones propias. De esta app no tiene nada. Entonces:
 
-Si no estás seguro del estado de tu base, `npx prisma migrate status` te dice qué
-migraciones tiene aplicadas antes de desplegar.
+- Las cuatro migraciones **crean sus tablas desde cero**. Ningún nombre choca
+  con los de marzo, así que no hay nada que arreglar a mano.
+- Las tablas de marzo **se quedan ahí sin usarse**. Prisma no las toca. Se
+  pueden borrar cuando quieras, pero no estorban.
+- `prisma migrate deploy` **no se queja** de que esas tres migraciones de marzo
+  no estén en `prisma/migrations`: aplica las suyas y las deja en paz. Está
+  probado contra una copia local de ese mismo estado.
+
+Antes de desplegar un cambio de esquema, `npx prisma migrate status` con la
+`DATABASE_URL` de producción dice qué tiene aplicado. Es solo lectura.
 
 > **Si creas un proyecto de Neon, hazlo en la misma región que tu servicio de Render.**
 > Cada acción del juego hace entre 1 y 8 consultas. Con la base en otro continente
@@ -37,6 +43,9 @@ migraciones tiene aplicadas antes de desplegar.
 - Root directory: `bingo-backend`
 - Build: `npm install && npx prisma generate && npx prisma migrate deploy && npm run seed`
 - Start: `node src/app.js`
+- Rama: `main`, con auto-deploy encendido (Settings → Build & Deploy). Si está
+  apagada, un push no sube nada y el servicio sigue sirviendo la versión vieja
+  sin dar ningún error: se nota porque `/api/health` responde 404.
 - Variables de entorno:
 
 | Variable | Valor |
