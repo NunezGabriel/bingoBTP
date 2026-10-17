@@ -13,7 +13,7 @@
 require("dotenv").config({ quiet: true });
 const config = require("../src/config");
 const { prisma, pool } = require("../src/lib/prisma");
-const { hashPin } = require("../src/lib/pin");
+const { hashPin, verifyPin } = require("../src/lib/pin");
 const { newPlayerCode } = require("../src/lib/codes");
 
 async function reset() {
@@ -44,6 +44,14 @@ async function ensureAdmin() {
 
   const existing = await prisma.player.findUnique({ where: { nameKey } });
   if (existing) {
+    // Si la clave ya es la del entorno, no se toca nada: este seeder corre en
+    // cada despliegue y subir la version de sesion cerraria la sesion del
+    // admin cada vez que se sube un cambio, incluso en medio del evento.
+    const alDia = existing.role === "ADMIN" && (await verifyPin(config.adminClave, existing.claveHash));
+    if (alDia) {
+      console.log(`Admin "${name}": ya estaba al dia.`);
+      return;
+    }
     await prisma.player.update({
       where: { id: existing.id },
       // Se le sube la version de sesion para cerrar las abiertas con la clave vieja.

@@ -35,7 +35,7 @@ migraciones tiene aplicadas antes de desplegar.
 ### 2. API en Render
 
 - Root directory: `bingo-backend`
-- Build: `npm install && npx prisma generate && npx prisma migrate deploy`
+- Build: `npm install && npx prisma generate && npx prisma migrate deploy && npm run seed`
 - Start: `node src/app.js`
 - Variables de entorno:
 
@@ -53,12 +53,14 @@ migraciones tiene aplicadas antes de desplegar.
 Las preguntas del bingo, las misiones y los personajes no van en la base: se
 editan en `bingo-backend/src/content/` y viajan con el despliegue.
 
-Despues del primer despliegue, crea la cuenta de admin una sola vez desde la
-shell de Render:
+El `npm run seed` del final del build es el que crea la cuenta de admin, y va
+ahi porque el plan gratuito de Render no tiene shell. Corre en cada despliegue
+y no molesta: si la clave ya es la del entorno no toca nada, y el evento de
+ejemplo solo se crea si la base no tiene ninguno.
 
-```bash
-npm run seed
-```
+> **La clave del admin tiene que tener 8 caracteres o mas.** Con menos, la API
+> se niega a arrancar en produccion y el despliegue queda caido. Ese codigo ya
+> no abre solo un panel: es la cuenta que firma cada validacion de mision.
 
 ### 3. Web en Vercel
 
