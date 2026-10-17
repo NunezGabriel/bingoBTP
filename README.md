@@ -14,7 +14,7 @@ el evento, lo abre y desde ahi quien entre juega en ese evento.
 
 | | |
 |---|---|
-| **Lobby** | Plaza de Armas en pixel art. Te mueves con el teclado o con la cruceta en pantalla, tu nombre va sobre tu personaje y puedes saludar cada 30 segundos. Es la pantalla de inicio: de ahi sales al bingo, al ranking y a tu tarjeta. |
+| **Lobby** | La Plaza de Armas de noche, en pixel art. Te mueves con el teclado o con la cruceta, tu nombre va sobre tu personaje y puedes saludar cada 30 segundos. Es la pantalla de inicio y donde se espera entre rondas. |
 | **Bingo** | Cartilla de 9 casillas del tipo *"alguien que use Flutter"*. Tocas una casilla, aparece la pregunta y escribes el codigo de 6 letras de quien la cumple. Cada persona solo puede firmarte una, asi que para completar hay que conocer a 9. |
 | **Misiones** | Cuatro acciones del evento (redes, preguntar a un ponente, WhatsApp, subir una historia). El participante las cumple y un organizador **escanea su QR** para validarlas. Al completar las cuatro gana puntos extra y entra al premio del final. |
 
@@ -36,15 +36,37 @@ no se registra desde la app: la crea el seeder con `ADMIN_USER` y `ADMIN_CLAVE`.
 
 | Ruta | Para |
 |---|---|
-| `/` | Portada con el evento abierto |
+| `/` | Redirige a `/entrar`: quien abre el link quiere entrar, no leer |
 | `/entrar` | La unica puerta: usuario + clave |
 | `/personaje` | Elegir personaje (una sola vez) |
 | `/lobby` | La plaza |
 | `/cartilla` | El bingo de la ronda en curso |
 | `/misiones` | La tarjeta y el QR que te escanean |
-| `/ranking`, `/cuenta` | Puntos y cuenta |
+| `/cuenta` | Puntos, historial y clave |
 | `/admin` | Panel: **Evento**, **Ronda**, **Escaner** y **Jugadores** |
 | `/pantalla` | Proyector |
+
+Abajo solo hay tres botones: **Plaza**, **Misiones** y **Mi cuenta**. La
+cartilla no esta en el menu a proposito: aparece sola cuando el admin empieza
+la ronda (con una cuenta regresiva a pantalla completa) y al terminar la ronda
+todos vuelven a la plaza. Quien entra con una ronda ya empezada cae directo en
+su cartilla, con una recien repartida.
+
+## Que hay en la plaza
+
+Todo esta dibujado por codigo, pixel a pixel: no hay un solo archivo de imagen.
+
+- La **Plaza de Armas de noche**: catedral y portales con los arcos
+  iluminados, faroles encendidos con su charco de luz, jardines con flores,
+  palmeras, bancas y una pileta de tres cuerpos. Al fondo, los tres volcanes
+  con el Misti nevado.
+- Un **escenario con los organizadores** delante de la catedral, con su nombre
+  debajo. Cada tanto sueltan confeti.
+- Una **pantalla voladora** con helices que va rotando mensajes del evento.
+- Un **avioncito** que cruza el cielo cada 48 segundos arrastrando un cartel
+  que ondea.
+- **Musiquita de 8 bits**, sintetizada en el navegador (no hay mp3 que
+  descargar), con su boton para quitarla arriba a la derecha.
 
 ## El contenido se edita en el codigo
 
@@ -118,6 +140,7 @@ bingo-frontend/  Next.js 16 · estilo GDG/DevFest
   lib/sprites.ts           los personajes, pixel por pixel
   lib/scene.ts             la Plaza de Armas y el Misti (dos capas, con parallax)
   lib/lobby.ts             cliente del WebSocket del lobby
+  lib/music.ts             la musiquita de 8 bits, sin archivos de audio
 bingo-backend/   Express 5 · Prisma 7 · Postgres
   src/content/             preguntas, misiones y personajes (esto se edita)
   src/realtime/hub.js      Server-Sent Events con reenvio al reconectar
@@ -134,5 +157,6 @@ bingo-backend/   Express 5 · Prisma 7 · Postgres
 - **Cuenta regresiva con la hora del servidor**: todos los celulares y el proyector cuentan sincronizados aunque sus relojes esten desfasados.
 - **Puntos en un libro contable** con clave unica por recompensa: nadie cobra dos veces.
 - **Las misiones quedan firmadas**: cada validacion guarda que admin la hizo, para poder auditar los premios.
+- **El lobby esta hecho para celulares flojos**: el escenario se pinta una sola vez y en cada cuadro solo se copia el pedazo visible; quien queda fuera de pantalla no se dibuja; el canvas se limita a 1.4 millones de pixeles reales.
 
 Despliegue: ver [DEPLOY.md](DEPLOY.md).
