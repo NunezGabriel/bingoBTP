@@ -431,128 +431,102 @@ function jardin(ctx: Ctx, x: number, y: number, w: number, h: number) {
   px(ctx, x - 1, y + h, w + 2, 1, C.vereda);
 }
 
-/* -------------------------------------------------- los organizadores ---- */
+/* --------------------------------------------- los que organizan ---- */
 
-type Persona = {
+/** Donde empieza la tarima y cuanto mide. Lo usan las marcas y el confeti. */
+export const ESCENARIO = { x0: 280, ancho: 340 };
+
+/**
+ * Las instituciones que organizan el evento, dibujadas en pixeles.
+ *
+ * Aqui antes habia once munecos, uno por organizador. Se fueron por dos
+ * razones: amontonaban la zona mas cargada de la escena, justo delante de la
+ * catedral, y la lista nunca estaba completa. Las instituciones son pocas y
+ * no cambian.
+ *
+ * Cada marca se dibuja centrada en cx y apoyada en base, y resuelve ella sola
+ * su ancho y su alto: no hay dos iguales y forzarlas a una caja comun solo
+ * haria que las chicas se vieran infladas.
+ */
+type Marca = {
   nombre: string;
-  /** Pelo largo si es chica, corto si no: un solo diseno para cada uno. */
-  chica?: boolean;
-  lentes?: boolean;
+  dibujar: (ctx: Ctx, cx: number, base: number) => void;
 };
 
-/**
- * Los organizadores del escenario.
- *
- * Dos disenos y nada mas: a 16 pixeles, diez peinados distintos no se leen,
- * se ven como ruido. Lo que importa es que se distinga al staff del resto y
- * que cada quien se reconozca por su nombre debajo.
- */
-const ORGANIZADORES: Persona[] = [
-  { nombre: "BENJA", lentes: true },
-  { nombre: "BRAULIO", lentes: true },
-  { nombre: "EILEEN", chica: true, lentes: true },
-  { nombre: "GABRIEL" },
-  { nombre: "LUCIANA", chica: true, lentes: true },
-  { nombre: "MIRINA", chica: true, lentes: true },
-  { nombre: "NELZON", lentes: true },
-  { nombre: "VICTOR", lentes: true },
-  { nombre: "CINTIA", chica: true },
-  { nombre: "GONZALO", lentes: true },
-  { nombre: "CHRIS", lentes: true },
+const MARCAS: Marca[] = [
+  { nombre: "TECSUP", dibujar: marcaTecsup },
+  { nombre: "JETBRAINS", dibujar: marcaJetBrains },
+  { nombre: "GDG AREQUIPA", dibujar: marcaGdg },
+  { nombre: "PYLADIES", dibujar: marcaPyLadies },
+  { nombre: "WOMEN TECHMAKERS", dibujar: marcaWtm },
 ];
 
-/** Donde empieza la tarima y cuanta gente hay en ella (lo usa el confeti). */
-export const ESCENARIO = { x0: 280, cuantos: ORGANIZADORES.length };
+/** Tecsup: la T con la regla graduada pegada al asta. */
+function marcaTecsup(ctx: Ctx, cx: number, base: number) {
+  const c = "#00aeef";
+  const x = cx - 7;
+  const y = base - 14;
+  px(ctx, x + 4, y, 10, 3, c); // barra de arriba
+  px(ctx, x + 4, y, 3, 14, c); // asta
+  // Las graduaciones son lo unico que distingue a esta T de cualquier otra
+  for (const dy of [3, 6, 9, 12]) px(ctx, x, y + dy, 3, 1, c);
+}
 
-const PIEL = "#e3b183";
-const PIEL_SOMBRA = "#00000018";
-const PELO = "#241c18";
-const PELO_LUZ = "#3b2e26";
+/** JetBrains: el cuadrado negro con su raya dentro del rombo de colores. */
+function marcaJetBrains(ctx: Ctx, cx: number, base: number) {
+  const x = cx - 8;
+  const y = base - 16;
+  px(ctx, x, y, 16, 16, "#fc3d6b");
+  px(ctx, x + 9, y, 7, 10, "#cf1bff"); // el morado tira hacia arriba
+  px(ctx, x, y + 10, 8, 6, "#ff6f2c"); // y el naranja hacia abajo
+  px(ctx, x + 2, y + 2, 12, 12, "#000000");
+  px(ctx, x + 4, y + 10, 5, 2, "#ffffff");
+}
 
-/**
- * Una persona de 16x20 con el uniforme del staff: polera negra con el logo de
- * GDG y jean.
- *
- * El cuerpo es angosto a proposito: hombros de 10 pixeles sobre una cabeza de
- * 8. Con el torso tan ancho como los hombros, todos parecian corpulentos.
- */
-function persona(ctx: Ctx, ox: number, oy: number, p: Persona) {
-  const NEGRO = "#1f1f24";
-  const SOMBRA = "#15151a";
-  const JEAN = "#3f5f8c";
-  const JEANSOMBRA = "#324c73";
-  const ZAPA = "#e4e4e4";
-  const OJO = "#1d1d1d";
+/** GDG: la marca de siempre. Es mas baja que las otras, va apoyada igual. */
+function marcaGdg(ctx: Ctx, cx: number, base: number) {
+  logoGdg(ctx, cx - 10, base - 8);
+}
 
-  // ---- Cuerpo ----
-  px(ctx, ox + 7, oy + 9, 2, 2, PIEL); // cuello
-  px(ctx, ox + 3, oy + 10, 10, 1, NEGRO); // hombros
-  px(ctx, ox + 4, oy + 11, 8, 5, NEGRO); // torso
-  px(ctx, ox + 4, oy + 15, 8, 1, SOMBRA);
-  px(ctx, ox + 3, oy + 11, 1, 4, NEGRO); // brazos
-  px(ctx, ox + 12, oy + 11, 1, 4, NEGRO);
-  px(ctx, ox + 3, oy + 15, 1, 1, PIEL); // manos
-  px(ctx, ox + 12, oy + 15, 1, 1, PIEL);
+/** PyLadies: el flequillo rojo y los lentes. */
+function marcaPyLadies(ctx: Ctx, cx: number, base: number) {
+  const rojo = "#e3253d";
+  const x = cx - 8;
+  const y = base - 14;
+  // La cara va rellena a proposito: en el logo original es el blanco del
+  // papel, y sobre el cielo de noche ese hueco se leeria como una mascara.
+  px(ctx, x + 2, y + 4, 12, 9, "#f2d2bd");
+  px(ctx, x + 3, y, 10, 2, rojo);
+  px(ctx, x + 1, y + 2, 14, 4, rojo);
+  px(ctx, x, y + 4, 2, 7, rojo); // el pelo que cae a los lados
+  px(ctx, x + 14, y + 4, 2, 7, rojo);
+  px(ctx, x + 3, y + 7, 4, 3, "#ffffff"); // lentes
+  px(ctx, x + 9, y + 7, 4, 3, "#ffffff");
+  px(ctx, x + 7, y + 8, 2, 1, "#ffffff"); // puente
+  px(ctx, x + 4, y + 8, 2, 1, "#1d1d1d"); // ojos
+  px(ctx, x + 10, y + 8, 2, 1, "#1d1d1d");
+}
 
-  // El logo en el pecho: esto distingue al staff de los jugadores
-  px(ctx, ox + 6, oy + 12, 2, 1, "#ea4335");
-  px(ctx, ox + 9, oy + 12, 2, 1, "#34a853");
-  px(ctx, ox + 5, oy + 13, 2, 1, "#4285f4");
-  px(ctx, ox + 10, oy + 13, 2, 1, "#fbbc04");
-
-  // Jean y zapatillas
-  px(ctx, ox + 4, oy + 16, 3, 3, JEAN);
-  px(ctx, ox + 9, oy + 16, 3, 3, JEAN);
-  px(ctx, ox + 6, oy + 16, 1, 3, JEANSOMBRA);
-  px(ctx, ox + 11, oy + 16, 1, 3, JEANSOMBRA);
-  px(ctx, ox + 4, oy + 19, 3, 1, ZAPA);
-  px(ctx, ox + 9, oy + 19, 3, 1, ZAPA);
-
-  // ---- Cara ----
-  px(ctx, ox + 4, oy + 3, 8, 7, PIEL);
-  px(ctx, ox + 4, oy + 8, 8, 1, PIEL_SOMBRA);
-
-  // ---- Pelo ----
-  if (p.chica) {
-    // Largo: cae por delante de los hombros hasta la cintura. A esta escala
-    // es lo unico que lo diferencia del corto.
-    px(ctx, ox + 4, oy + 1, 8, 2, PELO);
-    px(ctx, ox + 3, oy + 1, 10, 3, PELO);
-    px(ctx, ox + 5, oy + 1, 3, 1, PELO_LUZ);
-    px(ctx, ox + 2, oy + 3, 2, 14, PELO);
-    px(ctx, ox + 12, oy + 3, 2, 14, PELO);
-    px(ctx, ox + 3, oy + 10, 1, 7, PELO);
-    px(ctx, ox + 12, oy + 10, 1, 7, PELO);
-    px(ctx, ox + 2, oy + 16, 2, 1, PELO_LUZ);
-    px(ctx, ox + 12, oy + 16, 2, 1, PELO_LUZ);
-  } else {
-    px(ctx, ox + 4, oy + 1, 8, 2, PELO);
-    px(ctx, ox + 3, oy + 2, 10, 2, PELO);
-    px(ctx, ox + 5, oy + 1, 4, 1, PELO_LUZ);
-    px(ctx, ox + 3, oy + 4, 1, 2, PELO);
-    px(ctx, ox + 12, oy + 4, 1, 2, PELO);
-  }
-
-  // ---- Ojos y lentes ----
-  // Dos pixeles de ancho: con uno solo el ojo se lee como una mota de polvo.
-  // A quien lleva lentes el marco le tapa medio ojo y queda igual que antes.
-  px(ctx, ox + 5, oy + 6, 2, 1, OJO);
-  px(ctx, ox + 9, oy + 6, 2, 1, OJO);
-  if (p.lentes) {
-    const marco = "#15151a";
-    px(ctx, ox + 4, oy + 5, 3, 1, marco);
-    px(ctx, ox + 9, oy + 5, 3, 1, marco);
-    px(ctx, ox + 4, oy + 7, 3, 1, marco);
-    px(ctx, ox + 9, oy + 7, 3, 1, marco);
-    px(ctx, ox + 4, oy + 6, 1, 1, marco);
-    px(ctx, ox + 6, oy + 6, 1, 1, marco);
-    px(ctx, ox + 9, oy + 6, 1, 1, marco);
-    px(ctx, ox + 11, oy + 6, 1, 1, marco);
-    px(ctx, ox + 7, oy + 6, 2, 1, marco); // puente
-    // El reflejo va en las dos lunas. Con una sola, la otra se leia como un
-    // parche negro en el ojo en vez de como un cristal.
-    px(ctx, ox + 5, oy + 6, 1, 1, "#d8ecf7");
-    px(ctx, ox + 10, oy + 6, 1, 1, "#d8ecf7");
+/** Women Techmakers: la W entre corchetes, de azul a verde agua. */
+function marcaWtm(ctx: Ctx, cx: number, base: number) {
+  const azul = "#4285f4";
+  const verde = "#00ac9b";
+  const x = cx - 11;
+  const y = base - 14;
+  px(ctx, x, y, 3, 14, azul);
+  px(ctx, x, y, 6, 2, azul);
+  px(ctx, x, y + 12, 6, 2, azul);
+  px(ctx, x + 19, y, 3, 14, verde);
+  px(ctx, x + 16, y, 6, 2, verde);
+  px(ctx, x + 16, y + 12, 6, 2, verde);
+  // La W son cuatro trazos: baja, sube al pico del medio, baja y vuelve a
+  // subir. Con menos trazos quedaba una V y no se entendia la letra.
+  const avance = (r: number) => Math.round((r * 3) / 8);
+  for (let r = 0; r < 9; r += 1) {
+    px(ctx, x + 4 + avance(r), y + 3 + r, 2, 1, azul);
+    px(ctx, x + 10 - avance(r), y + 3 + r, 2, 1, azul);
+    px(ctx, x + 10 + avance(r), y + 3 + r, 2, 1, verde);
+    px(ctx, x + 16 - avance(r), y + 3 + r, 2, 1, verde);
   }
 }
 
@@ -576,20 +550,25 @@ const azarFijo = (n: number) => {
  * funcion del tiempo, asi que no hay lista de particulas que actualizar ni
  * basura que recoger. Fuera de la tirada no dibuja nada y no cuesta nada.
  */
-export function drawConfeti(ctx: Ctx, ms: number, x0: number, cuantos: number) {
+export function drawConfeti(ctx: Ctx, ms: number) {
   const t = ms % CONFETI_CICLO;
   if (t > CONFETI_DURA) return;
   const u = t / 1000;
 
-  for (let i = 0; i < cuantos * 6; i += 1) {
-    const quien = i % cuantos;
+  // Un surtidor por marca: el confeti sale de la tarima, que es lo que quedo
+  // ahi arriba desde que los organizadores dejaron de estar parados en ella.
+  const surtidores = MARCAS.length;
+  const paso = ESCENARIO.ancho / surtidores;
+
+  for (let i = 0; i < surtidores * 8; i += 1) {
+    const quien = i % surtidores;
     const a = azarFijo(i);
     const b = azarFijo(i + 97);
     const c = azarFijo(i + 311);
     const salida = u - b * 0.5; // no todos sueltan a la vez
     if (salida <= 0) continue;
 
-    const ox = x0 + 8 + quien * 30 + 8;
+    const ox = ESCENARIO.x0 + paso * (quien + 0.5);
     const vx = (a - 0.5) * 30;
     const vy = 30 + c * 22;
     const x = ox + vx * salida;
@@ -698,8 +677,7 @@ export function drawPantalla(ctx: Ctx, fase: number, mensaje: number) {
  * ocupan conexion y no cuestan nada por cuadro.
  */
 function escenario(ctx: Ctx) {
-  const x0 = 280;
-  const ancho = 340;
+  const { x0, ancho } = ESCENARIO;
 
   // Donde iba el telon ahora vuela la pantalla (drawPantalla), que se dibuja
   // en cada cuadro porque se mueve. Aqui solo queda el piso del escenario.
@@ -721,29 +699,19 @@ function escenario(ctx: Ctx) {
     ovalo(ctx, fx + 2, 158, 10, 3, "#5d5648");
   }
 
-  // En fila sobre la tarima, cada uno con su nombre flotando encima.
-  ORGANIZADORES.forEach((p, i) => {
-    const px0 = x0 + 8 + i * 30;
-    ovalo(ctx, px0 + 8, 157, 7, 2, "#00000044");
-    persona(ctx, px0, 137, p);
-    // Dos alturas alternadas: entre un organizador y el siguiente hay 30
-    // pixeles y un nombre como GABRIEL ocupa 27, asi que a la misma altura dos
-    // carteles seguidos se tocarian.
-    nombreFlotante(ctx, p.nombre, px0 + 8, i % 2 === 0 ? 122 : 130);
+  // Las marcas repartidas a lo largo de la tarima, apoyadas en ella y con el
+  // nombre flotando encima. El nombre va arriba y no debajo porque abajo lo
+  // comia el borde de la tarima, y la placa oscura es lo que lo despega del
+  // arco iluminado de la catedral.
+  const paso = ancho / MARCAS.length;
+  MARCAS.forEach((m, i) => {
+    const cx = Math.round(x0 + paso * (i + 0.5));
+    ovalo(ctx, cx, 155, 13, 2, "#00000044");
+    m.dibujar(ctx, cx, 154);
+    const anchoNombre = m.nombre.length * 4 - 1;
+    px(ctx, cx - Math.round(anchoNombre / 2) - 2, 127, anchoNombre + 4, 7, "#0d1016cc");
+    texto(ctx, m.nombre, cx, 128, "#f3ead8");
   });
-}
-
-/**
- * El cartelito con el nombre que flota sobre una cabeza, como en Minecraft.
- *
- * Antes los nombres iban escritos sobre la tarima, y los once seguidos se
- * leian como una sola tira de letras sin saber cual era de quien. El fondo
- * oscuro es lo que los separa del arco de la catedral que tienen detras.
- */
-function nombreFlotante(ctx: Ctx, nombre: string, cx: number, y: number) {
-  const ancho = nombre.length * 4 - 1;
-  px(ctx, cx - Math.round(ancho / 2) - 2, y - 1, ancho + 4, 7, "#0d1016cc");
-  texto(ctx, nombre, cx, y, "#f3ead8");
 }
 
 export function drawGround(ctx: Ctx) {
