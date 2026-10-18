@@ -1,343 +1,278 @@
 /**
- * Arte 8-bit de Misti Quest.
+ * Los personajes del lobby, dibujados a mano en pixeles.
  *
- * Cada sprite es una matriz de 16x16 caracteres. Cada caracter apunta a un
- * color de la paleta; "." es transparente. Las letras P/Q/L son el color de la
- * casa del jugador (azul, rojo, amarillo o verde), asi un mismo personaje
- * cambia de color sin redibujarlo.
+ * Todos son gente de la comunidad: polera negra con el logo de GDG en el
+ * pecho y jean, que es el uniforme real de un evento de devs. El mago, el
+ * esqueleto y el robot son el mismo cuerpo con otra cabeza: asi todos se ven
+ * de la misma familia aunque cada uno tenga su chiste.
+ *
+ * Cada uno es una rejilla de 16x20: el cuerpo son las 16 primeras filas y las
+ * piernas van aparte, con dos frames, para que caminar sea cambiar solo las
+ * piernas y el cuerpo nunca se desalinee.
  */
 
-export type HouseKey = "azul" | "rojo" | "amarillo" | "verde";
+export type SkinId = "dev" | "lead" | "mago" | "esqueleto" | "robot";
 
-export type ClassKey =
-  | "esqueleto"
-  | "mago"
-  | "caballero"
-  | "robot"
-  | "ninja"
-  | "fantasma"
-  | "slime"
-  | "astronauta"
-  | "dragon"
-  | "misti";
+export const SKIN_IDS: SkinId[] = ["dev", "lead", "mago", "esqueleto", "robot"];
 
-export type SpriteDef = {
-  key: ClassKey;
-  name: string;
-  lore: string;
-  /** Nivel minimo para poder elegirlo. 1 = disponible desde el inicio. */
-  unlockLevel: number;
-  rows: string[];
+export const SKIN_NAMES: Record<SkinId, string> = {
+  dev: "Dev",
+  lead: "Tech lead",
+  mago: "Mago",
+  esqueleto: "Esqueleto",
+  robot: "Bot",
 };
 
-export const SPRITE_SIZE = 16;
-
-/** Colores fijos, compartidos por todos los sprites. */
-const BASE_PALETTE: Record<string, string> = {
-  K: "#14142b", // contorno
-  W: "#f7f5ef", // blanco / hueso
-  w: "#bfc3cf", // sombra del blanco
-  G: "#6e7385", // gris medio
-  g: "#434757", // gris oscuro
-  S: "#f4c49c", // piel
-  s: "#cf946b", // sombra de piel
-  Y: "#ffd23f", // oro
-  y: "#c99a14", // oro oscuro
-  R: "#ea4335", // rojo fijo (lengua, lava)
-  O: "#ff8a1f", // naranja (lava)
-  B: "#9fd8ff", // vidrio / visor claro
-  b: "#3b6ea8", // vidrio oscuro
-  N: "#7a4a2a", // madera
-  n: "#4d2e1a", // madera oscura
-  E: "#14142b", // ojos
+type Sprite = {
+  palette: Record<string, string>;
+  /** 16 filas de 16 caracteres. */
+  body: string[];
+  /** Dos frames de 4 filas: quieto y en movimiento. */
+  legs: [string[], string[]];
 };
 
-export const HOUSES: Record<
-  HouseKey,
-  { name: string; P: string; Q: string; L: string }
-> = {
-  azul: { name: "Azul", P: "#4285f4", Q: "#2657b8", L: "#a3c4fb" },
-  rojo: { name: "Rojo", P: "#ea4335", Q: "#a8261b", L: "#f5a39b" },
-  amarillo: { name: "Amarillo", P: "#fbbc04", Q: "#b98700", L: "#fde39a" },
-  verde: { name: "Verde", P: "#34a853", Q: "#1d7438", L: "#9ad7ab" },
+/** Colores que comparten todos: la polera negra y el jean. */
+const COMUN = {
+  s: "#1f1f24", // polera negra
+  S: "#15151a", // sombra de la polera
+  w: "#e8e8ec", // el <> del pecho
+  j: "#3f5f8c", // jean
+  J: "#31496e",
+  z: "#e4e4e4", // zapatillas
 };
-
-export const HOUSE_KEYS = Object.keys(HOUSES) as HouseKey[];
-
-export function paletteFor(house: HouseKey): Record<string, string> {
-  const h = HOUSES[house] ?? HOUSES.azul;
-  return { ...BASE_PALETTE, P: h.P, Q: h.Q, L: h.L };
-}
-
-export const CLASSES: SpriteDef[] = [
-  {
-    key: "esqueleto",
-    name: "Esqueleto",
-    lore: "Murio debuggeando en produccion. Volvio para cerrar el ticket.",
-    unlockLevel: 1,
-    rows: [
-      "................",
-      ".....KKKKKK.....",
-      "...KKWWWWWWKK...",
-      "..KWWWWWWWWWWK..",
-      "..KWWWWWWWWWwK..",
-      ".KWWKKKWWKKKWwK.",
-      ".KWWKPKWWKPKWwK.",
-      ".KWWKKKWWKKKWwK.",
-      "..KWWWWKKWWWwK..",
-      "...KWKWKWKWKwK..",
-      "....KKKKKKKKK...",
-      "...KQPPPPPPPQK..",
-      "..KWKPLPPPPPKWK.",
-      "..KwKWKWKWKWKwK.",
-      "....KWK..KWK....",
-      "...KKK....KKK...",
-    ],
-  },
-  {
-    key: "mago",
-    name: "Mago",
-    lore: "Convierte cafe en codigo. A veces el hechizo compila.",
-    unlockLevel: 1,
-    rows: [
-      ".......KK.......",
-      "......KPPK......",
-      "......KPLK......",
-      ".....KPPPQK.....",
-      ".....KPYPQK.....",
-      "....KPPPPPQK....",
-      "..KKKKKKKKKKKK..",
-      "...KSSSSSSSSK...",
-      "...KSEKSSKESK..Y",
-      "...KWSSSSSSWK.KY",
-      "...KWWWWWWWWK.N.",
-      "..KPKWWWWWWKPKN.",
-      "..KPPKWWWWKPPNK.",
-      "..KQPPKWWKPPPK..",
-      "..KQQPPPPPPQQK..",
-      "...KKKKKKKKKK...",
-    ],
-  },
-  {
-    key: "caballero",
-    name: "Caballero",
-    lore: "Juro proteger la rama main de los force push.",
-    unlockLevel: 1,
-    rows: [
-      "......KPK.......",
-      ".....KPLPK......",
-      "....KKKPKKK.....",
-      "...KGWWWWWGK....",
-      "...KGWWWWWGK....",
-      "...KKKKKKKKK..K.",
-      "...KGBKKKBGK.KW.",
-      "...KGWWWWWGK.KW.",
-      "....KGGGGGK..KW.",
-      "..KKGKPPPKGKKKW.",
-      ".KGWKPPLPPKWGKY.",
-      ".KGWKPPPPPKWKYK.",
-      "..KKKQPPPQKKK...",
-      "....KGGKGGK.....",
-      "....KgK.KgK.....",
-      "...KKK...KKK....",
-    ],
-  },
-  {
-    key: "robot",
-    name: "Robot",
-    lore: "Paso el test de Turing. No paso el de CSS centrado.",
-    unlockLevel: 1,
-    rows: [
-      ".......KK.......",
-      ".......KRK......",
-      "........K.......",
-      "....KKKKKKKK....",
-      "...KWWWWWWWWK...",
-      "..KKWKKKKKKWKK..",
-      "..KGWKBEBBEKWGK.",
-      "..KKWKKKKKKWKK..",
-      "...KWwWKKWwWK...",
-      "....KKKKKKKK....",
-      "..KKGPPPPPPGKK..",
-      ".KWKGPYPPYPGKWK.",
-      ".KGKGPPPPPPGKGK.",
-      "..KKGQQQQQQGKK..",
-      "....KGK..KGK....",
-      "...KKKK..KKKK...",
-    ],
-  },
-  {
-    key: "ninja",
-    name: "Ninja",
-    lore: "Hace deploy un viernes a las 5pm y nadie lo ve venir.",
-    unlockLevel: 1,
-    rows: [
-      "................",
-      ".....KKKKKK.....",
-      "....KggggggK....",
-      "...KggggggggK...",
-      "...KPPPPPPPPKPK.",
-      "...KSSSSSSSSKLPK",
-      "...KSEESSEESK.KP",
-      "...KggggggggK...",
-      "....KggggggK....",
-      "...KKKPPPPKKK...",
-      "..KgKgggggggKgK.",
-      "..KgKgggggggKSK.",
-      "...KKQPPPPQKKK..",
-      "....KggKKggK....",
-      "....KgK..KgK....",
-      "...KKK....KKK...",
-    ],
-  },
-  {
-    key: "fantasma",
-    name: "Fantasma",
-    lore: "Aparece en tus logs a las 3am. Nadie sabe de donde viene.",
-    unlockLevel: 1,
-    rows: [
-      "................",
-      "......KKKK......",
-      "....KKWWWWKK....",
-      "...KWWWWWWWWK...",
-      "..KWWWWWWWWWwK..",
-      "..KWWKKWWKKWwK..",
-      "..KWWKEWWKEWwK..",
-      "..KWLWWWWWWLwK..",
-      ".KWWWWWKKWWWWwK.",
-      "KWKWWWWWWWWWKwK.",
-      "KK.KPPPPPPPPK.K.",
-      "...KWWWWWWWwK...",
-      "...KWWWWWWWwK...",
-      "..KWWWWWWWWwK...",
-      "..KWKWWKWWKwK...",
-      "...K.KK.KK.K....",
-    ],
-  },
-  {
-    key: "slime",
-    name: "Slime",
-    lore: "Absorbe todos los stickers del evento. Todos.",
-    unlockLevel: 1,
-    rows: [
-      "................",
-      "................",
-      "................",
-      "................",
-      "......KKKK......",
-      "....KKPPPPKK....",
-      "...KPPWWPPPPK...",
-      "..KPPWLPPPPPPK..",
-      "..KPPPPPPPPPPK..",
-      ".KPPPKEPPKEPPPK.",
-      ".KPPPKEPPKEPPPK.",
-      ".KPPPPPKKPPPPQK.",
-      ".KQPPPPPPPPPPQK.",
-      ".KQQPPPPPPPPQQK.",
-      "..KKQQQQQQQQKK..",
-      "....KKKKKKKK....",
-    ],
-  },
-  {
-    key: "astronauta",
-    name: "Astronauta",
-    lore: "Viene de la nube. Literalmente, trabaja en cloud.",
-    unlockLevel: 1,
-    rows: [
-      "................",
-      ".....KKKKKK.....",
-      "...KKWWWWWWKK...",
-      "..KWWWWWWWWWwK..",
-      "..KWKKKKKKKKwK..",
-      ".KWKbbBbbbbbKwK.",
-      ".KWKbBbbbbbbKwK.",
-      ".KWKbbbbbbbbKwK.",
-      "..KWKKKKKKKKwK..",
-      "...KKWWWWWWKK...",
-      "..KGKWPPPPWKGK..",
-      ".KWWKWPYYPWKWwK.",
-      ".KWKKWWWWWWKKwK.",
-      "....KWWKKWwK....",
-      "....KWwK.KwK....",
-      "...KKKK..KKKK...",
-    ],
-  },
-  {
-    key: "dragon",
-    name: "Dragon",
-    lore: "Legendario. Dicen que sobrevivio a tres DevFest seguidos.",
-    unlockLevel: 6,
-    rows: [
-      "..KK........KK..",
-      "..KYK......KYK..",
-      "...KYKKKKKKYK...",
-      "...KPPPPPPPPK...",
-      "..KPPPPPPPPPPK..",
-      "..KPYEPPPPEYPK..",
-      "..KPYYPPPPYYPK..",
-      "..KPPLLLLLLPPK..",
-      "...KLKLLLLKLK...",
-      "KK..KWKRRKWK..KK",
-      "KLK..KPPPPK..KLK",
-      "KLLKKPLLLLPKKLLK",
-      ".KLKPPLLLLPPKLK.",
-      "..KKQPLLLLPQKK..",
-      "....KPK..KPK....",
-      "...KKKK..KKKK...",
-    ],
-  },
-  {
-    key: "misti",
-    name: "Misti",
-    lore: "Espiritu del volcan. Solo despierta para las verdaderas leyendas.",
-    unlockLevel: 10,
-    rows: [
-      ".....R.OO.R.....",
-      "......ROYOR.....",
-      ".......OYO......",
-      "......KWWWK.....",
-      ".....KWWWWWK....",
-      "....KWWWWWWwK...",
-      "....KGGGGGGGK...",
-      "...KGGGGGGGGGK..",
-      "...KGGKEGGKEGK..",
-      "..KGGGKEGGKEGGK.",
-      "..KGGGGGRRGGGgK.",
-      ".KGGPPGGGGGPPGgK",
-      ".KGPPPGGGGGGPPgK",
-      "KgGGGGGGGGGGGGgK",
-      "KggggggggggggggK",
-      ".KKKKKKKKKKKKKK.",
-    ],
-  },
-];
-
-export const CLASS_BY_KEY = Object.fromEntries(
-  CLASSES.map((c) => [c.key, c]),
-) as Record<ClassKey, SpriteDef>;
 
 /**
- * Convierte un sprite en rectangulos, uniendo pixeles contiguos del mismo
- * color en cada fila para que el SVG tenga pocos nodos.
+ * El torso, igual para todos: polera negra con un <> blanco.
+ *
+ * El logo de GDG no va aqui a proposito: ese lo llevan solo los organizadores
+ * del escenario, para que se note quien es del staff.
  */
-export function spriteRects(
-  rows: string[],
-  palette: Record<string, string>,
-): { x: number; y: number; w: number; fill: string }[] {
-  const rects: { x: number; y: number; w: number; fill: string }[] = [];
-  rows.forEach((row, y) => {
-    let x = 0;
-    while (x < row.length) {
-      const ch = row[x];
-      if (ch === "." || !palette[ch]) {
-        x += 1;
-        continue;
-      }
-      let end = x + 1;
-      while (end < row.length && row[end] === ch) end += 1;
-      rects.push({ x, y, w: end - x, fill: palette[ch] });
-      x = end;
-    }
-  });
-  return rects;
+const TORSO = [
+  "..ssssssssssss..",
+  ".ssssswsswsssss.",
+  ".sssswsssswssss.",
+  ".ssssswsswsssss.",
+  ".ssssssssssssss.",
+  "..SssssssssssS..",
+];
+
+const PIERNAS: [string[], string[]] = [
+  ["...jjjj..jjjj...", "...jjjj..jjjj...", "...zzzz..zzzz...", "................"],
+  ["..jjjj....jjjj..", "..jjjj....jjjj..", "..zzzz....zzzz..", "................"],
+];
+
+const DEV: Sprite = {
+  palette: {
+    ...COMUN,
+    p: "#e8b98a", // piel
+    P: "#c99a6b",
+    h: "#241c18", // pelo
+    H: "#3b2e26",
+    e: "#1d1d1d",
+  },
+  body: [
+    "................",
+    "....hhhhhhhh....",
+    "...hhhhhhhhhh...",
+    "...hhppppppph...",
+    "...hpppppppph...",
+    "...pppppppppp...",
+    "...pepppppppe...",
+    "...pppppppppp...",
+    "....pPPPPPPp....",
+    ".....pppppp.....",
+    ...TORSO,
+  ],
+  legs: PIERNAS,
+};
+
+const LEAD: Sprite = {
+  palette: {
+    ...COMUN,
+    p: "#e3b183",
+    P: "#c2905f",
+    h: "#2b1d17", // pelo largo
+    H: "#432f24",
+    e: "#1d1d1d",
+  },
+  body: [
+    "................",
+    "...hhhhhhhhhh...",
+    "..hhhhhhhhhhhh..",
+    "..hhhhhhhhhhhh..",
+    "..hhpppppppphh..",
+    "..hhpppppppphh..",
+    "..hhpeppppephh..",
+    "..hhpppppppphh..",
+    "..hhpPPPPPPphh..",
+    "..hhpppppppphh..",
+    ".hhsssssssssshh.",
+    ".hhssswsswssshh.",
+    ".hhsswsssswsshh.",
+    ".hhssswsswssshh.",
+    ".hssssssssssssh.",
+    "..SssssssssssS..",
+  ],
+  legs: PIERNAS,
+};
+
+const MAGO: Sprite = {
+  palette: {
+    ...COMUN,
+    m: "#5b3b8c", // tunica
+    M: "#452c6b",
+    p: "#e8b98a",
+    P: "#c99a6b",
+    w: "#eceff4", // barba
+    W: "#c7ccd6",
+    e: "#1d1d1d",
+    a: "#fbbc04", // estrella del sombrero
+  },
+  body: [
+    "......mm........",
+    ".....mmmm.......",
+    "....mmmamm......",
+    "...mmmmmmmm.....",
+    "..MMMMMMMMMMM...",
+    "....pppppppp....",
+    "....peppppep....",
+    "....pppppppp....",
+    "...wwwwwwwwww...",
+    "....wWWWWWWw....",
+    "..mmmmmmmmmmmm..",
+    ".mmmmmmmmmmmmmm.",
+    ".mmmmrrmmggmmmm.",
+    ".mmmbbmmmmyymmm.",
+    ".mmmmmmmmmmmmmm.",
+    "..MmmmmmmmmmmM..",
+  ],
+  legs: [
+    ["...mmmm..mmmm...", "...mmmm..mmmm...", "...zzzz..zzzz...", "................"],
+    ["..mmmm....mmmm..", "..mmmm....mmmm..", "..zzzz....zzzz..", "................"],
+  ],
+};
+
+const ESQUELETO: Sprite = {
+  palette: {
+    ...COMUN,
+    o: "#ece7d9", // hueso
+    O: "#c9c3b2",
+    e: "#15151a",
+    c: "#9fe8ff", // chispita en la cuenca
+  },
+  body: [
+    "................",
+    "....oooooooo....",
+    "...oooooooooo...",
+    "...oooooooooo...",
+    "...oeeooooeeo...",
+    "...oceooooceo...",
+    "...oooooooooo...",
+    "....oooooooo....",
+    "....oOoOoOoo....",
+    ".....oooooo.....",
+    ...TORSO,
+  ],
+  legs: PIERNAS,
+};
+
+const ROBOT: Sprite = {
+  palette: {
+    ...COMUN,
+    m: "#9aa3ad", // carcasa
+    M: "#6f7985",
+    v: "#10182a", // pantalla
+    c: "#4dd0e1",
+    a: "#ea4335", // antena
+  },
+  body: [
+    "......aa........",
+    "......mm........",
+    "...mmmmmmmmmm...",
+    "..mmmmmmmmmmmm..",
+    "..mmvvvvvvvvmm..",
+    "..mmvccvvccvmm..",
+    "..mmvvvvvvvvmm..",
+    "..mmvvcccccvmm..",
+    "..MMMMMMMMMMMM..",
+    "....mmmmmmmm....",
+    ...TORSO,
+  ],
+  legs: PIERNAS,
+};
+
+const SPRITES: Record<SkinId, Sprite> = {
+  dev: DEV,
+  lead: LEAD,
+  mago: MAGO,
+  esqueleto: ESQUELETO,
+  robot: ROBOT,
+};
+
+export const SPRITE_W = 16;
+export const SPRITE_H = 20;
+/**
+ * Cada pixel del dibujo son 2x2 del mundo: el personaje mide 32x40. Chico a
+ * proposito: en la plaza tienen que entrar cientos sin taparse entre si.
+ */
+export const PIXEL = 2;
+
+/** Avisa en desarrollo si una fila quedo con el ancho equivocado. */
+function rowsOf(sprite: Sprite, frame: number): string[] {
+  const rows = [...sprite.body, ...sprite.legs[frame % sprite.legs.length]];
+  if (process.env.NODE_ENV !== "production") {
+    const mala = rows.findIndex((r) => r.length !== SPRITE_W);
+    if (mala >= 0) console.warn(`sprite: la fila ${mala} mide ${rows[mala].length}, deberia medir ${SPRITE_W}`);
+    if (rows.length !== SPRITE_H) console.warn(`sprite: tiene ${rows.length} filas, deberia tener ${SPRITE_H}`);
+  }
+  return rows;
 }
+
+const cache: Record<string, HTMLCanvasElement> = {};
+
+function paint(skin: SkinId, frame: number, flip: boolean): HTMLCanvasElement {
+  const key = `${skin}:${frame}:${flip ? 1 : 0}`;
+  const hit = cache[key];
+  if (hit) return hit;
+
+  const sprite = SPRITES[skin] ?? SPRITES.dev;
+  const rows = rowsOf(sprite, frame);
+  const canvas = document.createElement("canvas");
+  canvas.width = SPRITE_W * PIXEL;
+  canvas.height = SPRITE_H * PIXEL;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+
+  for (let y = 0; y < rows.length; y += 1) {
+    const row = rows[y];
+    for (let x = 0; x < row.length; x += 1) {
+      const color = sprite.palette[row[x]];
+      if (!color) continue;
+      ctx.fillStyle = color;
+      const px = flip ? SPRITE_W - 1 - x : x;
+      ctx.fillRect(px * PIXEL, y * PIXEL, PIXEL, PIXEL);
+    }
+  }
+  cache[key] = canvas;
+  return canvas;
+}
+
+/**
+ * Dibuja a alguien con los pies en (x, y).
+ * dir: 0 abajo, 1 izquierda, 2 arriba, 3 derecha. Izquierda es el mismo dibujo
+ * volteado: con 16x20 pixeles no hace falta un juego de sprites por lado.
+ */
+export function drawSkin(
+  ctx: CanvasRenderingContext2D,
+  skin: SkinId,
+  x: number,
+  y: number,
+  dir: number,
+  frame: number,
+) {
+  const canvas = paint(skin, frame, dir === 1);
+  ctx.drawImage(canvas, Math.round(x - canvas.width / 2), Math.round(y - canvas.height));
+}
+
+export const skinOf = (value: string | null | undefined): SkinId =>
+  SKIN_IDS.includes(value as SkinId) ? (value as SkinId) : "dev";

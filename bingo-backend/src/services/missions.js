@@ -1,72 +1,151 @@
-const crypto = require("node:crypto");
-const { prisma } = require("../lib/prisma");
+const { prisma, isUniqueViolation } = require("../lib/prisma");
 const { withTx } = require("../lib/tx");
+const { missions, bonusCompleta } = require("../content/missions");
 const { conflict, notFound } = require("../lib/http");
-const MISSIONS = require("../content/missions");
+const hub = require("../realtime/hub");
 const { grant, announceGrants } = require("./points");
-
-// La lista se valida al arrancar: un error aqui es un error al editar el archivo.
-const seen = new Set();
-for (const m of MISSIONS) {
-  if (!m.key || seen.has(m.key) || m.key.includes(":")) {
-    throw new Error(`src/content/missions.js: la mision "${m.key}" esta repetida, sin key o tiene ":"`);
-  }
-  if (!Number.isInteger(m.points) || m.points <= 0) {
-    throw new Error(`src/content/missions.js: "${m.key}" necesita puntos enteros mayores a 0`);
-  }
-  seen.add(m.key);
-}
+const { publicPlayer, findByCode, PUBLIC_SELECT } = require("./players");
 
 /**
- * Misiones del evento para un jugador y cuantas veces ya la recibio. Se cuenta
- * en el libro de puntos: cada entrega es una fila "mission:<key>...".
+ * La tarjeta de misiones.
+ *
+ * El participante no marca nada: un admin valida escaneando su QR (o
+ * escribiendo su codigo de 6 letras). Cada mision se valida una sola vez por
+ * persona y evento, y eso lo garantiza el indice unico de la tabla, no una
+ * comprobacion previa: asi dos admins escaneando a la vez no la cuentan doble.
  */
-async function missionsForPlayer(eventId, playerId) {
-  const rows = await prisma.pointLedger.findMany({
-    where: { eventId, playerId, source: "MISSION" },
-    select: { refKey: true },
-  });
-  const counts = new Map();
-  for (const { refKey } of rows) {
-    const key = refKey.split(":")[1];
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return MISSIONS.map((m) => ({
-    key: m.key,
-    title: m.title,
-    points: m.points,
-    repeatable: Boolean(m.repeatable),
-    timesAwarded: counts.get(m.key) ?? 0,
-  }));
-}
 
-async function awardMission(event, key, player, awardedBy) {
-  const mission = MISSIONS.find((m) => m.key === key);
-  if (!mission) throw notFound("Mision no encontrada");
+const BY_ID = new Map(missions.map((m) => [m.id, m]));
+const TOTAL = missions.length;
 
-  // Las unicas usan siempre la misma clave: el indice unico impide darla dos veces.
-  const refKey = mission.repeatable ? `mission:${key}:${crypto.randomUUID()}` : `mission:${key}`;
-
-  const grants = await withTx(async (tx, onCommit) => {
-    const result = await grant(tx, event.id, [
-      {
-        playerId: player.id,
-        amount: mission.points,
-        source: "MISSION",
-        refKey,
-        label: mission.title,
-        awardedById: awardedBy.id,
-      },
-    ]);
-    if (!result.length) throw conflict(`${player.nickname} ya recibio esta mision`);
-    onCommit(() => announceGrants(event.id, result));
-    return result;
-  });
-
+function missionView(mission, claim) {
   return {
-    mission: { key, title: mission.title, points: mission.points },
-    points: grants[0].points,
+    id: mission.id,
+    title: mission.title,
+    detail: mission.detail,
+    hint: mission.hint,
+    icon: mission.icon,
+    points: mission.points,
+    done: Boolean(claim),
+    doneAt: claim?.createdAt ?? null,
   };
 }
 
-module.exports = { missionsForPlayer, awardMission };
+function buildCard(claims) {
+  const byMission = new Map(claims.map((c) => [c.missionId, c]));
+  const list = missions.map((m) => missionView(m, byMission.get(m.id)));
+  const done = list.filter((m) => m.done).length;
+  return { missions: list, done, total: TOTAL, bonus: bonusCompleta, completa: done === TOTAL };
+}
+
+/** La tarjeta de una persona: las cuatro misiones y cuales ya tiene validadas. */
+async function cardOf(eventId, playerId) {
+  const claims = eventId
+    ? await prisma.missionClaim.findMany({ where: { eventId, playerId } })
+    : [];
+  return buildCard(claims);
+}
+
+/**
+ * Valida una mision escaneando a alguien. Devuelve la tarjeta actualizada para
+ * que el admin vea en el acto como va esa persona.
+ */
+async function validate({ eventId, code, missionId, adminId }) {
+  const mission = BY_ID.get(String(missionId ?? ""));
+  if (!mission) throw notFound("Esa mision no existe");
+
+  const player = await findByCode(String(code ?? "").toUpperCase().trim());
+  if (!player) throw notFound("Ese codigo no es de nadie");
+  if (player.role !== "PLAYER") throw conflict("Esa cuenta es de administracion, no juega");
+
+  const card = await withTx(async (tx, onCommit) => {
+    try {
+      await tx.missionClaim.create({
+        data: { eventId, playerId: player.id, missionId: mission.id, validatedById: adminId },
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw conflict(`${player.name} ya tenia validada "${mission.title}"`);
+      }
+      throw error;
+    }
+
+    const claims = await tx.missionClaim.findMany({ where: { eventId, playerId: player.id } });
+    const nueva = buildCard(claims);
+
+    const entries = [
+      {
+        playerId: player.id,
+        amount: mission.points,
+        refKey: `mision:${mission.id}`,
+        label: mission.title,
+      },
+    ];
+    // El bono por completar las cuatro se entrega solo, sin que nadie lo pida.
+    if (nueva.completa) {
+      entries.push({
+        playerId: player.id,
+        amount: bonusCompleta,
+        refKey: "mision:completa",
+        label: "Tarjeta completa",
+      });
+    }
+    const results = await grant(tx, eventId, entries);
+
+    onCommit(() => {
+      announceGrants(eventId, results);
+      hub.toPlayer(player.id, "mission:done", {
+        missionId: mission.id,
+        title: mission.title,
+        done: nueva.done,
+        total: nueva.total,
+        completa: nueva.completa,
+      });
+    });
+
+    return nueva;
+  });
+
+  return { player: publicPlayer(player), mission: mission.id, card };
+}
+
+/** Para la premiacion: quien completo la tarjeta y quien va mas cerca. */
+async function report(eventId) {
+  const claims = await prisma.missionClaim.findMany({
+    where: { eventId },
+    include: { player: { select: PUBLIC_SELECT } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const porPersona = new Map();
+  for (const claim of claims) {
+    const entry = porPersona.get(claim.playerId) ?? {
+      player: publicPlayer(claim.player),
+      done: [],
+      lastAt: null,
+    };
+    entry.done.push(claim.missionId);
+    entry.lastAt = claim.createdAt;
+    porPersona.set(claim.playerId, entry);
+  }
+
+  // Primero quien tiene mas misiones; a igualdad, quien las termino antes.
+  const people = [...porPersona.values()].sort(
+    (a, b) => b.done.length - a.done.length || new Date(a.lastAt) - new Date(b.lastAt),
+  );
+
+  const porMision = missions.map((m) => ({
+    id: m.id,
+    title: m.title,
+    count: claims.filter((c) => c.missionId === m.id).length,
+  }));
+
+  return {
+    completas: people.filter((p) => p.done.length === TOTAL),
+    people,
+    porMision,
+    total: TOTAL,
+  };
+}
+
+module.exports = { cardOf, validate, report, missions };

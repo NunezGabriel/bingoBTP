@@ -1,5 +1,5 @@
 /**
- * Levanta todo Misti Quest en local con un solo comando, desde la raiz:
+ * Levanta todo Bingo GDG en local con un solo comando, desde la raiz:
  *
  *   npm run dev
  *
@@ -7,6 +7,7 @@
  * espera a que el anterior responda. Ctrl+C apaga todo.
  */
 const { spawn, execSync } = require("node:child_process");
+const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
 
@@ -119,8 +120,11 @@ async function main() {
     log("db", "ya estaba corriendo en el puerto 52611, la uso.");
   } else {
     log("db", "iniciando base de datos local...");
+    // La primera vez de cada dia, prisma dev se baja su motor en silencio: son
+    // un par de minutos sin una sola linea en pantalla. No esta colgado.
+    log("db", "si es la primera vez del dia, Prisma descarga su motor: puede tardar 1-3 min sin mostrar nada.");
     run("db", "bingo-backend", "db");
-    await waitFor("La base de datos", () => portOpen(52611), 120_000);
+    await waitFor("La base de datos", () => portOpen(52611), 300_000);
     log("db", "lista.");
   }
 
@@ -158,13 +162,21 @@ async function main() {
     log("web", "el puerto 3000 ya esta ocupado: cierra el otro frontend y vuelve a intentar.");
     return shutdown(1);
   }
+  // Si quedo un build de produccion (npm run build) en .next, el servidor de
+  // desarrollo lo mezcla con el suyo y todas las paginas menos la portada
+  // responden 404. Se borra y se vuelve a compilar.
+  const next = path.join(ROOT, "bingo-frontend", ".next");
+  if (fs.existsSync(path.join(next, "BUILD_ID"))) {
+    log("web", "habia un build de produccion en .next: lo borro para que no choque con el modo desarrollo.");
+    fs.rmSync(next, { recursive: true, force: true });
+  }
   log("web", "iniciando...");
   run("web", "bingo-frontend", "dev");
   await waitFor("La web", () => portOpen(3000), 120_000);
 
   console.log(`
 ${COLORS.dev}============================================${RESET}
-  Misti Quest listo
+  Bingo GDG listo
   Juego:     http://localhost:3000
   Admin:     http://localhost:3000/admin
   Proyector: http://localhost:3000/pantalla

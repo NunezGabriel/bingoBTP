@@ -4,18 +4,19 @@
  *   npm run loadtest -- 300 90      (300 jugadores durante 90 segundos)
  *
  * Crea su propio evento "Carga ...". Cada jugador simulado se registra, deja
- * abierto su stream en vivo (como la app real) y juega a ritmo humano: agrega
- * contactos, firma el bingo y consulta su personaje. El admin lanza el bingo
- * al inicio (todos reciben la cuenta regresiva a la vez) y a mitad de la prueba
- * el staff reparte misiones en rafaga. Al final borra todo lo que creo.
+ * abierto su stream en vivo (como la app real) y juega a ritmo humano. El admin
+ * empieza una ronda al inicio (todos reciben la cuenta regresiva a la vez) y a
+ * mitad de la prueba crea otra ronda: el momento mas pesado, porque reparte
+ * cartilla nueva a todos. Al final borra todo lo que creo.
  *
  * NO la corras contra produccion.
  */
 require("dotenv").config({ quiet: true });
 const http = require("node:http");
-const MISSIONS = require("../src/content/missions");
 
 const API = new URL(process.env.API_URL || "http://localhost:3001");
+const ADMIN_USER = process.env.ADMIN_USER || "admin";
+const ADMIN_CLAVE = process.env.ADMIN_CLAVE || process.env.ADMIN_CODE;
 const PLAYERS = Number(process.argv[2] || 300);
 const DURATION_S = Number(process.argv[3] || 90);
 const RUN = Date.now().toString(36).slice(-4);
@@ -48,7 +49,7 @@ function request(method, path, body, cookie, name) {
         agent,
         headers: {
           "Content-Type": "application/json",
-          "x-mq": "1",
+          "x-bg": "1",
           ...(cookie ? { Cookie: cookie } : {}),
           ...(payload ? { "Content-Length": Buffer.byteLength(payload) } : {}),
         },
@@ -58,7 +59,7 @@ function request(method, path, body, cookie, name) {
         res.on("data", (c) => (data += c));
         res.on("end", () => {
           const ms = performance.now() - started;
-          // 4xx de reglas del juego (casilla ya firmada, contacto repetido) son respuestas validas
+          // 4xx de reglas del juego (casilla ya firmada, etc.) son respuestas validas
           const ok = res.statusCode < 500 && res.statusCode !== 429;
           record(name ?? `${method} ${path.split("?")[0]}`, ms, ok, res.statusCode);
           let json = null;
@@ -94,8 +95,8 @@ function openStream(cookie, counters) {
     res.setEncoding("utf8");
     res.on("data", (chunk) => {
       counters.events += (chunk.match(/^event: /gm) ?? []).length;
-      if (chunk.includes("event: game:countdown")) counters.countdown += 1;
-      if (chunk.includes("event: game:started")) counters.started += 1;
+      if (chunk.includes("event: round:countdown")) counters.countdown += 1;
+      if (chunk.includes("event: round:started")) counters.started += 1;
     });
   });
   req.on("error", () => (counters.streamErrors += 1));
@@ -122,41 +123,31 @@ async function inBatches(items, size, fn) {
 
 async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("No corras la prueba de carga en produccion");
+  if (!ADMIN_CLAVE) throw new Error("Define ADMIN_CLAVE en el .env");
   console.log(`\nPrueba de carga: ${PLAYERS} jugadores, ${DURATION_S}s contra ${API.origin}\n`);
 
-  const adminLogin = await request("POST", "/auth/login", {
-    nickname: process.env.ADMIN_NICKNAME,
-    pin: process.env.ADMIN_PIN,
-  });
+  const adminLogin = await request("POST", "/auth/entrar", { usuario: ADMIN_USER, clave: ADMIN_CLAVE });
   const adminCookie = adminLogin.headers["set-cookie"]?.[0]?.split(";")[0];
-  if (!adminCookie) throw new Error("No se pudo entrar como admin");
+  if (!adminCookie) throw new Error("No se pudo entrar con la cuenta de admin (ADMIN_USER / ADMIN_CLAVE)");
 
   const { data: evs } = await request("GET", "/admin/events", null, adminCookie);
-  if (evs.live) throw new Error(`"${evs.live.name}" esta abierto. Cierralo antes de la prueba de carga.`);
+  const live = evs.events.find((e) => e.status === "LIVE");
+  if (live) throw new Error(`"${live.name}" esta abierto. Cierralo antes de la prueba de carga.`);
   const { data: created } = await request("POST", "/admin/events", { name: `Carga ${RUN}` }, adminCookie);
   const eventId = created.event.id;
   await request("POST", `/admin/events/${eventId}/open`, null, adminCookie);
-  const mission = MISSIONS.find((m) => m.repeatable) ?? MISSIONS[0];
 
   const cleanup = async (players) => {
     await request("POST", `/admin/events/${eventId}/close`, null, adminCookie);
-    await inBatches(players, 20, (p) => request("DELETE", `/admin/users/${p.id}`, null, adminCookie, "limpieza"));
+    await inBatches(players, 20, (p) => request("DELETE", `/admin/players/${p.id}`, null, adminCookie, "limpieza"));
     await request("DELETE", `/admin/events/${eventId}`, null, adminCookie, "limpieza");
   };
 
   // 1. Registro masivo (la fila de la entrada)
   const t0 = performance.now();
-  const classes = ["esqueleto", "mago", "caballero", "robot", "ninja", "fantasma", "slime", "astronauta"];
-  const houses = ["azul", "rojo", "amarillo", "verde"];
   const players = (
     await inBatches([...Array(PLAYERS).keys()], 50, async (i) => {
-      const r = await request(
-        "POST",
-        "/auth/register",
-        { nickname: `lt${RUN}_${i}`, pin: "1234", avatarClass: rand(classes), avatarHouse: rand(houses) },
-        null,
-        "registro",
-      );
+      const r = await request("POST", "/auth/entrar", { usuario: `lt${RUN}_${i}`, clave: "1234" }, null, "registro");
       const cookie = r.headers["set-cookie"]?.[0]?.split(";")[0];
       return cookie ? { cookie, id: r.data.player.id, code: r.data.player.code } : null;
     })
@@ -172,10 +163,10 @@ async function main() {
     console.log(`Streams en vivo abiertos: ${counters.opened}/${players.length}`);
     await inBatches(players, 100, (p) => request("GET", "/me", null, p.cookie, "GET /me"));
 
-    // 3. El admin lanza el bingo: cartillas para todos + cuenta regresiva
-    const launch = await request("POST", "/admin/game/bingo/start", {}, adminCookie, "lanzar bingo");
-    const sessionId = launch.data?.session?.id;
-    console.log(`Bingo lanzado: ${launch.data?.boards ?? 0} cartillas`);
+    // 3. El admin empieza la ronda: cartilla para todos + cuenta regresiva
+    const t1 = performance.now();
+    const round1 = await request("POST", "/admin/rounds", null, adminCookie, "nueva ronda");
+    console.log(`Ronda 1: ${round1.data?.cards ?? 0} cartillas en ${(performance.now() - t1).toFixed(0)}ms`);
     await sleep(5500);
     await inBatches(players, 100, (p) => request("GET", "/game/current", null, p.cookie, "cargar cartilla"));
 
@@ -187,15 +178,13 @@ async function main() {
         await sleep(2000 + Math.random() * 4000);
         if (Date.now() >= end) break;
         const roll = Math.random();
-        if (roll < 0.25) {
-          await request("POST", "/me/contacts", { code: rand(players).code }, p.cookie, "contacto");
-        } else if (roll < 0.65) {
+        if (roll < 0.6) {
           await request(
             "POST",
-            "/game/bingo/sign",
+            "/game/sign",
             { position: Math.floor(Math.random() * 9), code: rand(players).code },
             p.cookie,
-            "bingo firma",
+            "firmar casilla",
           );
         } else if (roll < 0.85) {
           await request("GET", "/me", null, p.cookie, "GET /me");
@@ -206,25 +195,17 @@ async function main() {
       }
     };
 
-    // A mitad de la prueba: 3 personas de staff dando misiones sin parar
-    let awards = 0;
-    const staffBurst = (async () => {
+    // A mitad: el admin reinicia la ronda (reparte cartilla nueva a todos).
+    let round2Ms = 0;
+    let round2Cards = 0;
+    const restart = (async () => {
       await sleep((DURATION_S * 1000) / 2);
-      const until = Date.now() + 15_000;
-      await Promise.all(
-        [0, 1, 2].map(async () => {
-          while (Date.now() < until) {
-            const r = await request(
-              "POST",
-              "/staff/award",
-              { code: rand(players).code, mission: mission.key },
-              adminCookie,
-              "mision staff",
-            );
-            if (r.status === 200) awards += 1;
-          }
-        }),
-      );
+      const t = performance.now();
+      const r = await request("POST", "/admin/rounds", null, adminCookie, "nueva ronda");
+      round2Ms = performance.now() - t;
+      round2Cards = r.data?.cards ?? 0;
+      await sleep(5500);
+      await inBatches(players, 100, (p) => request("GET", "/game/current", null, p.cookie, "cargar cartilla"));
     })();
 
     const progress = setInterval(() => {
@@ -232,13 +213,13 @@ async function main() {
       console.log(`  ... ${left}s restantes, ${actions} acciones, ${errors} errores, ${counters.events} eventos en vivo`);
     }, 15_000);
 
-    await Promise.all([...players.map(actor), staffBurst]);
+    await Promise.all([...players.map(actor), restart]);
     clearInterval(progress);
 
-    const t = performance.now();
-    const ended = sessionId ? await request("POST", `/admin/game/${sessionId}/end`, null, adminCookie, "terminar bingo") : null;
-    const endMs = performance.now() - t;
-    const { data: overview } = await request("GET", "/admin/events", null, adminCookie);
+    const { data: overview } = await request("GET", "/admin/overview", null, adminCookie);
+    if (overview?.round) {
+      await request("POST", `/admin/rounds/${overview.round.id}/end`, null, adminCookie, "terminar ronda");
+    }
     streams.forEach((s) => s.destroy());
 
     // 5. Reporte
@@ -253,12 +234,9 @@ async function main() {
     console.log(`\nPeticiones: ${totalRequests} (${rps.toFixed(1)}/s promedio) · errores de servidor: ${errors}`);
     if (errorSamples.size) console.log("Errores:", Object.fromEntries(errorSamples));
     console.log(`Streams en vivo: ${counters.opened} abiertos, ${counters.streamErrors} errores, ${counters.events} eventos entregados`);
-    console.log(`Cuenta regresiva: llego a ${counters.countdown}/${players.length} · inicio del bingo: ${counters.started}/${players.length}`);
-    console.log(`Misiones del staff en rafaga: ${awards}`);
-    if (ended?.data?.results) {
-      console.log(`Terminar bingo: ${endMs.toFixed(0)}ms · ${ended.data.results.completed} cartillas completas`);
-    }
-    if (overview?.live) console.log(`Servidor: ${overview.live.connected} conexiones en vivo al final`);
+    console.log(`Cuenta regresiva: llego a ${counters.countdown} celulares · inicio de ronda: ${counters.started}`);
+    console.log(`Reiniciar ronda con todos jugando: ${round2Ms.toFixed(0)}ms para ${round2Cards} cartillas`);
+    if (overview) console.log(`Servidor: ${overview.connected} conexiones en vivo al final`);
   } finally {
     await cleanup(players);
     console.log(`\nLimpieza: evento "Carga ${RUN}" y ${players.length} jugadores borrados.`);

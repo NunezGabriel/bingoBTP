@@ -1,4 +1,4 @@
-# Despliegue de Misti Quest
+# Despliegue de Bingo GDG
 
 Dos caminos, el mismo código:
 
@@ -13,12 +13,27 @@ Dos caminos, el mismo código:
 
 ## A) Render (API) + Vercel (web) + Neon (base)
 
-### 1. Base de datos nueva
+### 1. La base de datos: la misma de siempre
 
-Misti Quest usa un esquema nuevo, **incompatible con la base del bingo anterior**.
-Crea una base nueva (proyecto o branch en Neon). Tu base actual del bingo no se toca.
+No hace falta una base nueva: la de Neon que ya existe sirve, y
+`prisma migrate deploy` se encarga sola en cada despliegue.
 
-> **Crea el proyecto de Neon en la misma región que tu servicio de Render.**
+Lo que esa base tiene hoy (octubre de 2026) es el bingo de marzo: `Usuario`,
+`Ronda`, `Cartilla`, `Casilla`, `Firma`, `RelacionCasilla`, `session` y tres
+migraciones propias. De esta app no tiene nada. Entonces:
+
+- Las cuatro migraciones **crean sus tablas desde cero**. Ningún nombre choca
+  con los de marzo, así que no hay nada que arreglar a mano.
+- Las tablas de marzo **se quedan ahí sin usarse**. Prisma no las toca. Se
+  pueden borrar cuando quieras, pero no estorban.
+- `prisma migrate deploy` **no se queja** de que esas tres migraciones de marzo
+  no estén en `prisma/migrations`: aplica las suyas y las deja en paz. Está
+  probado contra una copia local de ese mismo estado.
+
+Antes de desplegar un cambio de esquema, `npx prisma migrate status` con la
+`DATABASE_URL` de producción dice qué tiene aplicado. Es solo lectura.
+
+> **Si creas un proyecto de Neon, hazlo en la misma región que tu servicio de Render.**
 > Cada acción del juego hace entre 1 y 8 consultas. Con la base en otro continente
 > (~150 ms por consulta) firmar un bingo tarda más de un segundo; en la misma
 > región, milisegundos. Este es el ajuste que más capacidad da, y es gratis.
@@ -26,8 +41,11 @@ Crea una base nueva (proyecto o branch en Neon). Tu base actual del bingo no se 
 ### 2. API en Render
 
 - Root directory: `bingo-backend`
-- Build: `npm install && npx prisma generate && npx prisma migrate deploy`
+- Build: `npm install && npx prisma generate && npx prisma migrate deploy && npm run seed`
 - Start: `node src/app.js`
+- Rama: `main`, con auto-deploy encendido (Settings → Build & Deploy). Si está
+  apagada, un push no sube nada y el servicio sigue sirviendo la versión vieja
+  sin dar ningún error: se nota porque `/api/health` responde 404.
 - Variables de entorno:
 
 | Variable | Valor |
@@ -38,16 +56,36 @@ Crea una base nueva (proyecto o branch en Neon). Tu base actual del bingo no se 
 | `SESSION_SECRET` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `FRONTEND_URL` | `https://tu-app.vercel.app` |
 | `TRUST_PROXY` | `2` (el tráfico entra por Vercel y luego por Render) |
-| `ADMIN_NICKNAME` | Tu nombre de admin |
-| `ADMIN_PIN` | PIN de 4 a 8 dígitos |
+| `ADMIN_USER` | Usuario de la cuenta de admin (por defecto `admin`) |
+| `ADMIN_CLAVE` | Su clave: 8 caracteres o mas. La cuenta la crea el seeder |
 
-Las preguntas del bingo y las misiones no van en la base: se editan en
-`bingo-backend/src/content/` y viajan con el despliegue. No hace falta cargar nada.
+Las preguntas del bingo, las misiones y los personajes no van en la base: se
+editan en `bingo-backend/src/content/` y viajan con el despliegue.
+
+El `npm run seed` del final del build es el que crea la cuenta de admin, y va
+ahi porque el plan gratuito de Render no tiene shell. Corre en cada despliegue
+y no molesta: si la clave ya es la del entorno no toca nada, y el evento de
+ejemplo solo se crea si la base no tiene ninguno.
+
+> **La clave del admin tiene que tener 8 caracteres o mas.** Con menos, la API
+> se niega a arrancar en produccion y el despliegue queda caido. Ese codigo ya
+> no abre solo un panel: es la cuenta que firma cada validacion de mision.
 
 ### 3. Web en Vercel
 
 - Root directory: `bingo-frontend`
-- Variables: `NEXT_PUBLIC_API_URL=/api` y `BACKEND_URL=https://tu-api.onrender.com`
+- Variables:
+
+| Variable | Valor |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | `/api` |
+| `BACKEND_URL` | `https://tu-api.onrender.com` |
+| `NEXT_PUBLIC_WS_URL` | `wss://tu-api.onrender.com/ws/lobby` |
+
+> **El lobby va directo al backend, no por el proxy de Vercel.** El rewrite de
+> `/api` no reenvia conexiones WebSocket: si `NEXT_PUBLIC_WS_URL` falta o apunta
+> a Vercel, la plaza se ve vacia (cada quien se ve solo a si mismo). El resto de
+> la app sigue funcionando, por eso es facil que pase desapercibido.
 
 ### Plan gratis de Render: cuidado
 
@@ -75,6 +113,9 @@ Se duerme tras 15 minutos sin tráfico y el primer acceso tarda ~1 minuto en des
 
 ### Pasos
 
+> El build de la web descarga la tipografia (Google Fonts) una sola vez: el
+> servidor necesita internet **al construir la imagen**. Ya construida, funciona sin internet.
+
 ```bash
 apt update && apt install -y git
 # Docker: https://docs.docker.com/engine/install/ubuntu/
@@ -91,9 +132,8 @@ docker compose ps                  # 4 servicios arriba, postgres "healthy"
 curl http://localhost/api/health   # {"ok":true}
 ```
 
-La primera vez, `SEED_ON_START=true` crea un evento de ejemplo (sin abrir). El
-resto del contenido (preguntas del bingo y misiones) va en el codigo, en
-`bingo-backend/src/content/`.
+La primera vez, `SEED_ON_START=true` crea un evento de ejemplo (sin abrir). Las
+preguntas del bingo van en el codigo, en `bingo-backend/src/content/bingo.js`.
 
 ### La cookie: el error que cuesta un evento
 
@@ -103,16 +143,25 @@ Sirviendo por HTTP plano se descarta en silencio y **nadie puede iniciar sesión
 - Por **HTTP** (red local): `COOKIE_SECURE=false`
 - Por **HTTPS**: `COOKIE_SECURE=true`
 
-### Sin cámara: funciona igual por HTTP
+### La cámara del escáner SÍ necesita HTTPS
 
-La app no usa la cámara: contactos, firmas del bingo y puntos del staff se hacen
-escribiendo el código de 6 letras de cada jugador. Por eso funciona completa
-también por HTTP en la red local. El QR del proyector solo abre la página con la
-cámara nativa del celular, y la dirección se muestra escrita al lado.
+El bingo funciona completo por HTTP porque las firmas se escriben a mano. El
+**escáner de misiones no**: el navegador no da acceso a la cámara en una página
+servida por HTTP plano. Por HTTP el organizador tendrá que escribir el código de
+6 letras de cada participante, que valida exactamente igual pero es más lento.
+Si vas a usar el escáner con la cámara, sirve la app por HTTPS.
+
+### Sin cámara: el bingo funciona igual por HTTP
+
+La app no usa la cámara: las firmas se hacen escribiendo el código de 6 letras de
+cada jugador. Por eso funciona completa también por HTTP en la red local. El QR
+del proyector solo abre la página con la cámara nativa del celular, y la
+dirección se muestra escrita al lado.
 
 ### Tiempo real y nginx
 
-Toda la app (puntos, cuenta regresiva del bingo, pantalla gigante) llega por Server-Sent Events.
+El juego (puntos, cuenta regresiva, pantalla gigante) llega por Server-Sent Events,
+y el lobby por WebSocket en `/ws/`.
 `nginx/default.conf` trae `proxy_buffering off` y `proxy_read_timeout 24h` en
 `/api/`. **Si alguien los quita, nada se actualiza en vivo.**
 
@@ -127,7 +176,7 @@ docker stats                                                 # CPU y RAM en vivo
 docker compose exec backend node prisma/seed.js --reset --yes  # BORRA TODO
 ```
 
-Para cambiar preguntas del bingo o misiones: edita `bingo-backend/src/content/`,
+Para cambiar las preguntas o los puntos: edita `bingo-backend/src/content/bingo.js`,
 vuelve a desplegar (`docker compose up -d --build backend`) y listo.
 
 ## Ensayo antes del evento
@@ -136,13 +185,14 @@ Con la app corriendo (nunca contra producción real):
 
 ```bash
 cd bingo-backend
-npm test                     # 101 verificaciones de punta a punta (crea y borra sus datos)
-npm run demo -- 24           # llena el evento abierto con 24 jugadores y un bingo en curso
+npm test                     # 88 verificaciones de punta a punta (crea y borra sus datos)
+npm run flowtest             # 39 verificaciones del flujo nuevo: roles, lobby y misiones
+npm run demo -- 24           # llena el evento abierto con 24 jugadores y una ronda en curso
 npm run loadtest -- 300 90   # 300 celulares simultáneos durante 90 s (crea y borra sus datos)
 ```
 
 `npm test` y la prueba de carga se niegan a correr si hay un evento real abierto.
-La prueba de carga reporta latencias p50/p95/p99 por acción, errores y a cuántos
-celulares llegó la cuenta regresiva del bingo. Córrela contra la misma base que
+La prueba de carga reporta latencias p50/p95/p99 por acción, errores, a cuántos
+celulares llegó la cuenta regresiva y cuánto tarda reiniciar la ronda con todos jugando. Córrela contra la misma base que
 usarás el día del evento: ahí se ve la capacidad real. En local, con la base de
 desarrollo (una sola conexión), las latencias salen altas: no representan producción.

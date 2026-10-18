@@ -1,14 +1,12 @@
 const { prisma } = require("../lib/prisma");
 
-// Solo hay un evento LIVE a la vez y casi todas las peticiones lo consultan.
+// Solo hay un evento abierto a la vez y casi todas las peticiones lo consultan.
 let cached = { at: 0, event: undefined };
 let inflight = null;
 const TTL_MS = 5_000;
 
 async function getLiveEvent() {
-  if (cached.event !== undefined && Date.now() - cached.at < TTL_MS) {
-    return cached.event;
-  }
+  if (cached.event !== undefined && Date.now() - cached.at < TTL_MS) return cached.event;
   if (inflight) return inflight;
   inflight = prisma.event
     .findFirst({ where: { status: "LIVE" }, orderBy: { startedAt: "desc" } })
@@ -32,14 +30,15 @@ const joined = new Set();
 async function ensureJoined(eventId, playerId) {
   const key = `${eventId}:${playerId}`;
   if (joined.has(key)) return;
-  await prisma.eventPlayer.createMany({
-    data: [{ eventId, playerId }],
-    skipDuplicates: true,
-  });
+  await prisma.eventPlayer.createMany({ data: [{ eventId, playerId }], skipDuplicates: true });
   joined.add(key);
 }
 
 function forgetJoined(playerId) {
+  if (playerId === undefined) {
+    joined.clear();
+    return;
+  }
   for (const key of joined) {
     if (key.endsWith(`:${playerId}`)) joined.delete(key);
   }
@@ -56,26 +55,8 @@ function eventView(event) {
   };
 }
 
-/** Jugadores inscritos en el evento (sin staff ni admins). */
 function countPlayers(eventId) {
-  return prisma.eventPlayer.count({
-    where: { eventId, player: { role: "PLAYER" } },
-  });
-}
-
-/** Cuantos inscritos tiene cada casa en el evento (para armar equipos parejos). */
-async function houseCounts(eventId) {
-  const rows = await prisma.$queryRaw`
-    SELECT p."avatarHouse" AS house, COUNT(*)::int AS players
-    FROM "EventPlayer" ep
-    JOIN "Player" p ON p.id = ep."playerId"
-    WHERE ep."eventId" = ${eventId} AND p.role = 'PLAYER'
-    GROUP BY p."avatarHouse"`;
-  const byHouse = Object.fromEntries(rows.map((r) => [r.house, r.players]));
-  return ["azul", "rojo", "amarillo", "verde"].map((house) => ({
-    house,
-    players: byHouse[house] ?? 0,
-  }));
+  return prisma.eventPlayer.count({ where: { eventId } });
 }
 
 module.exports = {
@@ -85,5 +66,4 @@ module.exports = {
   forgetJoined,
   eventView,
   countPlayers,
-  houseCounts,
 };

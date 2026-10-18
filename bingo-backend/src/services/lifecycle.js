@@ -2,9 +2,9 @@ const { prisma, Prisma } = require("../lib/prisma");
 const { withTx } = require("../lib/tx");
 const { conflict, notFound } = require("../lib/http");
 const hub = require("../realtime/hub");
-const { invalidateEvent, eventView } = require("./events");
+const { invalidateEvent, eventView, forgetJoined } = require("./events");
 const { leaderboardChanged } = require("./leaderboard");
-const { endAllRunning } = require("./games");
+const { endOpenRound } = require("./rounds");
 
 /**
  * Abre el evento: desde ahora quien se registre (o entre con su cuenta) queda
@@ -26,16 +26,17 @@ async function open(eventId) {
     data: { status: "LIVE", startedAt: event.startedAt ?? new Date() },
   });
   invalidateEvent();
+  forgetJoined();
   hub.publish("all", "event:update", eventView(updated));
   return updated;
 }
 
 /**
- * Cierra el evento: termina el juego en curso, congela el ranking, guarda la
- * posicion final de cada jugador y entrega trofeos para siempre.
+ * Cierra el evento: termina la ronda abierta y congela el ranking guardando
+ * la posicion final de cada jugador.
  */
 async function close(eventId) {
-  await endAllRunning(eventId);
+  await endOpenRound(eventId);
 
   return withTx(
     async (tx, onCommit) => {
@@ -46,13 +47,9 @@ async function close(eventId) {
       if (updated.count === 0) throw conflict("Solo se puede cerrar un evento abierto");
 
       const standings = await tx.eventPlayer.findMany({
-        where: { eventId, points: { gt: 0 }, player: { role: "PLAYER" } },
-        orderBy: [
-          { points: "desc" },
-          { lastScoredAt: { sort: "asc", nulls: "last" } },
-          { id: "asc" },
-        ],
-        select: { id: true, playerId: true, points: true },
+        where: { eventId, points: { gt: 0 } },
+        orderBy: [{ points: "desc" }, { lastScoredAt: { sort: "asc", nulls: "last" } }, { id: "asc" }],
+        select: { id: true },
       });
 
       if (standings.length) {
@@ -61,20 +58,6 @@ async function close(eventId) {
           UPDATE "EventPlayer" AS ep SET "finalRank" = v.rank
           FROM (VALUES ${Prisma.join(values)}) AS v(id, rank)
           WHERE ep.id = v.id`;
-
-        await tx.trophy.createMany({
-          data: standings.map((s, i) => {
-            const rank = i + 1;
-            return {
-              playerId: s.playerId,
-              eventId,
-              rank,
-              points: s.points,
-              kind: rank === 1 ? "CHAMPION" : rank <= 3 ? "PODIUM" : rank <= 10 ? "TOP10" : "PARTICIPANT",
-            };
-          }),
-          skipDuplicates: true,
-        });
       }
 
       const event = await tx.event.findUnique({ where: { id: eventId } });

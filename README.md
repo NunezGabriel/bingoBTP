@@ -1,125 +1,162 @@
-# Misti Quest · GDG Arequipa
+# Bingo GDG · GDG Arequipa
 
-App para los eventos de GDG Arequipa. Cada asistente crea un personaje 8-bit que
-**se queda con él entre eventos**: sube de nivel y guarda sus trofeos. En cada
-evento suma puntos; al final, quien más sume se lleva los premios.
+La app de los eventos de GDG Arequipa. Entras con un usuario, eliges tu
+personaje y apareces en la **Plaza de Armas** con el Misti al fondo. Ahi
+esperas, te mueves y saludas; cuando el admin empieza el **bingo**, todos los
+que estan en la plaza reciben su cartilla a la vez. Y durante todo el evento
+llevas una **tarjeta de 4 misiones** que los organizadores validan escaneando
+tu QR.
 
-## Cómo se juega
+Sirve para **cualquier evento** (DevFest, I/O Extended, meetups): el admin crea
+el evento, lo abre y desde ahi quien entre juega en ese evento.
 
-**El jugador** ve solo cuatro pantallas: Inicio (su personaje, su código y sus
-puntos), Contactos, Ranking y Mi cuenta. Cuando el admin inicia el bingo, aparece
-un quinto botón: BINGO.
+## Las tres partes
 
-| Qué | Cómo funciona |
+| | |
 |---|---|
-| **Código del jugador** | 6 letras. Todo se hace dictando o escribiendo códigos, sin cámara |
-| **Contactos** | Escribes el código de alguien y quedan conectados. También pasa al firmarse el bingo. No dan puntos |
-| **Bingo** (lo inicia el admin) | Todos los inscritos ven una cuenta regresiva 5, 4, 3, 2, 1 y reciben su cartilla de 9 casillas. Cada casilla la firma otra persona con su código. Puntos por firma, por completar y extra para los 3 primeros |
-| **Misiones** (las da el staff) | El staff escribe el código del jugador y toca la misión: "hizo una pregunta en una charla" (repetible), "foto con un speaker" (una vez)... |
-| **Casas** | Cada jugador elige una de 4 casas; al elegir ve cuántos miembros tiene cada una. Sus puntos suman a la Copa de Casas |
+| **Lobby** | La Plaza de Armas de noche, en pixel art. Te mueves con el teclado o con la cruceta, tu nombre va sobre tu personaje y puedes saludar cada 30 segundos. Es la pantalla de inicio y donde se espera entre rondas. |
+| **Bingo** | Cartilla de 9 casillas del tipo *"alguien que use Flutter"*. Tocas una casilla, aparece la pregunta y escribes el codigo de 6 letras de quien la cumple. Cada persona solo puede firmarte una, asi que para completar hay que conocer a 9. |
+| **Misiones** | Cuatro acciones del evento (redes, preguntar a un ponente, WhatsApp, subir una historia). El participante las cumple y un organizador **escanea su QR** para validarlas. Al completar las cuatro gana puntos extra y entra al premio del final. |
 
-**Todo es por evento.** El admin abre un evento (por ejemplo, *DevFest 2026*) y
-desde ese momento quien se registra, o entra con su cuenta de otro evento, queda
-inscrito en él. El bingo solo incluye a sus inscritos: alguien que fue al DevFest
-pero no vino al siguiente evento no aparece en su bingo. Cada jugador ve en "Mi
-cuenta" a qué eventos fue, con su puesto y su trofeo.
+## Como entra la gente
 
-## El contenido se edita en el código
+Una sola pantalla: **usuario y clave de 4 numeros**. Si el usuario no existe, la
+cuenta se crea ahi mismo; si existe, valida la clave. Sin correo, sin
+confirmaciones y sin elegir entre "entrar" o "registrarse": en la puerta de un
+evento cada toque de mas es una persona menos que llega a jugar.
 
-No hay pantallas para crear juegos ni misiones: se editan dos archivos y listo.
+La sesion dura 10 dias, asi que recargar la pagina o cerrar el navegador no
+pierde nada. Si alguien olvida su clave, el admin se la reinicia desde el panel.
 
-| Archivo | Qué contiene |
-|---|---|
-| `bingo-backend/src/content/bingo.js` | Puntos del bingo y las 30 preguntas de las cartillas |
-| `bingo-backend/src/content/missions.js` | Las misiones que da el staff (título, puntos, si es repetible) |
-
-Los cambios se aplican al reiniciar la API (en local es automático) y valen para
-el siguiente bingo; el que ya está en curso no cambia.
-
-**Juegos nuevos**: cada juego es un tipo de `GameSession` con su lógica en
-`bingo-backend/src/services/`. Al agregar uno, aparece en Admin → Bingo junto al
-existente y reusa la cuenta regresiva y el reparto de puntos.
+**Los roles son estrictos.** Un admin solo ve su panel: no tiene cartilla, ni
+lobby, ni tarjeta. Un jugador nunca ve una puerta al panel. La cuenta de admin
+no se registra desde la app: la crea el seeder con `ADMIN_USER` y `ADMIN_CLAVE`.
 
 ## Pantallas
 
 | Ruta | Para |
 |---|---|
-| `/` | Portada |
-| `/crear`, `/entrar` | Crear personaje o volver con nombre + PIN |
-| `/inicio`, `/contactos`, `/ranking`, `/cuenta` | App del jugador (celular) |
-| `/juego` | La cartilla del bingo mientras hay un juego en marcha |
-| `/staff` | Staff: escribe el código de un jugador y le da puntos |
-| `/admin` | Tres pestañas: **Evento**, **Bingo** y **Usuarios**. Nada más |
-| `/pantalla` | **Proyector**: top 10, copa de casas, bingo en vivo, cuenta regresiva y ganadores |
+| `/` | Redirige a `/entrar`: quien abre el link quiere entrar, no leer |
+| `/entrar` | La unica puerta: usuario + clave |
+| `/personaje` | Elegir personaje (una sola vez) |
+| `/lobby` | La plaza |
+| `/cartilla` | El bingo de la ronda en curso |
+| `/misiones` | La tarjeta y el QR que te escanean |
+| `/cuenta` | Puntos, historial y clave |
+| `/admin` | Panel: **Evento**, **Ronda**, **Escaner** y **Jugadores** |
+| `/pantalla` | Proyector |
+
+Abajo solo hay tres botones: **Plaza**, **Misiones** y **Mi cuenta**. La
+cartilla no esta en el menu a proposito: aparece sola cuando el admin empieza
+la ronda (con una cuenta regresiva a pantalla completa) y al terminar la ronda
+todos vuelven a la plaza. Quien entra con una ronda ya empezada cae directo en
+su cartilla, con una recien repartida.
+
+## Que hay en la plaza
+
+Todo esta dibujado por codigo, pixel a pixel: no hay un solo archivo de imagen.
+
+- La **Plaza de Armas de noche**: catedral y portales con los arcos
+  iluminados, faroles encendidos con su charco de luz, jardines con flores,
+  palmeras, bancas y una pileta de tres cuerpos. Al fondo, los tres volcanes
+  con el Misti nevado.
+- Un **escenario con los organizadores** delante de la catedral, con su nombre
+  debajo. Cada tanto sueltan confeti.
+- Una **pantalla voladora** con helices que va rotando mensajes del evento.
+- Un **avioncito** que cruza el cielo cada 48 segundos arrastrando un cartel
+  que ondea.
+- **Musiquita de 8 bits**, sintetizada en el navegador (no hay mp3 que
+  descargar), con su boton para quitarla arriba a la derecha.
+
+## El contenido se edita en el codigo
+
+No hay pantallas para crear juegos, misiones ni personajes: se editan archivos.
+
+| Archivo | Que contiene |
+|---|---|
+| `bingo-backend/src/content/bingo.js` | Puntos y las 30 preguntas de las casillas |
+| `bingo-backend/src/content/missions.js` | Las 4 misiones y el bono por completarlas |
+| `bingo-backend/src/content/skins.js` | Los personajes (el dibujo esta en `bingo-frontend/lib/sprites.ts`) |
+
+Los cambios valen para la siguiente ronda; la que esta en curso no cambia.
 
 ## Correr en local
 
 Requisitos: Node 20.9+.
 
-**Día a día** (desde la carpeta raíz `bingoBTP`, un solo comando):
+**Dia a dia** (desde la carpeta raiz `bingoBTP`, un solo comando):
 
 ```bash
 npm run dev
 ```
 
-Levanta la base de datos, aplica las migraciones pendientes, y arranca API y web.
-Cuando dice **"Misti Quest listo"** abre http://localhost:3000. `Ctrl+C` apaga
-todo. Desde el celular, en la misma WiFi, entra con la IP de tu PC:
-`http://192.168.x.x:3000`.
+Levanta la base de datos, aplica las migraciones pendientes y arranca API y web.
+Cuando dice **"Bingo GDG listo"** abre http://localhost:3000. `Ctrl+C` apaga
+todo. Desde el celular, en la misma WiFi: `http://192.168.x.x:3000`.
 
-Si la base local quedó abierta de una sesión anterior: `npm --prefix bingo-backend run db:stop`.
+> La primera vez de cada dia, `prisma dev` descarga su motor en silencio: son
+> uno a tres minutos sin una sola linea en pantalla. No esta colgado, y
+> **necesita internet**. Si la base local quedo abierta de una sesion anterior:
+> `npm --prefix bingo-backend run db:stop`.
 
 **Primera vez en una PC nueva:**
 
 ```bash
 npm run setup                                      # instala dependencias de ambos
-cp bingo-backend/.env.example bingo-backend/.env   # y pon tu ADMIN_PIN
+cp bingo-backend/.env.example bingo-backend/.env   # pon tu ADMIN_CLAVE
+cp bingo-frontend/.env.example bingo-frontend/.env.local
+npm --prefix bingo-backend run seed                # crea la cuenta de admin
 ```
 
-Entra a `/entrar` con `ADMIN_NICKNAME` y `ADMIN_PIN`, ve a **Admin → Evento**,
-crea uno y ábrelo. Para verlo con vida: `npm run demo -- 24` (desde `bingo-backend`).
+Entra a `/entrar` con `ADMIN_USER` y `ADMIN_CLAVE`, crea un evento y abrelo.
+Para verlo con datos: `npm run demo -- 24` (desde `bingo-backend`).
 
-## Guía para el día del evento
+## Guia para el dia del evento
 
 **Antes**
-1. Revisa `src/content/missions.js` y `src/content/bingo.js` con las misiones y preguntas de ese evento.
-2. Admin → Evento: crea el evento (queda sin abrir).
-3. Admin → Usuarios: busca a quienes darán puntos y tócales **Hacer staff**.
-4. Ensayo: `npm test` y `npm run loadtest -- 300 90` (ver [DEPLOY.md](DEPLOY.md)).
+1. Revisa preguntas, misiones y puntos en `bingo-backend/src/content/`.
+2. `/admin` → **Evento**: crea el evento (queda sin abrir).
+3. Ensayo: `npm test`, `npm run flowtest` y `npm run loadtest -- 300 90` (ver [DEPLOY.md](DEPLOY.md)).
 
 **En la entrada**
-- Admin → Evento → **Abrir evento**. Desde ahí, registros y logins quedan inscritos.
-- `/pantalla` en el proyector: muestra la dirección para entrar y un QR para la cámara del celular.
+- `/admin` → **Evento** → **Abrir evento**.
+- `/pantalla` en el proyector: muestra la direccion y un QR para entrar.
 
 **Durante**
-- El staff usa `/staff`: el jugador le dicta su código y recibe sus puntos.
-- Cuando quieras: Admin → Bingo → **INICIAR BINGO**. Todos ven la cuenta regresiva a la vez.
-  **Terminar bingo** muestra los ganadores en el proyector.
+- La gente espera en el lobby. `/admin` → **Ronda** → **Empezar ronda**: todos ven la cuenta regresiva a la vez.
+- **Terminar ronda** cierra esa ronda; **Reiniciar: nueva ronda** reparte cartillas nuevas y devuelve a todos al lobby, asi los que llegaron tarde entran a la siguiente.
+- `/admin` → **Escaner**: eliges que mision estas validando y escaneas en fila. Si la camara no abre, escribes el codigo de 6 letras.
 
 **Al cierre**
-- Admin → Evento → **Cerrar evento**: congela el ranking y entrega trofeos para siempre.
-- Premia al top 3 y a la casa ganadora con `/pantalla` en el proyector.
+- `/admin` → **Evento** → **Cerrar evento**: congela el ranking y guarda el puesto final.
+- Premia al top 3 con `/pantalla`, y reparte los premios de las tarjetas completas (salen en el panel).
 
-**Si alguien olvida su PIN:** Admin → Usuarios → buscarlo → ponerle un PIN nuevo. No pierde nada.
+**Si alguien olvida su clave:** `/admin` → **Jugadores** → buscarlo → ponerle una nueva.
 
 ## Arquitectura
 
 ```
-bingo-frontend/  Next.js 16 · arte 8-bit dibujado en código (lib/sprites.ts)
+bingo-frontend/  Next.js 16 · estilo GDG/DevFest
+  lib/sprites.ts           los personajes, pixel por pixel
+  lib/scene.ts             la Plaza de Armas y el Misti (dos capas, con parallax)
+  lib/lobby.ts             cliente del WebSocket del lobby
+  lib/music.ts             la musiquita de 8 bits, sin archivos de audio
 bingo-backend/   Express 5 · Prisma 7 · Postgres
-  src/content/             preguntas del bingo y misiones (esto se edita)
-  src/services/points.js   única puerta de entrada de puntos (idempotente)
-  src/services/games.js    juegos que inicia el admin (hoy: bingo)
-  src/realtime/hub.js      Server-Sent Events con reenvío al reconectar
-  scripts/                 smoke-test, demo-players, load-test, base local
+  src/content/             preguntas, misiones y personajes (esto se edita)
+  src/realtime/hub.js      Server-Sent Events con reenvio al reconectar
+  src/realtime/lobby.js    WebSocket del lobby, por cuadricula para aguantar 300
+  src/services/points.js   unica puerta de entrada de puntos (idempotente)
+  src/services/rounds.js   rondas: cuenta regresiva, reparto y cierre
+  src/services/cards.js    cartillas, casillas y firmas
+  src/services/missions.js la tarjeta y su validacion por QR
+  scripts/                 smoke-test, flow-test, demo-players, load-test, base local
 ```
 
-- **Sesión en cookie firmada de 60 días**: recargar o cerrar el navegador no pierde nada.
-- **Tiempo real con SSE**, no WebSockets: pasa por el proxy `/api` de Vercel. Al
-  reconectar, el servidor reenvía los eventos perdidos en vez de recargar todo.
-- **Cuenta regresiva con la hora del servidor**: todos los celulares y el proyector
-  cuentan sincronizados aunque sus relojes estén desfasados.
-- **Puntos en un libro contable** con clave única por recompensa: nadie cobra dos veces,
-  aunque el celular reintente.
+- **Sesion**: cookie firmada de 10 dias. El rol se lee de la base en cada peticion, asi quitarle el admin a alguien tiene efecto inmediato.
+- **Tiempo real en dos canales**: SSE para el juego (puntos, rondas, ranking), que reenvia lo perdido al reconectar; y WebSocket solo para el lobby, que es donde el celular tambien habla.
+- **Cuenta regresiva con la hora del servidor**: todos los celulares y el proyector cuentan sincronizados aunque sus relojes esten desfasados.
+- **Puntos en un libro contable** con clave unica por recompensa: nadie cobra dos veces.
+- **Las misiones quedan firmadas**: cada validacion guarda que admin la hizo, para poder auditar los premios.
+- **El lobby esta hecho para celulares flojos**: el escenario se pinta una sola vez y en cada cuadro solo se copia el pedazo visible; quien queda fuera de pantalla no se dibuja; el canvas se limita a 1.4 millones de pixeles reales.
 
 Despliegue: ver [DEPLOY.md](DEPLOY.md).

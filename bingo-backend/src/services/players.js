@@ -1,38 +1,29 @@
 const { prisma } = require("../lib/prisma");
-const { progressFor } = require("../lib/progression");
+const { normalizeSkin } = require("../content/skins");
 
-/** Campos minimos para mostrar a un jugador a otros (ranking, contactos...). */
-const PUBLIC_SELECT = {
-  id: true,
-  nickname: true,
-  avatarClass: true,
-  avatarHouse: true,
-  xp: true,
-};
-
+/**
+ * Lo minimo para mostrar a alguien en el ranking, el lobby o una casilla
+ * firmada. El personaje pasa por normalizeSkin: si se cambio la lista y el
+ * suyo ya no existe, sale como null y la app le vuelve a preguntar en vez de
+ * dibujarlo con uno que no eligio.
+ */
 function publicPlayer(p) {
   if (!p) return null;
-  const prog = progressFor(p.xp);
-  return {
-    id: p.id,
-    nickname: p.nickname,
-    avatarClass: p.avatarClass,
-    avatarHouse: p.avatarHouse,
-    level: prog.level,
-    tier: prog.tier,
-    title: prog.title,
-  };
+  return { id: p.id, name: p.name, skin: normalizeSkin(p.skin) };
 }
 
 function selfPlayer(p) {
   return {
-    ...publicPlayer(p),
+    id: p.id,
+    name: p.name,
     code: p.code,
     role: p.role,
-    progress: progressFor(p.xp),
+    skin: normalizeSkin(p.skin),
     createdAt: p.createdAt,
   };
 }
+
+const PUBLIC_SELECT = { id: true, name: true, skin: true };
 
 // Cache corto por proceso: cada peticion autenticada necesita al jugador, y
 // contra una base remota eso son ~100 ms por peticion si no se cachea.
@@ -60,7 +51,7 @@ function invalidatePlayer(...ids) {
   for (const id of ids.flat()) cache.delete(id);
 }
 
-async function findByCode(code) {
+function findByCode(code) {
   return prisma.player.findUnique({ where: { code } });
 }
 
@@ -71,11 +62,4 @@ setInterval(() => {
   }
 }, 60_000).unref();
 
-module.exports = {
-  PUBLIC_SELECT,
-  publicPlayer,
-  selfPlayer,
-  getPlayer,
-  invalidatePlayer,
-  findByCode,
-};
+module.exports = { PUBLIC_SELECT, publicPlayer, selfPlayer, getPlayer, invalidatePlayer, findByCode };

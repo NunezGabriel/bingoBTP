@@ -1,73 +1,43 @@
 @import "tailwindcss";
 
 /* ===========================================================
-   MISTI QUEST · sistema de diseno 8-bit
+   BINGO GDG · sistema de diseno (estilo DevFest / GDG)
+   Fondo gris claro, tarjetas blancas con borde negro, pildoras
+   redondas en los colores de Google y tipografia gruesa.
    =========================================================== */
 
 @theme {
-  --color-ink: #14142b;
-  --color-night: #0b0b1a;
-  --color-deep: #141432;
-  --color-panel: #1f1f45;
-  --color-panel-2: #2a2a5a;
-  --color-line: #3c3c78;
-  --color-cream: #f7f3e8;
-  --color-muted: #9f9fc7;
+  --color-ink: #191919;
+  --color-paper: #f0f0f0;
+  --color-card: #ffffff;
+  --color-muted: #6b6b6b;
+  --color-line: #191919;
+
   --color-gblue: #4285f4;
   --color-gred: #ea4335;
   --color-gyellow: #fbbc04;
   --color-ggreen: #34a853;
-  --color-gold: #ffd23f;
-  --color-lava: #ff6b2c;
-  --color-violet: #a45cff;
+  --color-gpink: #ff5fa2;
 
-  --font-pixel: var(--font-press-start), ui-monospace, monospace;
-  --font-body: var(--font-pixelify), system-ui, sans-serif;
+  --font-display: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
-  color-scheme: dark;
-  --px: 4px;
+  color-scheme: light;
 }
 
 html,
 body {
-  background-color: var(--color-night);
-  color: var(--color-cream);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
 }
 
 body {
-  font-family: var(--font-body);
-  font-size: 17px;
-  line-height: 1.35;
+  font-family: var(--font-display);
+  /* Grano muy suave, como el afiche impreso. */
+  background-image: radial-gradient(rgba(0, 0, 0, 0.045) 1px, transparent 1px);
+  background-size: 4px 4px;
   -webkit-tap-highlight-color: transparent;
-  /* cielo nocturno con estrellas de 2px */
-  background-image:
-    radial-gradient(2px 2px at 20% 30%, #ffffff55 50%, transparent 51%),
-    radial-gradient(2px 2px at 70% 15%, #ffffff40 50%, transparent 51%),
-    radial-gradient(2px 2px at 45% 70%, #ffffff30 50%, transparent 51%),
-    radial-gradient(2px 2px at 85% 55%, #ffffff45 50%, transparent 51%),
-    radial-gradient(2px 2px at 10% 85%, #ffffff35 50%, transparent 51%),
-    linear-gradient(180deg, #0b0b1a 0%, #141432 60%, #1b1440 100%);
-  background-size: 240px 240px, 300px 300px, 260px 260px, 320px 320px, 280px 280px, 100% 100%;
-  background-attachment: scroll;
-  min-height: 100dvh;
-}
-
-/* scanlines muy suaves, como una pantalla CRT */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent 3px,
-    rgba(0, 0, 0, 0.12) 3px,
-    rgba(0, 0, 0, 0.12) 4px
-  );
-  z-index: 100;
 }
 
 ::selection {
@@ -75,256 +45,294 @@ body::after {
   color: var(--color-ink);
 }
 
-.font-pixel {
-  font-family: var(--font-pixel);
-  letter-spacing: 0.02em;
-  line-height: 1.6;
+/* ---------- Tarjetas ---------- */
+
+.card {
+  background: var(--color-card);
+  border: 3px solid var(--color-ink);
+  border-radius: 28px;
+  box-shadow: 0 5px 0 var(--color-ink);
 }
 
-.pixelated {
-  image-rendering: pixelated;
+.card-flat {
+  background: var(--color-card);
+  border: 3px solid var(--color-ink);
+  border-radius: 20px;
 }
 
-/* ---------- Caja pixel: borde de 4px con esquinas recortadas ---------- */
-.px-box {
-  --box-bg: var(--color-panel);
-  --box-edge: var(--color-ink);
-  position: relative;
-  background: var(--box-bg);
-  margin: var(--px);
-  box-shadow:
-    calc(var(--px) * -1) 0 0 0 var(--box-edge),
-    var(--px) 0 0 0 var(--box-edge),
-    0 calc(var(--px) * -1) 0 0 var(--box-edge),
-    0 var(--px) 0 0 var(--box-edge),
-    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 rgba(0, 0, 0, 0.28),
-    inset var(--px) var(--px) 0 0 rgba(255, 255, 255, 0.07);
+.card-soft {
+  background: var(--color-card);
+  border-radius: 20px;
 }
 
-.px-box-light {
-  --box-bg: var(--color-cream);
-  color: var(--color-ink);
-}
+/* ---------- Botones ---------- */
 
-.px-inset {
-  background: rgba(0, 0, 0, 0.28);
-  box-shadow:
-    inset var(--px) var(--px) 0 0 rgba(0, 0, 0, 0.35),
-    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 rgba(255, 255, 255, 0.05);
-}
-
-/* ---------- Boton con relieve ---------- */
-.px-btn {
-  --btn: var(--color-gblue);
-  --btn-shade: #2a57b8;
-  --btn-text: #ffffff;
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin: var(--px);
-  padding: 14px 18px 16px;
-  font-family: var(--font-pixel);
-  font-size: 11px;
-  line-height: 1.4;
-  text-transform: uppercase;
-  color: var(--btn-text);
-  background: var(--btn);
-  cursor: pointer;
-  user-select: none;
-  touch-action: manipulation;
-  box-shadow:
-    calc(var(--px) * -1) 0 0 0 var(--color-ink),
-    var(--px) 0 0 0 var(--color-ink),
-    0 calc(var(--px) * -1) 0 0 var(--color-ink),
-    0 var(--px) 0 0 var(--color-ink),
-    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--btn-shade),
-    inset var(--px) var(--px) 0 0 rgba(255, 255, 255, 0.35);
-}
-.px-btn:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow:
-    calc(var(--px) * -1) 0 0 0 var(--color-ink),
-    var(--px) 0 0 0 var(--color-ink),
-    0 calc(var(--px) * -1) 0 0 var(--color-ink),
-    0 var(--px) 0 0 var(--color-ink),
-    inset var(--px) var(--px) 0 0 var(--btn-shade);
-}
-.px-btn:focus-visible {
-  outline: 3px dashed var(--color-gyellow);
-  outline-offset: 6px;
-}
-.px-btn:disabled {
-  filter: grayscale(0.7) brightness(0.7);
-  cursor: not-allowed;
-}
-.px-btn-red { --btn: var(--color-gred); --btn-shade: #a8261b; }
-.px-btn-green { --btn: var(--color-ggreen); --btn-shade: #1d7438; }
-.px-btn-yellow { --btn: var(--color-gyellow); --btn-shade: #b98700; --btn-text: var(--color-ink); }
-.px-btn-dark { --btn: var(--color-panel-2); --btn-shade: #1a1a3d; }
-.px-btn-cream { --btn: var(--color-cream); --btn-shade: #c9c2ad; --btn-text: var(--color-ink); }
-.px-btn-sm { padding: 9px 12px 11px; font-size: 9px; }
-.px-btn-lg { padding: 18px 22px 20px; font-size: 13px; }
-
-/* ---------- Campos de texto ---------- */
-.px-input {
-  padding: 12px 14px;
-  margin: var(--px);
-  width: calc(100% - var(--px) * 2);
-  font-family: var(--font-body);
-  font-size: 20px;
+  gap: 0.55rem;
+  border: 3px solid var(--color-ink);
+  border-radius: 999px;
+  padding: 1rem 1.6rem;
+  font-weight: 800;
+  font-size: 1.1rem;
+  line-height: 1.1;
+  background: var(--color-card);
   color: var(--color-ink);
-  background: var(--color-cream);
-  border: 0;
-  outline: none;
-  box-shadow:
-    calc(var(--px) * -1) 0 0 0 var(--color-ink),
-    var(--px) 0 0 0 var(--color-ink),
-    0 calc(var(--px) * -1) 0 0 var(--color-ink),
-    0 var(--px) 0 0 var(--color-ink),
-    inset var(--px) var(--px) 0 0 #d8d1bd;
-}
-.px-input::placeholder {
-  color: #8d8a7f;
-}
-.px-input:focus {
-  box-shadow:
-    calc(var(--px) * -1) 0 0 0 var(--color-gyellow),
-    var(--px) 0 0 0 var(--color-gyellow),
-    0 calc(var(--px) * -1) 0 0 var(--color-gyellow),
-    0 var(--px) 0 0 var(--color-gyellow),
-    inset var(--px) var(--px) 0 0 #d8d1bd;
-}
-.px-input-code {
-  font-family: var(--font-pixel);
-  font-size: 18px;
-  letter-spacing: 0.25em;
-  text-align: center;
-  text-transform: uppercase;
+  cursor: pointer;
+  /* Sombra dura: el boton se ve como una ficha, no como un rectangulo plano. */
+  box-shadow: 0 4px 0 var(--color-ink);
+  transition:
+    transform 0.06s ease,
+    box-shadow 0.06s ease,
+    filter 0.12s ease;
 }
 
-/* ---------- Barra de progreso segmentada ---------- */
-.px-bar {
-  height: 14px;
+.btn:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--color-ink);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: 0 4px 0 rgba(25, 25, 25, 0.35);
+}
+
+.btn-lg {
+  padding: 1.25rem 1.8rem;
+  font-size: 1.35rem;
+  border-radius: 999px;
+}
+
+.btn-sm {
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  border-width: 2px;
+  box-shadow: 0 3px 0 var(--color-ink);
+}
+
+.btn-sm:active:not(:disabled) {
+  transform: translateY(3px);
+}
+
+.btn-blue {
+  background: var(--color-gblue);
+  color: #fff;
+}
+.btn-green {
+  background: var(--color-ggreen);
+  color: #fff;
+}
+.btn-red {
+  background: var(--color-gred);
+  color: #fff;
+}
+.btn-yellow {
+  background: var(--color-gyellow);
+  color: var(--color-ink);
+}
+.btn-pink {
+  background: var(--color-gpink);
+  color: var(--color-ink);
+}
+.btn-ink {
   background: var(--color-ink);
-  padding: 3px;
-}
-.px-bar > span {
-  display: block;
-  height: 100%;
-  background-image: repeating-linear-gradient(
-    90deg,
-    var(--bar, var(--color-ggreen)) 0,
-    var(--bar, var(--color-ggreen)) 6px,
-    transparent 6px,
-    transparent 8px
-  );
-  transition: width 400ms steps(8);
+  color: #fff;
 }
 
-/* ---------- Animaciones con pasos (nada de suavizado moderno) ---------- */
-@keyframes px-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(calc(var(--bob, 2px) * -1)); }
-}
-.px-bob {
-  animation: px-bob 1s steps(2, jump-none) infinite;
+/* ---------- Pildoras y entradas ---------- */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 2px solid var(--color-ink);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-weight: 800;
+  font-size: 0.9rem;
+  background: var(--color-card);
+  white-space: nowrap;
 }
 
-@keyframes px-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
-}
-.px-blink {
-  animation: px-blink 1s steps(1) infinite;
-}
-
-@keyframes px-aura-a {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0.15; }
-}
-@keyframes px-aura-b {
-  0%, 49% { opacity: 0.15; }
-  50%, 100% { opacity: 1; }
-}
-.px-aura-a { animation: px-aura-a 0.8s steps(1) infinite; }
-.px-aura-b { animation: px-aura-b 0.8s steps(1) infinite; }
-
-@keyframes px-rainbow {
-  0% { fill: #4285f4; }
-  25% { fill: #ea4335; }
-  50% { fill: #fbbc04; }
-  75% { fill: #34a853; }
-  100% { fill: #4285f4; }
-}
-.px-rainbow rect {
-  animation: px-rainbow 1.6s steps(4) infinite;
+.input {
+  width: 100%;
+  background: var(--color-card);
+  border: 3px solid var(--color-ink);
+  border-radius: 20px;
+  padding: 1rem 1.1rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  outline: none;
 }
 
-@keyframes px-pop {
-  0% { transform: scale(0.4); opacity: 0; }
-  60% { transform: scale(1.12); opacity: 1; }
-  100% { transform: scale(1); }
-}
-.px-pop {
-  animation: px-pop 280ms steps(5) both;
+.input::placeholder {
+  color: #a3a3a3;
+  font-weight: 500;
 }
 
-@keyframes px-shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
-}
-.px-shake {
-  animation: px-shake 240ms steps(4);
+.input:focus {
+  box-shadow: 0 0 0 4px rgba(66, 133, 244, 0.25);
 }
 
-@keyframes px-float-up {
-  0% { transform: translateY(0); opacity: 1; }
-  100% { transform: translateY(-48px); opacity: 0; }
-}
-.px-float-up {
-  animation: px-float-up 1.2s steps(12) forwards;
-}
-
-@keyframes px-walk {
-  from { transform: translateX(-10vw); }
-  to { transform: translateX(110vw); }
+.input-code {
+  text-align: center;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  font-weight: 800;
+  font-size: 1.5rem;
+  padding-left: 0.3em;
 }
 
-@keyframes px-slide-down {
-  from { transform: translateY(-120%); }
-  to { transform: translateY(0); }
+/* ---------- Casillas del bingo ---------- */
+
+.cell {
+  position: relative;
+  display: flex;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-card);
+  border: 2px solid var(--color-ink);
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 2.1rem;
+  line-height: 1;
+  transition: transform 0.06s ease;
 }
-.px-slide-down {
-  animation: px-slide-down 240ms steps(6) both;
+
+.cell:active {
+  transform: scale(0.96);
+}
+
+.cell-signed {
+  background: var(--color-ggreen);
+  color: #fff;
+}
+
+/* La marca de firmada, arriba a la derecha de la casilla. */
+.cell-mark {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--color-card);
+  color: var(--color-ggreen);
+  border: 2px solid var(--color-ink);
+}
+
+/* ---------- Lobby ---------- */
+
+/* Cruceta de movimiento: grande para el pulgar y translucida para no tapar la
+   plaza. Sobre un escenario de noche, un boton blanco se come la pantalla. */
+.dpad {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 16px;
+  background: rgba(12, 16, 40, 0.3);
+  backdrop-filter: blur(2px);
+  color: #ffffff;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.dpad:active {
+  background: rgba(66, 133, 244, 0.75);
+  border-color: #ffffff;
+}
+
+/* ---------- Animaciones ---------- */
+
+@keyframes bg-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes bg-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes bg-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.pop {
+  animation: bg-pop 0.28s ease-out both;
+}
+.blink {
+  animation: bg-blink 1.2s ease-in-out infinite;
+}
+.rise {
+  animation: bg-rise 0.25s ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .px-bob,
-  .px-blink,
-  .px-aura-a,
-  .px-aura-b,
-  .px-rainbow rect,
-  .px-pop,
-  .px-shake,
-  .px-float-up,
-  .px-slide-down {
+  .pop,
+  .blink,
+  .rise {
     animation: none !important;
   }
 }
 
-/* ---------- Impresion (hoja de QR del admin) ---------- */
+/* Barra de progreso simple */
+.bar {
+  height: 14px;
+  background: #e3e3e3;
+  border: 2px solid var(--color-ink);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--color-gblue);
+  transition: width 0.3s ease;
+}
+
 @media print {
-  body {
-    background: #fff !important;
-    color: #000 !important;
-  }
-  body::after,
   .no-print {
     display: none !important;
-  }
-  .print-sheet {
-    display: grid !important;
   }
 }

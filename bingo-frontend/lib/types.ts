@@ -1,32 +1,14 @@
-import type { ClassKey, HouseKey } from "./sprites";
-import type { TierKey } from "./progression";
+export type Player = { id: number; name: string; skin?: string | null };
 
-export type Role = "PLAYER" | "STAFF" | "ADMIN";
+export type Role = "PLAYER" | "ADMIN";
 
-export type PublicPlayer = {
+export type SelfPlayer = {
   id: number;
-  nickname: string;
-  avatarClass: ClassKey;
-  avatarHouse: HouseKey;
-  level: number;
-  tier: TierKey;
-  title: string;
-};
-
-export type Progress = {
-  xp: number;
-  level: number;
-  levelXp: number;
-  nextLevelXp: number | null;
-  tier: TierKey;
-  tierName: string;
-  title: string;
-};
-
-export type SelfPlayer = PublicPlayer & {
+  name: string;
+  /** Codigo de 6 caracteres: se dicta para que te firmen y es lo que lleva tu QR. */
   code: string;
   role: Role;
-  progress: Progress;
+  skin: string | null;
   createdAt: string;
 };
 
@@ -42,19 +24,18 @@ export type EventView = {
 
 export type Standing = { total: number; points: number; rank: number | null };
 
-export type GameStatus = "COUNTDOWN" | "ACTIVE" | "ENDED";
+export type RoundStatus = "COUNTDOWN" | "ACTIVE" | "ENDED";
 
-/** Un juego lanzado por el admin. Por ahora solo BINGO. */
-export type GameSession = {
+export type Round = {
   id: number;
-  type: "BINGO";
-  status: GameStatus;
+  number: number;
+  status: RoundStatus;
   startsAt: string;
   endedAt: string | null;
   cellPoints: number;
   completePoints: number;
   podiumBonus: number[];
-  /** Hora del servidor al generar la respuesta: corrige relojes de celulares desfasados. */
+  /** Hora del servidor: corrige relojes de celulares desfasados. */
   serverNow: number;
 };
 
@@ -62,56 +43,59 @@ export type MeResponse = {
   player: SelfPlayer;
   event: EventView | null;
   standing: Standing | null;
-  game: GameSession | null;
+  round: Round | null;
+  /** Como va su tarjeta de misiones, para el aviso del lobby. */
+  card: { done: number; total: number } | null;
 };
 
-export type BingoCell = {
+export type Mission = {
+  id: string;
+  title: string;
+  detail: string;
+  hint: string;
+  icon: string;
+  points: number;
+  done: boolean;
+  doneAt: string | null;
+};
+
+export type MissionCard = {
+  missions: Mission[];
+  done: number;
+  total: number;
+  bonus: number;
+  completa: boolean;
+  code: string;
+  event: EventView | null;
+};
+
+export type Skin = { id: string; name: string; detail: string };
+
+export type Cell = {
   position: number;
   text: string;
   signedAt: string | null;
-  signedBy: PublicPlayer | null;
+  signedBy: Player | null;
 };
 
-export type BingoBoard = {
+export type Card = {
   id: number;
-  sessionId: number;
+  roundId: number;
   completedAt: string | null;
   completedRank: number | null;
   signed: number;
   size: number;
-  cellPoints: number;
-  completePoints: number;
-  podiumBonus: number[];
-  cells: BingoCell[];
+  cells: Cell[];
 };
 
-export type BingoResults = {
-  boards: number;
+export type RoundResults = {
+  cards: number;
   completed: number;
-  winners: { rank: number; player: PublicPlayer }[];
-  closest: { signed: number; player: PublicPlayer }[];
+  winners: { rank: number; player: Player }[];
+  closest: { signed: number; player: Player }[];
 };
 
-export type Contact = {
-  player: PublicPlayer;
-  eventName: string | null;
-  since: string;
-};
-
-export type LeaderboardRow = { rank: number; points: number; player: PublicPlayer };
-export type HouseRow = { house: HouseKey; points: number; players: number };
-export type HouseCount = { house: HouseKey; players: number };
-
-export type PointsEvent = {
-  amount: number;
-  label: string;
-  source: string;
-  points: number;
-  xp: number;
-  level: number;
-};
-
-export type TrophyKind = "CHAMPION" | "PODIUM" | "TOP10" | "PARTICIPANT";
+export type LeaderboardRow = { rank: number; points: number; player: Player };
 
 export type HistoryEvent = {
   id: number;
@@ -121,14 +105,40 @@ export type HistoryEvent = {
   finalRank: number | null;
   joinedAt: string;
   closedAt: string | null;
-  trophy: { kind: TrophyKind; rank: number | null } | null;
 };
 
-/** Mision de src/content/missions.js vista por el staff para un jugador. */
-export type StaffMission = {
-  key: string;
-  title: string;
-  points: number;
-  repeatable: boolean;
-  timesAwarded: number;
+export type PointsEvent = { amount: number; label: string; points: number };
+
+/* ---------- Admin ---------- */
+
+export type AdminEventRow = EventView & { createdAt: string; players: number; rounds: number };
+
+export type AdminPlayer = {
+  id: number;
+  name: string;
+  code: string;
+  role: Role;
+  skin: string | null;
+  createdAt: string;
+  inEvent: boolean;
+  points: number | null;
+};
+
+export type Overview = {
+  event: EventView | null;
+  players: number;
+  connected: number;
+  /** Cuantos estan ahora mismo en el lobby. */
+  lobby: number;
+  top?: LeaderboardRow[];
+  round?: (Round & { progress: RoundResults }) | null;
+  lastRound?: { round: Round; results: RoundResults } | null;
+  missions?: { completas: number; porMision: { id: string; title: string; count: number }[]; total: number };
+};
+
+export type MissionReport = {
+  completas: { player: Player; done: string[]; lastAt: string }[];
+  people: { player: Player; done: string[]; lastAt: string }[];
+  porMision: { id: string; title: string; count: number }[];
+  total: number;
 };

@@ -1,21 +1,21 @@
-// Misti Quest - dinamicas de GDG Arequipa.
+// Bingo GDG - la app de los eventos de GDG Arequipa.
 //
 // Modelo mental:
-//   Player      = la cuenta/personaje. Persiste entre eventos (xp de por vida).
-//   Event       = un evento (DevFest, I/O Extended...). Solo uno abierto a la vez.
-//   EventPlayer = inscripcion de un jugador a un evento. Los juegos de un evento
-//                 solo incluyen a sus inscritos.
-//   GameSession = un juego lanzado por el admin (por ahora: bingo).
-//   PointLedger = libro contable de TODOS los puntos. Su clave unica
-//                 (evento, jugador, refKey) evita cobrar dos veces lo mismo.
+//   Player       = la persona. Entra con usuario y clave; su rol decide que ve.
+//   Event        = un evento (DevFest, I/O Extended...). Solo uno abierto a la vez.
+//   EventPlayer  = inscripcion de un jugador a un evento y sus puntos ahi.
+//   Round        = una ronda de bingo: al crearla todos reciben cartilla nueva.
+//   Card / Cell  = la cartilla de 9 casillas y cada casilla con quien la firmo.
+//   MissionClaim = una mision de la tarjeta, validada por un admin con el QR.
+//   PointLedger  = libro de puntos. Su clave unica (evento, jugador, refKey)
+//                  evita cobrar dos veces lo mismo.
 //
-// Las preguntas del bingo y las misiones del staff NO estan en la base: se
-// editan en codigo, en src/content/.
+// Lo que NO esta en la base: las preguntas del bingo, las misiones y los
+// personajes se editan en el codigo, en src/content/. La posicion de cada
+// quien en el lobby vive solo en memoria: no tiene sentido guardarla.
 
 generator client {
   provider        = "prisma-client-js"
-  // Resuelve los include con JOIN en una sola consulta en vez de una por
-  // relacion. Contra una base remota (Neon) cada consulta ahorrada son ~100 ms.
   previewFeatures = ["relationJoins"]
 }
 
@@ -25,7 +25,6 @@ datasource db {
 
 enum Role {
   PLAYER
-  STAFF
   ADMIN
 }
 
@@ -35,56 +34,35 @@ enum EventStatus {
   CLOSED
 }
 
-enum PointSource {
-  BINGO
-  MISSION
-  MANUAL
-}
-
-enum GameType {
-  BINGO
-}
-
-enum GameStatus {
+enum RoundStatus {
   COUNTDOWN
   ACTIVE
   ENDED
 }
 
-enum TrophyKind {
-  CHAMPION
-  PODIUM
-  TOP10
-  PARTICIPANT
-}
-
 model Player {
   id             Int      @id @default(autoincrement())
-  nickname       String
-  /// nickname en minusculas: garantiza unicidad sin importar mayusculas.
-  nicknameKey    String   @unique
-  pinHash        String
-  /// Se incrementa al cambiar el PIN: invalida todas las sesiones abiertas.
-  sessionVersion Int      @default(1)
+  /// Usuario tal como lo escribio; es tambien el nombre sobre su personaje.
+  name           String
+  /// El mismo en minusculas: unico sin importar mayusculas ni tildes.
+  nameKey        String   @unique
+  claveHash      String
+  /// PLAYER no ve nada de admin; ADMIN no juega: no tiene cartilla ni lobby.
   role           Role     @default(PLAYER)
-  avatarClass    String
-  avatarHouse    String
-  /// Codigo publico de 6 caracteres: se dicta o se escribe, sin camara.
+  /// Personaje elegido (id de src/content/skins.js). Null hasta que elige.
+  skin           String?
+  /// Se incrementa al cambiar la clave: invalida las sesiones abiertas.
+  sessionVersion Int      @default(1)
+  /// Codigo de 6 caracteres: se dicta para firmar y es lo que lleva su QR.
   code           String   @unique
-  /// Experiencia de por vida: define nivel, aura y medalla.
-  xp             Int      @default(0)
   createdAt      DateTime @default(now())
 
-  events      EventPlayer[]
-  ledger      PointLedger[] @relation("LedgerPlayer")
-  awardsGiven PointLedger[] @relation("LedgerAwarder")
-  bingoBoards BingoBoard[]
-  bingoSigned BingoCell[]
-  trophies    Trophy[]
-  contactsA   Connection[]  @relation("ConnectionA")
-  contactsB   Connection[]  @relation("ConnectionB")
-
-  @@index([role])
+  events    EventPlayer[]
+  ledger    PointLedger[]
+  cards     Card[]
+  signed    Cell[]
+  missions  MissionClaim[] @relation("MissionOwner")
+  validated MissionClaim[] @relation("MissionValidator")
 }
 
 model Event {
@@ -95,11 +73,10 @@ model Event {
   startedAt DateTime?
   closedAt  DateTime?
 
-  players     EventPlayer[]
-  ledger      PointLedger[]
-  games       GameSession[]
-  connections Connection[]
-  trophies    Trophy[]
+  players  EventPlayer[]
+  ledger   PointLedger[]
+  rounds   Round[]
+  missions MissionClaim[]
 }
 
 model EventPlayer {
@@ -120,108 +97,92 @@ model EventPlayer {
 }
 
 model PointLedger {
-  id          Int         @id @default(autoincrement())
-  eventId     Int
-  playerId    Int
-  amount      Int
-  source      PointSource
-  /// Identificador de la recompensa, ej. "bingo:3:cell:4", "mission:pregunta:<uuid>".
-  refKey      String
-  label       String
-  awardedById Int?
-  createdAt   DateTime    @default(now())
+  id        Int      @id @default(autoincrement())
+  eventId   Int
+  playerId  Int
+  amount    Int
+  /// Identificador de la recompensa, ej. "r12:cell:4", "r12:bingo",
+  /// "mision:redes", "ajuste:<uuid>".
+  refKey    String
+  label     String
+  createdAt DateTime @default(now())
 
-  event     Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  player    Player  @relation("LedgerPlayer", fields: [playerId], references: [id], onDelete: Cascade)
-  awardedBy Player? @relation("LedgerAwarder", fields: [awardedById], references: [id], onDelete: SetNull)
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, playerId, refKey])
-  @@index([playerId, createdAt])
   @@index([eventId, createdAt])
 }
 
-model GameSession {
-  id             Int        @id @default(autoincrement())
+model Round {
+  id             Int         @id @default(autoincrement())
   eventId        Int
-  type           GameType
-  status         GameStatus @default(COUNTDOWN)
-  /// Fin de la cuenta regresiva: desde aqui se puede jugar.
+  /// Ronda 1, 2, 3... del evento.
+  number         Int
+  status         RoundStatus @default(COUNTDOWN)
+  /// Fin de la cuenta regresiva: desde aqui se puede firmar.
   startsAt       DateTime
   endedAt        DateTime?
-  /// Puntajes usados en este juego (se copian de src/content al lanzarlo).
-  cellPoints     Int        @default(5)
-  completePoints Int        @default(50)
-  createdAt      DateTime   @default(now())
+  cellPoints     Int         @default(5)
+  completePoints Int         @default(50)
+  createdAt      DateTime    @default(now())
 
-  event  Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  boards BingoBoard[]
+  event Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  cards Card[]
 
+  @@unique([eventId, number])
   @@index([eventId, status])
 }
 
-model BingoBoard {
+model Card {
   id            Int       @id @default(autoincrement())
-  sessionId     Int
+  roundId       Int
   playerId      Int
   completedAt   DateTime?
-  /// Orden de llegada: 1 = primero en completar.
+  /// Orden de llegada: 1 = primero en completar la ronda.
   completedRank Int?
   createdAt     DateTime  @default(now())
 
-  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  player  Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  cells   BingoCell[]
+  round  Round  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  cells  Cell[]
 
-  @@unique([sessionId, playerId])
-  @@index([sessionId, completedRank])
+  @@unique([roundId, playerId])
+  @@index([roundId, completedRank])
 }
 
-model BingoCell {
+model Cell {
   id         Int       @id @default(autoincrement())
-  boardId    Int
+  cardId     Int
   position   Int
   /// La pregunta de la casilla (sale de src/content/bingo.js al repartir).
   text       String
   signedById Int?
   signedAt   DateTime?
 
-  board    BingoBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  signedBy Player?    @relation(fields: [signedById], references: [id], onDelete: SetNull)
+  card     Card    @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  signedBy Player? @relation(fields: [signedById], references: [id], onDelete: SetNull)
 
-  @@unique([boardId, position])
+  @@unique([cardId, position])
   /// Una misma persona no puede firmar dos casillas de la misma cartilla.
-  @@unique([boardId, signedById])
+  @@unique([cardId, signedById])
 }
 
-/// Contactos: se crean al firmar un bingo o al escribir el codigo de alguien.
-model Connection {
-  id        Int      @id @default(autoincrement())
-  /// Evento donde se conocieron (null si fue fuera de un evento).
-  eventId   Int?
-  /// Siempre aId < bId: el par es unico sin importar quien agrego a quien.
-  aId       Int
-  bId       Int
-  createdAt DateTime @default(now())
+model MissionClaim {
+  id            Int      @id @default(autoincrement())
+  eventId       Int
+  playerId      Int
+  /// id de la mision en src/content/missions.js
+  missionId     String
+  /// El admin que escaneo su QR. Queda para poder auditar los premios.
+  validatedById Int
+  createdAt     DateTime @default(now())
 
-  event Event? @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  a     Player @relation("ConnectionA", fields: [aId], references: [id], onDelete: Cascade)
-  b     Player @relation("ConnectionB", fields: [bId], references: [id], onDelete: Cascade)
+  event       Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  player      Player @relation("MissionOwner", fields: [playerId], references: [id], onDelete: Cascade)
+  validatedBy Player @relation("MissionValidator", fields: [validatedById], references: [id])
 
-  @@unique([aId, bId])
-  @@index([bId])
-}
-
-model Trophy {
-  id        Int        @id @default(autoincrement())
-  playerId  Int
-  eventId   Int
-  kind      TrophyKind
-  rank      Int?
-  points    Int
-  createdAt DateTime   @default(now())
-
-  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@unique([playerId, eventId])
+  /// Una mision se valida una sola vez por persona y evento.
+  @@unique([eventId, playerId, missionId])
+  @@index([eventId, createdAt])
 }
