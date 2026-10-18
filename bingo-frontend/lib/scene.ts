@@ -534,8 +534,10 @@ function persona(ctx: Ctx, ox: number, oy: number, p: Persona) {
   }
 
   // ---- Ojos y lentes ----
-  px(ctx, ox + 5, oy + 6, 1, 1, OJO);
-  px(ctx, ox + 10, oy + 6, 1, 1, OJO);
+  // Dos pixeles de ancho: con uno solo el ojo se lee como una mota de polvo.
+  // A quien lleva lentes el marco le tapa medio ojo y queda igual que antes.
+  px(ctx, ox + 5, oy + 6, 2, 1, OJO);
+  px(ctx, ox + 9, oy + 6, 2, 1, OJO);
   if (p.lentes) {
     const marco = "#15151a";
     px(ctx, ox + 4, oy + 5, 3, 1, marco);
@@ -547,7 +549,10 @@ function persona(ctx: Ctx, ox: number, oy: number, p: Persona) {
     px(ctx, ox + 9, oy + 6, 1, 1, marco);
     px(ctx, ox + 11, oy + 6, 1, 1, marco);
     px(ctx, ox + 7, oy + 6, 2, 1, marco); // puente
-    px(ctx, ox + 5, oy + 6, 1, 1, "#d8ecf7"); // reflejo
+    // El reflejo va en las dos lunas. Con una sola, la otra se leia como un
+    // parche negro en el ojo en vez de como un cristal.
+    px(ctx, ox + 5, oy + 6, 1, 1, "#d8ecf7");
+    px(ctx, ox + 10, oy + 6, 1, 1, "#d8ecf7");
   }
 }
 
@@ -618,14 +623,15 @@ function logoGdg(ctx: Ctx, x: number, y: number) {
  * Donde flota la pantalla, en pixeles del dibujo. Va por encima de las cabezas
  * de los organizadores (que estan a 137) para no taparlos.
  */
-export const PANTALLA = { x: 450, y: 88, w: 132, h: 40 };
+// Vuela alto a proposito: mas abajo le pasaba por encima a los nombres que
+// flotan sobre los organizadores.
+export const PANTALLA = { x: 450, y: 72, w: 132, h: 40 };
 
 /** Lo que va mostrando, en vueltas de unos segundos cada una. */
 const MENSAJES: string[][] = [
   ["DEVFEST", "AREQUIPA 2026"],
   ["NO OLVIDES", "TUS MISIONES"],
-  ["CONOCE A 9", "Y GANA EL BINGO"],
-  ["MUESTRA TU QR", "A UN ORGANIZADOR"],
+  ["MUESTRA TU QR", "PARA VALIDAR UNA MISION"],
 ];
 
 export const MENSAJES_TOTAL = MENSAJES.length;
@@ -715,13 +721,29 @@ function escenario(ctx: Ctx) {
     ovalo(ctx, fx + 2, 158, 10, 3, "#5d5648");
   }
 
-  // Los diez, en fila sobre la tarima
+  // En fila sobre la tarima, cada uno con su nombre flotando encima.
   ORGANIZADORES.forEach((p, i) => {
     const px0 = x0 + 8 + i * 30;
     ovalo(ctx, px0 + 8, 157, 7, 2, "#00000044");
     persona(ctx, px0, 137, p);
-    texto(ctx, p.nombre, px0 + 8, 164, "#f3ead8");
+    // Dos alturas alternadas: entre un organizador y el siguiente hay 30
+    // pixeles y un nombre como GABRIEL ocupa 27, asi que a la misma altura dos
+    // carteles seguidos se tocarian.
+    nombreFlotante(ctx, p.nombre, px0 + 8, i % 2 === 0 ? 122 : 130);
   });
+}
+
+/**
+ * El cartelito con el nombre que flota sobre una cabeza, como en Minecraft.
+ *
+ * Antes los nombres iban escritos sobre la tarima, y los once seguidos se
+ * leian como una sola tira de letras sin saber cual era de quien. El fondo
+ * oscuro es lo que los separa del arco de la catedral que tienen detras.
+ */
+function nombreFlotante(ctx: Ctx, nombre: string, cx: number, y: number) {
+  const ancho = nombre.length * 4 - 1;
+  px(ctx, cx - Math.round(ancho / 2) - 2, y - 1, ancho + 4, 7, "#0d1016cc");
+  texto(ctx, nombre, cx, y, "#f3ead8");
 }
 
 export function drawGround(ctx: Ctx) {
