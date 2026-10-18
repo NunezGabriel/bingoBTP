@@ -466,10 +466,13 @@ function marcaTecsup(ctx: Ctx, cx: number, base: number) {
   const c = "#00aeef";
   const x = cx - 7;
   const y = base - 14;
-  px(ctx, x + 4, y, 10, 3, c); // barra de arriba
-  px(ctx, x + 4, y, 3, 14, c); // asta
-  // Las graduaciones son lo unico que distingue a esta T de cualquier otra
-  for (const dy of [3, 6, 9, 12]) px(ctx, x, y + dy, 3, 1, c);
+  px(ctx, x, y, 15, 3, c); // la barra cruza entera
+  // El asta va al medio. Pegada al extremo izquierdo la marca se leia como una
+  // L al reves, no como una T.
+  px(ctx, x + 6, y, 3, 14, c);
+  // Las graduaciones salen del asta hacia la izquierda, pegadas a ella: son lo
+  // unico que distingue a esta T de cualquier otra.
+  for (const dy of [5, 8, 11]) px(ctx, x + 2, y + dy, 4, 1, c);
 }
 
 /** JetBrains: el cuadrado negro con su raya dentro del rombo de colores. */
