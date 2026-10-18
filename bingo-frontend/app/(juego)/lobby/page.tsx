@@ -393,8 +393,12 @@ export default function LobbyPage() {
     <div className="relative h-[calc(100dvh-74px)] w-full overflow-hidden bg-[#0a1030]">
       <canvas ref={canvasRef} className="h-full w-full touch-none" />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
-        <span className="pill bg-card">{me?.event?.name ?? "Sin evento abierto"}</span>
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-end gap-2 p-3">
+        {/* El nombre del evento se fue: tapaba el cielo y ya esta en la barra
+            de arriba del resto de pantallas. El aviso de que no hay evento
+            abierto si se queda, porque si no el jugador no entiende por que
+            nunca empieza nada. */}
+        {!me?.event && <span className="pill mr-auto bg-card">Sin evento abierto</span>}
         <span className="flex gap-2">
           <span className="pill bg-card">
             <Icon name="users" size={16} /> {total}
