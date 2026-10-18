@@ -16,7 +16,7 @@ if (isProduction && sessionSecret.length < 16) {
 }
 
 // Por defecto se mantiene el comportamiento de siempre: produccion detras de
-// dominios distintos (Vercel -> Render) necesita secure=true + sameSite=none.
+// dominios distintos (web y API separadas) necesita secure=true + sameSite=none.
 // COOKIE_SECURE=false permite servir por HTTP en una red local.
 const cookieSecure =
   process.env.COOKIE_SECURE !== undefined ? process.env.COOKIE_SECURE === "true" : isProduction;

@@ -9,7 +9,8 @@ const rounds = require("./services/rounds");
 
 const app = express();
 // Saltos de proxy confiables para leer la IP real del cliente: 1 con nginx o
-// Render directo; 2 si el trafico entra por el rewrite de Vercel y luego Render.
+// llegando directo a la API; 2 si el trafico pasa antes por el servicio de la
+// web, que reenvia /api al de la API.
 app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
 app.disable("x-powered-by");
 
@@ -17,15 +18,10 @@ app.use(
   cors({
     origin(origin, callback) {
       // Sin Origin: peticiones del mismo sitio via proxy, curl, healthchecks.
+      // Por ahi llega el trafico normal del juego: la web reenvia /api a la API
+      // desde su servidor, no desde el navegador.
       if (!origin) return callback(null, true);
-      let hostname = "";
-      try {
-        hostname = new URL(origin).hostname;
-      } catch {
-        return callback(null, false);
-      }
-      const allowed = config.frontendOrigins.includes(origin) || /\.vercel\.app$/.test(hostname);
-      return callback(null, allowed);
+      return callback(null, config.frontendOrigins.includes(origin));
     },
     credentials: true,
   }),

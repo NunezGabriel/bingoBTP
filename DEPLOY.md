@@ -2,7 +2,7 @@
 
 Dos caminos, el mismo código:
 
-| | Render + Vercel + Neon | Servidor propio (Proxmox/LXC + Docker) |
+| | Render + Neon | Servidor propio (Proxmox/LXC + Docker) |
 |---|---|---|
 | Acceso | Público, desde datos móviles | Solo la red del servidor (hasta tener dominio y SSL) |
 | HTTPS | Sí | Opcional: el juego usa códigos escritos, no la cámara |
@@ -11,7 +11,12 @@ Dos caminos, el mismo código:
 
 ---
 
-## A) Render (API) + Vercel (web) + Neon (base)
+## A) Render (API y web) + Neon (base)
+
+Dos servicios de Render sobre el mismo repositorio: uno corre la API desde
+`bingo-backend` y otro la web desde `bingo-frontend`. La web reenvia `/api` a la
+API con el rewrite de `next.config.ts`, asi que para el navegador todo sale del
+mismo dominio: sin CORS y sin cookies entre sitios.
 
 ### 1. La base de datos: la misma de siempre
 
@@ -41,7 +46,7 @@ Antes de desplegar un cambio de esquema, `npx prisma migrate status` con la
 ### 2. API en Render
 
 - Root directory: `bingo-backend`
-- Build: `npm install && npx prisma generate && npx prisma migrate deploy && npm run seed`
+- Build: `npm install --include=dev && npx prisma generate && npx prisma migrate deploy && npm run seed`
 - Start: `node src/app.js`
 - Rama: `main`, con auto-deploy encendido (Settings → Build & Deploy). Si está
   apagada, un push no sube nada y el servicio sigue sirviendo la versión vieja
@@ -54,13 +59,19 @@ Antes de desplegar un cambio de esquema, `npx prisma migrate status` con la
 | `DB_POOL_MAX` | `20` |
 | `NODE_ENV` | `production` |
 | `SESSION_SECRET` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `FRONTEND_URL` | `https://tu-app.vercel.app` |
-| `TRUST_PROXY` | `2` (el tráfico entra por Vercel y luego por Render) |
+| `FRONTEND_URL` | La URL del servicio web (`https://bingo-gdg.onrender.com`) |
+| `TRUST_PROXY` | `2` (el tráfico entra por la web y de ahí a la API) |
 | `ADMIN_USER` | Usuario de la cuenta de admin (por defecto `admin`) |
 | `ADMIN_CLAVE` | Su clave: 8 caracteres o mas. La cuenta la crea el seeder |
 
 Las preguntas del bingo, las misiones y los personajes no van en la base: se
 editan en `bingo-backend/src/content/` y viajan con el despliegue.
+
+> **`--include=dev` no es un descuido.** Render define `NODE_ENV=production`
+> tambien durante el build, y con eso `npm install` se salta las
+> devDependencies. Ahi viven el CLI de Prisma (la API) y Tailwind con
+> TypeScript (la web): sin ellos el build falla con un `Cannot find module`
+> que no dice nada sobre la causa.
 
 El `npm run seed` del final del build es el que crea la cuenta de admin, y va
 ahi porque el plan gratuito de Render no tiene shell. Corre en cada despliegue
@@ -71,27 +82,44 @@ ejemplo solo se crea si la base no tiene ninguno.
 > se niega a arrancar en produccion y el despliegue queda caido. Ese codigo ya
 > no abre solo un panel: es la cuenta que firma cada validacion de mision.
 
-### 3. Web en Vercel
+### 3. Web en Render
+
+Otro Web Service, sobre el mismo repositorio y la misma rama.
 
 - Root directory: `bingo-frontend`
+- Language: **Node** (Render propone Docker porque encuentra un Dockerfile; ese
+  es para el servidor propio, no para aquí)
+- Build: `npm install --include=dev && npm run build`
+- Start: `npm start`
+- Misma región que la API
 - Variables:
 
 | Variable | Valor |
 |---|---|
+| `NODE_ENV` | `production` |
 | `NEXT_PUBLIC_API_URL` | `/api` |
 | `BACKEND_URL` | `https://tu-api.onrender.com` |
 | `NEXT_PUBLIC_WS_URL` | `wss://tu-api.onrender.com/ws/lobby` |
 
-> **El lobby va directo al backend, no por el proxy de Vercel.** El rewrite de
-> `/api` no reenvia conexiones WebSocket: si `NEXT_PUBLIC_WS_URL` falta o apunta
-> a Vercel, la plaza se ve vacia (cada quien se ve solo a si mismo). El resto de
-> la app sigue funcionando, por eso es facil que pase desapercibido.
+> **El lobby va directo a la API, no por el rewrite.** El rewrite de `/api` no
+> reenvia conexiones WebSocket: si `NEXT_PUBLIC_WS_URL` falta, la plaza se ve
+> vacia (cada quien se ve solo a si mismo). El resto de la app sigue
+> funcionando, por eso es facil que pase desapercibido.
+
+> **`NEXT_PUBLIC_*` se hornea en el build.** Cambiarlas no tiene efecto hasta
+> que vuelvas a desplegar.
 
 ### Plan gratis de Render: cuidado
 
-Se duerme tras 15 minutos sin tráfico y el primer acceso tarda ~1 minuto en despertar.
-**Abre la app media hora antes del evento** y deja la pantalla gigante abierta
-(su conexión en vivo lo mantiene despierto).
+Cada servicio se duerme tras 15 minutos sin tráfico y tarda ~1 minuto en
+despertar. Son dos, así que el primero que entra puede esperar dos veces: la web
+y después la API. **Abre la app media hora antes del evento** y deja la pantalla
+gigante abierta (su conexión en vivo mantiene despierta a la API).
+
+Las horas gratis (750 al mes) son de la cuenta, no de cada servicio: dos
+servicios despiertos las gastan al doble de velocidad. No es que vayan más
+lentos; cuando se acaban, los servicios gratis quedan suspendidos hasta el mes
+siguiente. Un plan de pago quita las dos cosas: ni se duermen ni cuentan horas.
 
 ---
 

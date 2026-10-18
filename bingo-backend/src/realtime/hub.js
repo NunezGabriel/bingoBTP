@@ -3,8 +3,8 @@ const crypto = require("node:crypto");
 /**
  * Hub de Server-Sent Events.
  *
- * Por que SSE y no WebSockets: el frontend en Vercel llega al backend por un
- * rewrite /api, y ese proxy no transporta el upgrade de WebSocket. SSE viaja
+ * Por que SSE y no WebSockets: el frontend llega al backend por un rewrite
+ * /api, y ese proxy no transporta el upgrade de WebSocket. SSE viaja
  * sobre HTTP normal, reusa la cookie de sesion y el navegador reconecta solo.
  *
  * Reconexiones baratas: cada evento lleva un id "<arranque>-<secuencia>".
@@ -62,7 +62,7 @@ function currentId() {
 function subscribe(req, res, channels) {
   res.writeHead(200, {
     "Content-Type": "text/event-stream; charset=utf-8",
-    // no-transform y X-Accel-Buffering: que ningun proxy (Vercel, nginx)
+    // no-transform y X-Accel-Buffering: que ningun proxy (Render, nginx)
     // acumule la respuesta y retrase los eventos.
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",

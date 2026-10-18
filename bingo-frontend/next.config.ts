@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   devIndicators: false,
 
   // Solo para la imagen Docker: empaqueta un server.js autocontenido.
-  // En Vercel la variable no existe, asi que el build sigue siendo el de siempre.
+  // En Render la variable no existe, asi que el build sigue siendo el de siempre.
   ...(process.env.DOCKER_BUILD === "true"
     ? { output: "standalone" as const }
     : {}),
