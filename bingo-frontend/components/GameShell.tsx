@@ -29,14 +29,26 @@ const NAV: { href: string; label: string; icon: IconName }[] = [
 /** El lobby y la cartilla ocupan toda la pantalla: sin barra de arriba. */
 const FULL_BLEED = ["/lobby"];
 
+/**
+ * Pantallas que en monitor se abren a dos columnas. Las demas se quedan en
+ * ancho de celular aunque sobre sitio: una lista estirada se lee peor.
+ */
+const ANCHAS = ["/misiones"];
+
+/** El ancho del contenido. Las tres barras tienen que usar el mismo. */
+function anchoDe(pathname: string) {
+  return ANCHAS.includes(pathname) ? "max-w-md md:max-w-4xl" : "max-w-md";
+}
+
 const PODIUM = ["#fbbc04", "#c9c9c9", "#cd7f32"];
 
 function TopBar() {
   const { me } = useSession();
+  const pathname = usePathname();
   if (!me) return null;
   return (
     <header className="sticky top-0 z-40 border-b-2 border-ink bg-paper/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-md items-center gap-2 px-4 py-2.5">
+      <div className={`mx-auto flex ${anchoDe(pathname)} items-center gap-2 px-4 py-2.5`}>
         <GdgMark size={20} />
         <span className="min-w-0 flex-1 truncate font-extrabold">{me.player.name}</span>
         {me.event && (
@@ -49,11 +61,13 @@ function TopBar() {
   );
 }
 
+// Negra y no blanca: sobre la plaza de noche la franja blanca cortaba la
+// pantalla en dos y se comia el final del lobby.
 function BottomNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-ink bg-card pb-[env(safe-area-inset-bottom)]">
-      <ul className="mx-auto grid max-w-md grid-cols-3">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-ink bg-ink pb-[env(safe-area-inset-bottom)]">
+      <ul className={`mx-auto grid ${anchoDe(pathname)} grid-cols-3`}>
         {NAV.map((item) => {
           const active = pathname === item.href;
           return (
@@ -61,7 +75,7 @@ function BottomNav() {
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex w-full flex-col items-center gap-1 py-3 text-[14px] font-extrabold ${active ? "text-gblue" : "text-muted"}`}
+                className={`flex w-full flex-col items-center gap-1 py-3 text-[14px] font-extrabold ${active ? "text-gblue" : "text-white/55"}`}
               >
                 <Icon name={item.icon} size={28} />
                 {item.label}
@@ -260,7 +274,9 @@ export function GameShell({ children }: { children: ReactNode }) {
     <RealtimeProvider enabled>
       <LiveBridge />
       {!full && <TopBar />}
-      <main className={full ? "w-full" : "mx-auto w-full max-w-md px-4 pb-24 pt-4"}>{children}</main>
+      <main className={full ? "w-full" : `mx-auto w-full ${anchoDe(pathname)} px-4 pb-24 pt-4`}>
+        {children}
+      </main>
       <BottomNav />
     </RealtimeProvider>
   );

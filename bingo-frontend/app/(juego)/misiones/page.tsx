@@ -50,8 +50,13 @@ export default function MisionesPage() {
 
   const mision = abierta === null ? null : card.missions[abierta];
 
+  // En celular las dos tarjetas van una debajo de la otra, como siempre. En
+  // monitor se ponen lado a lado: apiladas obligaban a bajar hasta el final
+  // para encontrar el QR, que es justo lo que hay que mostrarle al organizador.
+  // items-start evita que la del QR se estire al alto de la otra.
   return (
-    <div className="flex flex-col gap-4">
+    <>
+      <div className="grid gap-4 md:grid-cols-2 md:items-start">
       {/* La tarjeta */}
       <section
         className="card overflow-hidden p-0"
@@ -123,7 +128,8 @@ export default function MisionesPage() {
         <p className="text-center text-[15px] text-muted">
           Si no les abre la camara, dictales estas 6 letras.
         </p>
-      </section>
+        </section>
+      </div>
 
       <Modal open={mision !== null} onClose={() => setAbierta(null)} title={`Reto 0${(abierta ?? 0) + 1}`}>
         {mision && (
@@ -143,6 +149,6 @@ export default function MisionesPage() {
           </>
         )}
       </Modal>
-    </div>
+    </>
   );
 }
