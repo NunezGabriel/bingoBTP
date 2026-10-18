@@ -1,24 +1,25 @@
+import { CAJA, TRAZOS } from "@/lib/gdgMark";
+
 /**
  * El logo de GDG: los signos < > hechos con cuatro barras redondeadas en los
- * colores de Google. El orden de dibujo importa: en cada vertice la barra de
- * abajo tapa a la de arriba, como en el logo original.
+ * colores de Google. Los trazos viven en lib/gdgMark.ts, porque el icono de la
+ * pestana dibuja exactamente los mismos.
  */
 export function GdgMark({ size = 28 }: { size?: number }) {
   return (
     <svg
-      width={size * 1.6}
+      width={(size * CAJA.ancho) / CAJA.alto}
       height={size}
-      viewBox="0 0 800 500"
+      viewBox={`0 0 ${CAJA.ancho} ${CAJA.alto}`}
       aria-hidden
       className="shrink-0"
       fill="none"
-      strokeWidth="118"
+      strokeWidth={CAJA.grosor}
       strokeLinecap="round"
     >
-      <path d="M306 108 86 236" stroke="#ea4335" />
-      <path d="M86 264 306 392" stroke="#4285f4" />
-      <path d="M714 264 494 392" stroke="#fbbc04" />
-      <path d="M494 108 714 236" stroke="#1e8e3e" />
+      {TRAZOS.map((trazo) => (
+        <path key={trazo.color} d={trazo.d} stroke={trazo.color} />
+      ))}
     </svg>
   );
 }

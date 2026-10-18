@@ -1,11 +1,16 @@
 import { ImageResponse } from "next/og";
+import { marcaDataUri } from "@/lib/gdgMark";
 
-// Icono de la pestana: una cartilla de bingo con los colores de Google.
-export const size = { width: 32, height: 32 };
+// Icono de la pestana: el logo de GDG sobre el fondo oscuro de la app.
+//
+// El lienzo es de 64 y no de 32 porque el navegador lo termina mostrando a 16:
+// con el doble de pixeles la reduccion conserva los bordes de las barras. Y la
+// marca ocupa casi todo el ancho porque a ese tamano el hueco entre el < y el
+// > es lo unico que impide que las cuatro barras se lean como una mancha.
+export const size = { width: 64, height: 64 };
 export const contentType = "image/png";
 
 export default function Icon() {
-  const dots = ["#4285f4", "#ea4335", "#fbbc04", "#34a853"];
   return new ImageResponse(
     (
       <div
@@ -13,15 +18,13 @@ export default function Icon() {
           width: "100%",
           height: "100%",
           display: "flex",
-          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "center",
           background: "#191919",
-          padding: 3,
-          gap: 2,
         }}
       >
-        {dots.map((color) => (
-          <div key={color} style={{ width: 12, height: 12, background: color, borderRadius: 3 }} />
-        ))}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={marcaDataUri()} alt="" width={60} height={38} />
       </div>
     ),
     size,

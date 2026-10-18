@@ -1,11 +1,12 @@
 import { ImageResponse } from "next/og";
+import { marcaDataUri } from "@/lib/gdgMark";
 
-// Icono para "agregar a pantalla de inicio".
+// Icono para "agregar a pantalla de inicio". Fondo claro, el mismo que declara
+// el manifest, para que no se vea un recuadro distinto al abrir la app.
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
 export default function AppleIcon() {
-  const dots = ["#4285f4", "#ea4335", "#fbbc04", "#34a853"];
   return new ImageResponse(
     (
       <div
@@ -13,17 +14,13 @@ export default function AppleIcon() {
           width: "100%",
           height: "100%",
           display: "flex",
-          flexWrap: "wrap",
-          alignContent: "center",
+          alignItems: "center",
           justifyContent: "center",
           background: "#f0f0f0",
-          padding: 18,
-          gap: 10,
         }}
       >
-        {dots.map((color) => (
-          <div key={color} style={{ width: 62, height: 62, background: color, borderRadius: 16 }} />
-        ))}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={marcaDataUri()} alt="" width={148} height={93} />
       </div>
     ),
     size,
