@@ -419,6 +419,9 @@ function Panel({ onLogout }: { onLogout: () => void }) {
           <Link href="/pantalla" target="_blank" className="btn btn-sm">
             <Icon name="eye" size={14} /> Proyector
           </Link>
+          <Link href="/pantalla/crono" target="_blank" className="btn btn-sm">
+            <Icon name="clock" size={14} /> Crono
+          </Link>
           <button type="button" className="btn btn-sm" onClick={onLogout}>
             <Icon name="logout" size={14} />
           </button>
