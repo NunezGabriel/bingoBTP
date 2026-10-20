@@ -14,8 +14,12 @@ export type LobbyPlayer = {
   id: number;
   name: string;
   skin: string | null;
+  /** Donde se dibuja ahora mismo. */
   x: number;
   y: number;
+  /** Donde dijo la ultima foto que estaba. El dibujo va hacia aqui. */
+  tx: number;
+  ty: number;
   d: number;
   w: boolean;
   emote: boolean;
@@ -97,7 +101,7 @@ export class LobbyClient {
       this.libreta.clear();
       for (const p of msg.players as LobbyPlayer[]) {
         this.libreta.set(p.id, { name: p.name, skin: p.skin });
-        this.players.set(p.id, { ...p, w: false, emote: false, emoteAt: 0 });
+        this.players.set(p.id, { ...p, tx: p.x, ty: p.y, w: false, emote: false, emoteAt: 0 });
       }
       this.handlers.onReady(
         { ...you, w: false, emote: false, emoteAt: 0 },
@@ -112,7 +116,8 @@ export class LobbyClient {
       // El servidor avisa las entradas a todos, no solo a los que estan cerca:
       // por eso la libreta termina teniendo a todo el mundo.
       this.libreta.set(p.id, { name: p.name, skin: p.skin });
-      if (p.id !== this.meId) this.players.set(p.id, { ...p, w: false, emote: false, emoteAt: 0 });
+      if (p.id !== this.meId)
+        this.players.set(p.id, { ...p, tx: p.x, ty: p.y, w: false, emote: false, emoteAt: 0 });
       this.handlers.onChange();
       return;
     }
@@ -134,8 +139,15 @@ export class LobbyClient {
         if (id === this.meId) continue;
         const prev = this.players.get(id);
         if (prev) {
-          prev.x = x;
-          prev.y = y;
+          // Un salto grande no es alguien corriendo: es que reaparecio o se
+          // reconecto. Ahi conviene teletransportarlo y no cruzar la plaza
+          // deslizandose durante medio segundo.
+          if (Math.abs(x - prev.x) > 240 || Math.abs(y - prev.y) > 240) {
+            prev.x = x;
+            prev.y = y;
+          }
+          prev.tx = x;
+          prev.ty = y;
           prev.d = d;
           prev.w = w === 1;
           if (emote === 1) prev.emoteAt = now;
@@ -148,6 +160,8 @@ export class LobbyClient {
             skin: quien?.skin ?? null,
             x,
             y,
+            tx: x,
+            ty: y,
             d,
             w: w === 1,
             emote: false,
@@ -165,6 +179,25 @@ export class LobbyClient {
   }
 
   /** Manda la posicion, como mucho 10 veces por segundo. */
+  /**
+   * Acerca a cada quien a su ultima posicion conocida, un poco por cuadro.
+   *
+   * Las fotos del servidor llegan seis veces por segundo. Dibujadas tal cual
+   * vienen, los demas avanzan a tirones mientras el personaje propio, que se
+   * mueve en local a 60 cuadros, va suave. Esto rellena los huecos.
+   *
+   * El factor sale de una exponencial y no de un porcentaje fijo por cuadro
+   * para que la suavidad no dependa de cuantos cuadros por segundo de el
+   * telefono: con 30 o con 60 tarda lo mismo en llegar.
+   */
+  suavizar(dt: number) {
+    const f = 1 - Math.exp(-dt / 0.08);
+    for (const p of this.players.values()) {
+      p.x += (p.tx - p.x) * f;
+      p.y += (p.ty - p.y) * f;
+    }
+  }
+
   move(x: number, y: number, d: number, w: boolean) {
     const now = Date.now();
     if (now - this.lastSent < 100) return;

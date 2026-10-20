@@ -15,19 +15,20 @@ const { normalizeSkin } = require("../content/skins");
  * Nada de esto se guarda: si el servidor se reinicia, cada quien reaparece.
  *
  * Como aguanta 300 personas:
- *   - El escenario se parte en una cuadricula. Cada quien recibe solo a los de
- *     su casilla y las ocho de alrededor, no a los 300.
- *   - La foto de cada casilla se arma UNA vez por tick y se manda a todos los
- *     de esa casilla, en vez de armar 300 mensajes distintos.
- *   - Si una casilla se llena, se mandan como maximo VISIBLE_MAX vecinos mas
- *     la cuenta de cuantos quedaron fuera.
+ *   - Se arma UNA sola foto por tick y se manda igual a todos, en vez de
+ *     armar un mensaje distinto por persona.
+ *   - Si hay mas gente que VISIBLE_MAX, la foto lleva solo a los que se han
+ *     movido hace menos, mas la cuenta de cuantos hay en total.
+ *
+ * Hubo una cuadricula: cada quien recibia solo su casilla y las ocho de
+ * alrededor. Se quito porque el escenario mide 1800x840 y en pantalla se ve
+ * casi entero, asi que ese recorte hacia desaparecer a gente que el jugador
+ * seguia teniendo delante. Y la foto compartida ademas sale mas barata.
  */
 
 const WORLD = { w: config.lobby.width, h: config.lobby.height };
-const CELL = 240;
-const COLS = Math.ceil(WORLD.w / CELL);
-const ROWS = Math.ceil(WORLD.h / CELL);
-const VISIBLE_MAX = 60;
+/** Cuanta gente se dibuja como mucho. El contador sigue diciendo la verdad. */
+const VISIBLE_MAX = 120;
 const TICK_MS = Math.round(1000 / Math.max(1, Math.min(10, config.lobby.snapshotHz)));
 const MOVE_MIN_MS = 50; // como mucho 20 posiciones por segundo por persona
 const IDLE_MS = 90_000;
@@ -38,8 +39,6 @@ let server = null;
 let timer = null;
 
 const clamp = (v, max) => (Number.isFinite(v) ? Math.max(0, Math.min(max, Math.round(v))) : 0);
-const bucketOf = (x, y) =>
-  Math.min(ROWS - 1, Math.floor(y / CELL)) * COLS + Math.min(COLS - 1, Math.floor(x / CELL));
 
 function send(ws, data) {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(data));
@@ -57,44 +56,24 @@ function broadcastAll(data) {
   }
 }
 
-/** Una foto por casilla de la cuadricula, no una por persona. */
+/** Una sola foto por tick, la misma para todos. */
 function tick() {
   if (!people.size) return;
 
-  const byBucket = new Map();
-  for (const p of people.values()) {
-    const b = bucketOf(p.x, p.y);
-    p.bucket = b;
-    const list = byBucket.get(b);
-    if (list) list.push(p);
-    else byBucket.set(b, [p]);
+  let gente = [...people.values()];
+  if (gente.length > VISIBLE_MAX) {
+    // Si no caben todos, se quedan los que se movieron hace menos: a quien
+    // lleva rato quieto en una esquina es a quien menos se echa de menos.
+    gente = gente.sort((a, b) => b.movedAt - a.movedAt).slice(0, VISIBLE_MAX);
   }
 
-  const cache = new Map();
+  const text = JSON.stringify({
+    t: "s",
+    p: gente.map(tickView),
+    /** Cuantos hay en el lobby en total, aunque no se dibujen todos. */
+    n: people.size,
+  });
   for (const p of people.values()) {
-    let text = cache.get(p.bucket);
-    if (text === undefined) {
-      const col = p.bucket % COLS;
-      const row = Math.floor(p.bucket / COLS);
-      const vecinos = [];
-      for (let dr = -1; dr <= 1; dr += 1) {
-        for (let dc = -1; dc <= 1; dc += 1) {
-          const r = row + dr;
-          const c = col + dc;
-          if (r < 0 || c < 0 || r >= ROWS || c >= COLS) continue;
-          const list = byBucket.get(r * COLS + c);
-          if (list) vecinos.push(...list);
-        }
-      }
-      const visibles = vecinos.length > VISIBLE_MAX ? vecinos.slice(0, VISIBLE_MAX) : vecinos;
-      text = JSON.stringify({
-        t: "s",
-        p: visibles.map(tickView),
-        /** Cuantos hay en el lobby en total, aunque no se dibujen todos. */
-        n: people.size,
-      });
-      cache.set(p.bucket, text);
-    }
     if (p.ws.readyState === p.ws.OPEN) p.ws.send(text);
   }
 
@@ -180,7 +159,6 @@ async function onConnection(ws, req) {
     emoteAt: 0,
     movedAt: 0,
     seenAt: now,
-    bucket: 0,
   };
   people.set(player.id, person);
 

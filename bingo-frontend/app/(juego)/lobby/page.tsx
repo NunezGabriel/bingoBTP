@@ -309,6 +309,8 @@ export default function LobbyPage() {
 
       // 3. Gente, de atras hacia adelante para que se tapen bien
       const client = clientRef.current;
+      // Antes de dibujar, acercar a los demas a su ultima posicion conocida.
+      client?.suavizar(dt);
       const todos: (LobbyPlayer & { mine?: boolean })[] = client ? [...client.players.values()] : [];
       todos.push({
         id: me?.player.id ?? 0,
@@ -316,6 +318,9 @@ export default function LobbyPage() {
         skin: me?.player.skin ?? null,
         x: mine.x,
         y: mine.y,
+        // El personaje propio no interpola: se mueve en local, ya va suave.
+        tx: mine.x,
+        ty: mine.y,
         d: mine.d,
         w: mine.w,
         emote: false,
