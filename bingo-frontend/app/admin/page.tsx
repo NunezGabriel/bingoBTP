@@ -405,6 +405,13 @@ function Panel({ onLogout }: { onLogout: () => void }) {
   );
   useRealtime("round:ended", load);
   useRealtime("event:update", load);
+  // Cuantos han escrito el codigo, en vivo: es lo que mira el organizador para
+  // saber cuando arrancar la ronda.
+  useRealtime<{ roundId: number; entraron: number }>("round:entraron", (e) =>
+    setOverview((o) =>
+      o?.round && o.round.id === e.roundId ? { ...o, round: { ...o.round, entraron: e.entraron } } : o,
+    ),
+  );
   useRealtime<RoundResults & { roundId: number }>("bingo:progress", (p) =>
     setOverview((o) => (o?.round && o.round.id === p.roundId ? { ...o, round: { ...o.round, progress: p } } : o)),
   );

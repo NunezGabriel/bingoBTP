@@ -25,6 +25,15 @@ const RealtimeContext = createContext<RealtimeContextValue>({
 });
 
 /** Tipos de evento que emite el backend (src/realtime/hub.js). */
+/**
+ * Los eventos a los que se suscribe el navegador.
+ *
+ * EventSource no tiene comodin: hay que pedir cada nombre por separado, asi que
+ * ESTA LISTA TIENE QUE INCLUIR TODO LO QUE PUBLIQUE EL SERVIDOR. Si falta uno,
+ * el servidor lo manda igual y nadie lo escucha: no hay error en ningun lado,
+ * simplemente la pantalla no se entera. Asi se nos paso "mission:done", y la
+ * tarjeta de misiones no se marcaba hasta recargar.
+ */
 const EVENT_TYPES = [
   "hello",
   "resync",
@@ -32,12 +41,13 @@ const EVENT_TYPES = [
   "round:countdown",
   "round:started",
   "round:ended",
+  "round:entraron",
   "bingo:signed",
   "bingo:completed",
   "bingo:progress",
+  "mission:done",
   "event:update",
   "session:update",
-  "leaderboard",
 ];
 
 /** Si el stream lleva caido este tiempo, se pide un resync cada tanto (respaldo). */
