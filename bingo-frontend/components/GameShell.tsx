@@ -140,16 +140,18 @@ function LiveBridge() {
   };
 
   /**
-   * Si la ronda ya estaba corriendo cuando esta persona entro, nadie le aviso:
-   * el evento de "empezo la ronda" salio antes de que abriera la app. Como la
-   * cartilla no esta en el menu, se quedaria mirando la plaza sin saber que
-   * esta jugando. El servidor le reparte cartilla al vuelo, asi que basta con
-   * llevarla ahi.
+   * A la cartilla solo va quien ya entro con el codigo, no todo el que tenga
+   * la app abierta: en el evento hay dos auditorios y cada ronda es de uno.
+   *
+   * Vale igual para quien abrio la app con la ronda ya empezada. Si entro con
+   * el codigo y luego se le bloqueo el celular, al volver se le lleva a su
+   * cartilla sin que tenga que buscarla: no esta en el menu.
    */
   const round = me?.round ?? null;
+  const enRonda = me?.enRonda ?? false;
   useEffect(() => {
-    if (round?.status === "ACTIVE" && pathname !== "/cartilla") router.push("/cartilla");
-  }, [round?.status, pathname, router]);
+    if (enRonda && round?.status === "ACTIVE" && pathname !== "/cartilla") router.push("/cartilla");
+  }, [enRonda, round?.status, pathname, router]);
 
   useRealtime<PointsEvent>("points", (e) => {
     applyPoints(e);
@@ -175,7 +177,7 @@ function LiveBridge() {
     const sawCountdown = countdownSeenId === r.id || (me?.round?.id === r.id && me.round.status === "COUNTDOWN");
     if (sawCountdown) setCountdownSeenId(r.id);
     setRound(r);
-    if (!sawCountdown) {
+    if (!sawCountdown && enRonda) {
       // Se perdio la cuenta (celular bloqueado o reconectando): igual lo llevamos a su cartilla.
       sfx.go();
       openCard();
@@ -196,8 +198,14 @@ function LiveBridge() {
   useRealtime("session:update", () => void refresh());
   useRealtime("resync", () => void refresh());
 
+  // La cuenta regresiva es solo para quien ya entro con el codigo. Al resto le
+  // taparia la plaza con un 3-2-1 de una partida que no es la suya: en el
+  // evento hay dos auditorios y cada ronda pertenece a uno.
   const showCountdown =
-    round !== null && round.id !== countdownDoneId && (round.status === "COUNTDOWN" || round.id === countdownSeenId);
+    enRonda &&
+    round !== null &&
+    round.id !== countdownDoneId &&
+    (round.status === "COUNTDOWN" || round.id === countdownSeenId);
 
   return (
     <>

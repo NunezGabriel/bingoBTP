@@ -245,10 +245,11 @@ async function main() {
 
   const start = await admin.post("/admin/rounds");
   check(
-    "nueva ronda: cartilla para los 10 inscritos",
-    start.status === 201 && start.data.round.number === 1 && start.data.cards === 10,
+    "nueva ronda: trae su codigo de 4 letras",
+    start.status === 201 && start.data.round.number === 1 && /^[A-Z0-9]{4}$/.test(start.data.round.code),
     start,
   );
+  const codigo1 = start.data.round.code;
   check("los puntajes salen de src/content/bingo.js", start.data.round.cellPoints === BINGO.cellPoints);
 
   const countdown = await waitFor(() => p[0].find("round:countdown"));
@@ -259,6 +260,21 @@ async function main() {
   check("firmar antes de tiempo -> 409", (await p[0].post("/game/sign", { position: 0, code: p[1].player.code })).status === 409);
 
   check("al terminar la cuenta arranca la ronda", Boolean(await waitFor(() => p[0].find("round:started"), 8000)));
+
+  check("con la ronda activa pero sin entrar, no hay cartilla", (await p[0].get("/game/current")).data.card === null);
+  check(
+    "el codigo equivocado no deja entrar -> 400",
+    (await p[0].post("/game/entrar", { codigo: "ZZZZ" })).status === 400,
+  );
+  const entro = await p[0].post("/game/entrar", { codigo: codigo1 });
+  check("con el codigo bueno entra y recibe cartilla", entro.status === 200 && entro.data.card?.cells.length === 9, entro);
+  check(
+    "el codigo acepta minusculas y espacios",
+    (await p[1].post("/game/entrar", { codigo: ` ${codigo1.toLowerCase()} ` })).status === 200,
+  );
+  await p[2].post("/game/entrar", { codigo: codigo1 });
+  check("entrar dos veces devuelve la misma cartilla", (await p[0].post("/game/entrar", { codigo: codigo1 })).data.card.id === entro.data.card.id);
+
   const current = await p[0].get("/game/current");
   check(
     "cartilla de 9 casillas con preguntas del codigo",
@@ -298,12 +314,18 @@ async function main() {
   check(`p1 suma ${p1Points}`, (await p[1].get("/me")).data.standing.points === p1Points);
 
   const late = await register("p10");
-  check("quien llega con la ronda empezada tambien recibe cartilla", (await late.get("/game/current")).data.card?.cells.length === 9);
+  check("quien llega tarde no juega hasta escribir el codigo", (await late.get("/game/current")).data.card === null);
+  check(
+    "y con el codigo entra aunque la ronda ya corra",
+    (await late.post("/game/entrar", { codigo: codigo1 })).data.card?.cells.length === 9,
+  );
 
   const overview = await admin.get("/admin/overview");
   check(
     "el panel ve el avance en vivo",
-    overview.data.round?.progress.cards === 11 &&
+    overview.data.round?.progress.cards === 4 &&
+      overview.data.round.entraron === 4 &&
+      overview.data.round.code === codigo1 &&
       overview.data.round.progress.completed === 2 &&
       overview.data.round.progress.closest[0]?.player.id === p[2].player.id,
     overview.data.round?.progress,
@@ -319,8 +341,13 @@ async function main() {
 
   console.log("\n[ronda 2: todos reciben cartilla nueva]");
   const round2 = await admin.post("/admin/rounds");
-  check("nueva ronda para los 11", round2.status === 201 && round2.data.round.number === 2 && round2.data.cards === 11, round2);
+  check(
+    "la ronda nueva trae otro codigo distinto",
+    round2.status === 201 && round2.data.round.number === 2 && round2.data.round.code !== codigo1,
+    round2,
+  );
   await sleep(5500);
+  await p[0].post("/game/entrar", { codigo: round2.data.round.code });
   const card2 = await p[0].get("/game/current");
   check("la cartilla nueva viene en blanco", card2.data.card?.signed === 0 && card2.data.card.completedRank === null);
   check("los puntos de la ronda anterior se mantienen", (await p[0].get("/me")).data.standing.points === p0Points);
@@ -406,7 +433,7 @@ async function main() {
   const n0 = await register("n0");
   await register("n1");
   const startB = await admin.post("/admin/rounds");
-  check("la ronda del evento B solo reparte a sus 2 inscritos", startB.status === 201 && startB.data.cards === 2 && startB.data.round.number === 1, startB);
+  check("el evento B abre su propia ronda con su codigo", startB.status === 201 && /^[A-Z0-9]{4}$/.test(startB.data.round.code) && startB.data.round.number === 1, startB);
   await sleep(5500);
 
   check(

@@ -12,9 +12,13 @@ function randomFrom(alphabet, length) {
   return out;
 }
 
-const CODE_LENGTH = { player: 6 };
+const CODE_LENGTH = { player: 6, round: 4 };
 
 const newPlayerCode = () => randomFrom(ALPHABET, CODE_LENGTH.player);
+
+/** El codigo que se proyecta para entrar a una ronda. Corto: hay que
+ * leerlo de lejos y teclearlo con prisa. */
+const newRoundCode = () => randomFrom(ALPHABET, CODE_LENGTH.round);
 
 /**
  * Normaliza el codigo que alguien escribio: acepta espacios, guiones y
@@ -37,6 +41,7 @@ function shuffle(items) {
 module.exports = {
   CODE_LENGTH,
   newPlayerCode,
+  newRoundCode,
   normalizeCode,
   shuffle,
 };

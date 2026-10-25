@@ -19,6 +19,8 @@ import {
 } from "@/lib/scene";
 import { drawSkin, skinOf } from "@/lib/sprites";
 import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
+import { errorMessage, game } from "@/lib/api";
 
 /**
  * El lobby: la Plaza de Armas donde se espera entre rondas.
@@ -37,7 +39,7 @@ const AVION_DURA_MS = 15_000;
 type Keys = { up: boolean; down: boolean; left: boolean; right: boolean };
 
 export default function LobbyPage() {
-  const { me } = useSession();
+  const { me, refresh } = useSession();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const clientRef = useRef<LobbyClient | null>(null);
   const meRef = useRef({ x: WORLD.w / 2, y: WORLD.h * 0.9, d: 0, w: false, step: 0 });
@@ -392,6 +394,44 @@ export default function LobbyPage() {
     },
   });
 
+  /* ---------- entrar al bingo ---------- */
+
+  const [pidiendoCodigo, setPidiendoCodigo] = useState(false);
+  const [codigo, setCodigo] = useState("");
+  const [errorCodigo, setErrorCodigo] = useState("");
+  const [entrando, setEntrando] = useState(false);
+
+  const entrarAlBingo = useCallback(
+    async (texto: string) => {
+      setEntrando(true);
+      setErrorCodigo("");
+      try {
+        await game.entrar(texto);
+        // El refresco trae enRonda=true y el GameShell lleva solo a la cartilla.
+        await refresh();
+        setPidiendoCodigo(false);
+        setCodigo("");
+      } catch (e) {
+        setErrorCodigo(errorMessage(e));
+      } finally {
+        setEntrando(false);
+      }
+    },
+    [refresh],
+  );
+
+  // Se envia sola al escribir la cuarta letra: en el salon se teclea con prisa
+  // y con el codigo proyectado delante, buscar un boton sobra.
+  const escribirCodigo = useCallback(
+    (texto: string) => {
+      const limpio = texto.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+      setCodigo(limpio);
+      setErrorCodigo("");
+      if (limpio.length === 4) void entrarAlBingo(limpio);
+    },
+    [entrarAlBingo],
+  );
+
   const segundos = Math.ceil(emoteLeft / 1000);
 
   return (
@@ -405,6 +445,17 @@ export default function LobbyPage() {
             nunca empieza nada. */}
         {!me?.event && <span className="pill mr-auto bg-card">Sin evento abierto</span>}
         <span className="flex gap-2">
+          {/* Siempre visible, tambien sin ronda abierta: asi el organizador
+              puede decir "el boton de arriba" y ahi esta. Y como la interfaz
+              no anuncia nada cuando empieza una ronda, el otro auditorio ni
+              se entera de que hubo bingo. */}
+          <button
+            type="button"
+            className="pill pointer-events-auto bg-gblue font-extrabold text-white"
+            onClick={() => setPidiendoCodigo(true)}
+          >
+            <Icon name="grid" size={16} /> Bingo
+          </button>
           <span className="pill bg-card">
             <Icon name="users" size={16} /> {total}
           </span>
@@ -468,6 +519,27 @@ export default function LobbyPage() {
           <span className="text-[13px] font-black">{segundos > 0 ? `${segundos}s` : "Saludar"}</span>
         </button>
       </div>
+
+      <Modal open={pidiendoCodigo} onClose={() => setPidiendoCodigo(false)} title="Entrar al bingo">
+        <p className="text-[17px] text-muted">
+          Escribe las 4 letras que estan en la pantalla de tu auditorio.
+        </p>
+        <input
+          autoFocus
+          inputMode="text"
+          autoComplete="off"
+          aria-label="Codigo del bingo"
+          value={codigo}
+          onChange={(e) => escribirCodigo(e.target.value)}
+          disabled={entrando}
+          className="mt-4 w-full rounded-2xl border-[3px] border-ink bg-card px-4 py-4 text-center text-[40px] font-black uppercase tracking-[0.35em]"
+          placeholder="????"
+        />
+        {errorCodigo && <p className="mt-3 text-[16px] font-bold text-gred">{errorCodigo}</p>}
+        <p className="mt-3 text-[15px] text-muted">
+          Si todavia no hay bingo, espera a que el organizador lo anuncie.
+        </p>
+      </Modal>
     </div>
   );
 }

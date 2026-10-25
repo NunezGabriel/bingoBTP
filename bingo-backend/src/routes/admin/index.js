@@ -1,4 +1,5 @@
 const express = require("express");
+const { prisma } = require("../../lib/prisma");
 const hub = require("../../realtime/hub");
 const lobby = require("../../realtime/lobby");
 const { requireAdmin } = require("../../middleware/auth");
@@ -34,7 +35,15 @@ router.get("/overview", async (req, res) => {
     connected: hub.stats().connections,
     lobby: lobby.count(),
     top,
-    round: round ? { ...rounds.roundView(round), progress: await cards.results(round.id) } : null,
+    // Con codigo y con la cuenta de cuantos entraron: el admin necesita las
+    // dos cosas para proyectar el codigo y saber cuando arrancar.
+    round: round
+      ? {
+          ...rounds.roundAdminView(round),
+          progress: await cards.results(round.id),
+          entraron: await prisma.card.count({ where: { roundId: round.id } }),
+        }
+      : null,
     lastRound: round ? null : await rounds.lastEnded(event.id),
     missions: {
       completas: tarjetas.completas.length,

@@ -10,6 +10,7 @@ const { rankOf } = require("../services/leaderboard");
 const { normalizeSkin, SKINS } = require("../content/skins");
 const missions = require("../services/missions");
 const rounds = require("../services/rounds");
+const cards = require("../services/cards");
 
 const router = express.Router();
 
@@ -29,6 +30,9 @@ router.get("/", requireSession, async (req, res) => {
   let standing = null;
   let round = null;
   let card = null;
+  // Si ya entro a la ronda con el codigo. Es lo que decide si se le lleva a la
+  // cartilla o se queda en la plaza viendo pasar el bingo del otro auditorio.
+  let enRonda = false;
   if (event) {
     await ensureJoined(event.id, req.player.id);
     const [rank, current, tarjeta] = await Promise.all([
@@ -39,8 +43,11 @@ router.get("/", requireSession, async (req, res) => {
     standing = rank;
     round = rounds.roundView(current);
     card = { done: tarjeta.done, total: tarjeta.total };
+    if (current) {
+      enRonda = Boolean(await cards.findCard(current.id, req.player.id));
+    }
   }
-  res.json({ player: me, event: eventView(event), standing, round, card });
+  res.json({ player: me, event: eventView(event), standing, round, card, enRonda });
 });
 
 /** Los personajes que se pueden elegir. */

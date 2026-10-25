@@ -96,6 +96,8 @@ export const me = {
 
 export const game = {
   current: () => get<{ round: Round | null; card: Card | null; winners: RoundResults["winners"] }>("/game/current"),
+  /** Entrar a la ronda con el codigo que el organizador proyecta en la sala. */
+  entrar: (codigo: string) => post<{ round: Round; card: Card }>("/game/entrar", { codigo }),
   sign: (position: number, code: string) =>
     post<{ signedCount: number; completedRank: number | null; card: Card }>("/game/sign", { position, code }),
 };
@@ -127,7 +129,7 @@ export const admin = {
   deleteEvent: (id: number) => del<{ ok: true }>(`/admin/events/${id}`),
 
   newRound: (points?: { cellPoints?: number; completePoints?: number }) =>
-    post<{ round: Round; cards: number }>("/admin/rounds", points ?? {}),
+    post<{ round: Round & { code: string } }>("/admin/rounds", points ?? {}),
   endRound: (id: number) => post<{ round: Round; results: RoundResults }>(`/admin/rounds/${id}/end`),
 
   players: (params: { q?: string; onlyEvent?: boolean; page?: number }) => {

@@ -202,7 +202,7 @@ function RoundTab({ overview, reload }: { overview: Overview; reload: () => void
         cellPoints: points.cell ? Number(points.cell) : undefined,
         completePoints: points.complete ? Number(points.complete) : undefined,
       });
-      toast.ok(`Ronda ${r.round.number} empezada`, `${r.cards} cartillas repartidas`);
+      toast.ok(`Ronda ${r.round.number} abierta`, `Codigo ${r.round.code}`);
       reload();
     } catch (e) {
       toast.error("No se pudo empezar", errorMessage(e));
@@ -243,6 +243,19 @@ function RoundTab({ overview, reload }: { overview: Overview; reload: () => void
             <Pill color={round.status === "ACTIVE" ? "#34a853" : "#fbbc04"} text={round.status === "ACTIVE" ? "#fff" : undefined}>
               {round.status === "ACTIVE" ? "En curso" : "Cuenta regresiva"}
             </Pill>
+          </div>
+
+          {/* El codigo en grande: es lo que el admin proyecta en su sala y
+              dicta por el microfono. Debajo, cuantos han entrado, para saber
+              cuando vale la pena arrancar. */}
+          <div className="card-flat mt-4 flex flex-col items-center p-4">
+            <span className="text-[12px] font-black uppercase tracking-[0.25em] text-muted">
+              Codigo de esta ronda
+            </span>
+            <span className="text-[56px] font-black leading-none tracking-[0.2em]">{round.code}</span>
+            <span className="mt-1 text-[15px] font-bold text-muted">
+              {round.entraron} {round.entraron === 1 ? "persona entro" : "personas entraron"}
+            </span>
           </div>
 
           <p className="mt-4 text-4xl font-black leading-none">

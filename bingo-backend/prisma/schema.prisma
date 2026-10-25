@@ -120,6 +120,9 @@ model Round {
   /// Ronda 1, 2, 3... del evento.
   number         Int
   status         RoundStatus @default(COUNTDOWN)
+  /// Las 4 letras que hay que escribir para entrar a esta ronda. Es lo que
+  /// separa a un auditorio del otro: solo juega quien ve el codigo proyectado.
+  code           String      @default("")
   /// Fin de la cuenta regresiva: desde aqui se puede firmar.
   startsAt       DateTime
   endedAt        DateTime?

@@ -1,13 +1,21 @@
 const { prisma, isUniqueViolation } = require("../lib/prisma");
 const { withTx } = require("../lib/tx");
 const { conflict } = require("../lib/http");
+const { newRoundCode } = require("../lib/codes");
 const hub = require("../realtime/hub");
 const content = require("../content/bingo");
 const cards = require("./cards");
 
 /**
- * Rondas de bingo. El admin crea una ronda nueva y todos los inscritos
- * reciben cartilla nueva: ven 5, 4, 3, 2, 1 y a jugar.
+ * Rondas de bingo.
+ *
+ * Crear una ronda ya no reparte cartillas a todo el mundo: reparte el codigo.
+ * El admin lo proyecta en el auditorio donde toca la dinamica y solo entra
+ * quien lo escribe. Asi se puede jugar primero en una sala y despues en la
+ * otra, con la misma app y sin que los de la otra sala se enteren.
+ *
+ * La cartilla se crea al entrar, de modo que tener cartilla ES el registro de
+ * "entre a esta ronda": no hace falta otra tabla.
  */
 const COUNTDOWN_MS = 5000;
 const timers = new Map();
@@ -25,6 +33,18 @@ function roundView(round) {
     podiumBonus: content.podiumBonus,
     serverNow: Date.now(),
   };
+}
+
+/**
+ * Lo mismo pero con el codigo, para el admin y el proyector.
+ *
+ * El codigo NUNCA viaja en roundView: esa es la que ven los jugadores, y si
+ * fuera ahi bastaria mirar la respuesta de la API para colarse desde la otra
+ * sala.
+ */
+function roundAdminView(round) {
+  const base = roundView(round);
+  return base && { ...base, code: round.code };
 }
 
 async function activate(roundId) {
@@ -97,10 +117,6 @@ async function startRound(event, { cellPoints, completePoints } = {}) {
   cards.randomCells(); // valida el contenido antes de tocar la base
   await endOpenRound(event.id);
 
-  const enrolled = await prisma.eventPlayer.findMany({
-    where: { eventId: event.id },
-    select: { playerId: true },
-  });
   const last = await prisma.round.findFirst({
     where: { eventId: event.id },
     orderBy: { number: "desc" },
@@ -108,36 +124,20 @@ async function startRound(event, { cellPoints, completePoints } = {}) {
   });
 
   let created;
-  let dealt = 0;
   try {
-    const result = await withTx(
-      async (tx) => {
-        const draft = await tx.round.create({
-          data: {
-            eventId: event.id,
-            number: (last?.number ?? 0) + 1,
-            startsAt: new Date(Date.now() + COUNTDOWN_MS),
-            cellPoints: cellPoints ?? content.cellPoints,
-            completePoints: completePoints ?? content.completePoints,
-          },
-        });
-        const count = await cards.dealCards(
-          tx,
-          draft.id,
-          enrolled.map((e) => e.playerId),
-        );
-        // La cuenta corre desde que las cartillas estan listas: con cientos de
-        // jugadores repartirlas toma un momento y nadie debe ver 5,4,3 recortado.
-        const round = await tx.round.update({
-          where: { id: draft.id },
-          data: { startsAt: new Date(Date.now() + COUNTDOWN_MS) },
-        });
-        return { round, count };
+    // Ya no hay transaccion larga: antes esto insertaba una cartilla con nueve
+    // casillas por cada inscrito, y con cientos de personas era el momento mas
+    // pesado del evento. Ahora crear la ronda es una sola fila.
+    created = await prisma.round.create({
+      data: {
+        eventId: event.id,
+        number: (last?.number ?? 0) + 1,
+        code: newRoundCode(),
+        startsAt: new Date(Date.now() + COUNTDOWN_MS),
+        cellPoints: cellPoints ?? content.cellPoints,
+        completePoints: completePoints ?? content.completePoints,
       },
-      { timeout: 60_000 },
-    );
-    created = result.round;
-    dealt = result.count;
+    });
   } catch (error) {
     // Indice parcial: dos pestanas del admin creando ronda a la vez.
     if (isUniqueViolation(error)) throw conflict("Ya hay una ronda en curso");
@@ -145,8 +145,10 @@ async function startRound(event, { cellPoints, completePoints } = {}) {
   }
 
   scheduleActivation(created);
-  hub.publish(["all", "screen", "admin"], "round:countdown", roundView(created));
-  return { round: roundView(created), cards: dealt };
+  // A los jugadores les llega la ronda sin codigo; al proyector y al panel, con el.
+  hub.publish(["all"], "round:countdown", roundView(created));
+  hub.publish(["screen", "admin"], "round:countdown", roundAdminView(created));
+  return { round: roundAdminView(created) };
 }
 
 /** La ultima ronda terminada del evento, con sus ganadores. */
@@ -169,6 +171,7 @@ async function recoverRounds() {
 module.exports = {
   COUNTDOWN_MS,
   roundView,
+  roundAdminView,
   currentRound,
   startRound,
   endRound,

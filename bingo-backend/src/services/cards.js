@@ -27,25 +27,21 @@ function randomCells() {
     .map((text, position) => ({ position, text }));
 }
 
-/**
- * Reparte cartilla a todos los inscritos dentro de la transaccion que crea la
- * ronda. Las casillas se insertan por lotes para no mandar una sola sentencia
- * gigante cuando hay cientos de jugadores.
- */
-async function dealCards(tx, roundId, playerIds) {
-  if (!playerIds.length) return 0;
-  const cards = await tx.card.createManyAndReturn({
-    data: playerIds.map((playerId) => ({ roundId, playerId })),
-    select: { id: true },
-  });
-  const cells = cards.flatMap((c) => randomCells().map((cell) => ({ ...cell, cardId: c.id })));
-  for (let i = 0; i < cells.length; i += 3000) {
-    await tx.cell.createMany({ data: cells.slice(i, i + 3000) });
-  }
-  return cards.length;
-}
 
 /** La cartilla del jugador; si llego con la ronda empezada, se crea al vuelo. */
+/**
+ * La cartilla de alguien en esta ronda, o null si todavia no entro.
+ *
+ * Tener cartilla es el registro de haber entrado, asi que esta es la pregunta
+ * de "¿este jugador esta en la ronda?".
+ */
+function findCard(roundId, playerId) {
+  return prisma.card.findUnique({
+    where: { roundId_playerId: { roundId, playerId } },
+    include: cardInclude,
+  });
+}
+
 async function getOrCreateCard(round, playerId) {
   const where = { roundId_playerId: { roundId: round.id, playerId } };
   const existing = await prisma.card.findUnique({ where, include: cardInclude });
@@ -252,8 +248,8 @@ async function signCell(event, round, player, position, signer) {
 module.exports = {
   CARD_SIZE,
   randomCells,
-  dealCards,
   getOrCreateCard,
+  findCard,
   cardView,
   podium,
   results,

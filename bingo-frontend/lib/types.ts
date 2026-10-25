@@ -46,6 +46,8 @@ export type MeResponse = {
   round: Round | null;
   /** Como va su tarjeta de misiones, para el aviso del lobby. */
   card: { done: number; total: number } | null;
+  /** Si ya entro a la ronda en curso con el codigo. */
+  enRonda: boolean;
 };
 
 export type Mission = {
@@ -131,7 +133,7 @@ export type Overview = {
   /** Cuantos estan ahora mismo en el lobby. */
   lobby: number;
   top?: LeaderboardRow[];
-  round?: (Round & { progress: RoundResults }) | null;
+  round?: (Round & { progress: RoundResults; code: string; entraron: number }) | null;
   lastRound?: { round: Round; results: RoundResults } | null;
   missions?: { completas: number; porMision: { id: string; title: string; count: number }[]; total: number };
 };
