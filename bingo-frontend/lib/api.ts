@@ -127,6 +127,10 @@ export const admin = {
     post<{ round: Round & { code: string } }>("/admin/rounds", points ?? {}),
   endRound: (id: number) => post<{ round: Round; results: RoundResults }>(`/admin/rounds/${id}/end`),
 
+  /** Crea una cuenta de admin para el staff que valida QRs. */
+  newAdmin: (usuario: string, clave: string) =>
+    post<{ player: { id: number; name: string; role: string } }>("/admin/players", { usuario, clave }),
+
   players: (params: { q?: string; onlyEvent?: boolean; page?: number }) => {
     const search = new URLSearchParams();
     if (params.q) search.set("q", params.q);

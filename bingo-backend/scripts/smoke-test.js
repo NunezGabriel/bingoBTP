@@ -367,6 +367,22 @@ async function main() {
   const penalty = await admin.post(`/admin/players/${p[2].player.id}/points`, { amount: -5000, reason: "Penalizacion" });
   check("los puntos nunca bajan de 0", penalty.status === 200);
 
+  console.log("\n[panel: cuentas de admin para el staff]");
+  const staffUser = `staff-${RUN}`;
+  const staffClave = `staff-${RUN}-clave`;
+  check("clave corta -> 400", (await admin.post("/admin/players", { usuario: staffUser, clave: "abc123" })).status === 400);
+  check("clave solo de numeros -> 400", (await admin.post("/admin/players", { usuario: staffUser, clave: "12345678" })).status === 400);
+  const staff = await admin.post("/admin/players", { usuario: staffUser, clave: staffClave });
+  check("crear cuenta de admin para el staff", staff.status === 201 && staff.data.player.role === "ADMIN", staff);
+  check("el mismo usuario dos veces -> 409", (await admin.post("/admin/players", { usuario: staffUser, clave: staffClave })).status === 409);
+
+  const staffDev = new Device("staff");
+  const staffLogin = await staffDev.post("/auth/entrar", { usuario: staffUser, clave: staffClave });
+  check("la cuenta nueva entra y es admin", staffLogin.status === 200 && staffLogin.data.player.role === "ADMIN", staffLogin);
+  check("y puede validar misiones", (await staffDev.get("/admin/overview")).status === 200);
+  check("un admin no se borra a si mismo -> 409", (await staffDev.del(`/admin/players/${staff.data.player.id}`)).status === 409);
+  check("pero otro admin si lo borra", (await admin.del(`/admin/players/${staff.data.player.id}`)).status === 200);
+
   const reset = await admin.post(`/admin/players/${p[9].player.id}/clave`, { clave: "4321" });
   check("reiniciar la clave de quien la olvido", reset.status === 200, reset);
   check("su sesion vieja se cierra -> 401", (await p[9].get("/me")).status === 401);

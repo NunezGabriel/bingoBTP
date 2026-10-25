@@ -18,6 +18,8 @@ export function PlayersPanel({ onChanged }: { onChanged: () => void }) {
   const [selected, setSelected] = useState<AdminPlayer | null>(null);
   const [pin, setPin] = useState("");
   const [points, setPoints] = useState({ amount: "", reason: "" });
+  const [nuevoAdmin, setNuevoAdmin] = useState({ usuario: "", clave: "" });
+  const [creando, setCreando] = useState(false);
 
   const load = useCallback(
     (nextPage = 1) => {
@@ -49,6 +51,21 @@ export function PlayersPanel({ onChanged }: { onChanged: () => void }) {
       if (close) setSelected(null);
     } catch (e) {
       toast.error("No se pudo", errorMessage(e));
+    }
+  }
+
+  async function crearAdmin() {
+    setCreando(true);
+    try {
+      const r = await admin.newAdmin(nuevoAdmin.usuario.trim(), nuevoAdmin.clave);
+      // La clave no se repite en el aviso: ya la escribio quien la va a dictar.
+      toast.ok(`Cuenta de admin "${r.player.name}" creada`);
+      setNuevoAdmin({ usuario: "", clave: "" });
+      load(1);
+    } catch (e) {
+      toast.error("No se pudo crear", errorMessage(e));
+    } finally {
+      setCreando(false);
     }
   }
 
@@ -113,7 +130,13 @@ export function PlayersPanel({ onChanged }: { onChanged: () => void }) {
                   <span className="block truncate text-[17px] font-bold">{p.name}</span>
                   <span className="text-[13px] font-extrabold tracking-wider text-gblue">{p.code}</span>
                 </span>
-                {!p.inEvent && <Pill>fuera</Pill>}
+                {/* Que se vea cual es cuenta de staff: el boton de borrar todo
+                    no las toca, y asi no hay que acordarse de cuales eran. */}
+                {p.role === "ADMIN" ? (
+                  <Pill color="#191919" text="#fff">admin</Pill>
+                ) : (
+                  !p.inEvent && <Pill>fuera</Pill>
+                )}
                 {p.points !== null && <span className="text-lg font-black">{p.points}</span>}
               </button>
             </li>
@@ -134,6 +157,41 @@ export function PlayersPanel({ onChanged }: { onChanged: () => void }) {
           Ver mas
         </button>
       )}
+
+      <div className="card p-4">
+        <h3 className="font-extrabold">Cuenta para el staff</h3>
+        <p className="mt-1 text-[14px] text-muted">
+          Crea una cuenta de admin para quien te ayude a validar los QR de las misiones.
+          Entra por la misma puerta que todos, con este usuario y esta clave.
+        </p>
+        <div className="mt-3 flex flex-col gap-2">
+          <input
+            className="input"
+            placeholder="Usuario"
+            autoComplete="off"
+            value={nuevoAdmin.usuario}
+            onChange={(e) => setNuevoAdmin({ ...nuevoAdmin, usuario: e.target.value })}
+          />
+          <input
+            className="input"
+            placeholder="Clave (8 o mas, no solo numeros)"
+            autoComplete="off"
+            value={nuevoAdmin.clave}
+            onChange={(e) => setNuevoAdmin({ ...nuevoAdmin, clave: e.target.value })}
+          />
+          <button
+            type="button"
+            className="btn btn-blue"
+            disabled={creando || nuevoAdmin.usuario.trim().length < 2 || nuevoAdmin.clave.length < 8}
+            onClick={crearAdmin}
+          >
+            Crear cuenta de admin
+          </button>
+        </div>
+        <p className="mt-2 text-[13px] text-muted">
+          Ojo: puede abrir y cerrar el evento y borrar jugadores, no solo escanear.
+        </p>
+      </div>
 
       <div className="card p-4">
         <h3 className="font-extrabold">Empezar de cero</h3>

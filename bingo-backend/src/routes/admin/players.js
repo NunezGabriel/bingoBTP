@@ -3,6 +3,7 @@ const express = require("express");
 const { prisma } = require("../../lib/prisma");
 const { withTx } = require("../../lib/tx");
 const { hashPin, isValidPin } = require("../../lib/pin");
+const { newPlayerCode } = require("../../lib/codes");
 const { badRequest, conflict, notFound, toInt, toText } = require("../../lib/http");
 const hub = require("../../realtime/hub");
 const { getLiveEvent, forgetJoined } = require("../../services/events");
@@ -94,6 +95,33 @@ router.post("/:id/clave", async (req, res) => {
 });
 
 /**
+ * Crea una cuenta de admin para el staff del evento.
+ *
+ * Es la unica forma de tener mas de un admin: la cuenta del seeder sale de las
+ * variables de entorno y crear otra por ahi obligaria a redesplegar. Aqui el
+ * admin escribe el usuario y la clave y se la pasa a quien va a escanear QRs.
+ *
+ * Minimo ocho caracteres y no solo numeros: esta cuenta abre y cierra el
+ * evento y borra jugadores, y vive en una direccion publica.
+ */
+router.post("/", async (req, res) => {
+  const name = toText(req.body?.usuario, "usuario", { min: 2, max: 24 });
+  const clave = String(req.body?.clave ?? "");
+  if (clave.length < 8) throw badRequest("La clave del admin debe tener 8 caracteres o mas");
+  if (/^\d+$/.test(clave)) throw badRequest("La clave no puede ser solo numeros");
+
+  const nameKey = name.normalize("NFC").toLowerCase();
+  if (await prisma.player.findUnique({ where: { nameKey }, select: { id: true } })) {
+    throw conflict("Ya existe una cuenta con ese usuario");
+  }
+
+  const creado = await prisma.player.create({
+    data: { name, nameKey, claveHash: await hashPin(clave), role: "ADMIN", code: newPlayerCode() },
+  });
+  res.status(201).json({ player: { id: creado.id, name: creado.name, role: creado.role } });
+});
+
+/**
  * Borra a todos los jugadores (cuentas, cartillas y puntos). Para empezar de
  * cero. Las cuentas de admin no se tocan: si se borraran, nadie podria volver
  * a entrar al panel.
@@ -109,7 +137,12 @@ router.delete("/", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   const player = await playerOrFail(req);
-  if (player.role === "ADMIN") throw conflict("Las cuentas de admin no se borran desde aqui");
+  // Un admin si puede borrar a otro (una cuenta de staff que se escribio mal),
+  // pero nunca a si mismo. Con esa sola regla siempre queda al menos un admin:
+  // para llamar aqui hay que ser uno, y no puedes quitarte a ti mismo.
+  if (player.role === "ADMIN" && player.id === req.player.id) {
+    throw conflict("No puedes borrar tu propia cuenta de admin");
+  }
   // Las relaciones tienen ON DELETE CASCADE: cartillas, firmas y puntos.
   await prisma.player.delete({ where: { id: player.id } });
   invalidatePlayer(player.id);
