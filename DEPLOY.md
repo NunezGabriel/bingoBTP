@@ -217,6 +217,8 @@ npm test                     # 88 verificaciones de punta a punta (crea y borra 
 npm run flowtest             # 39 verificaciones del flujo nuevo: roles, lobby y misiones
 npm run demo -- 24           # llena el evento abierto con 24 jugadores y una ronda en curso
 npm run loadtest -- 300 90   # 300 celulares simultáneos durante 90 s (crea y borra sus datos)
+# contra el destino real:
+API_URL=https://tu-api.onrender.com ADMIN_USER=admin ADMIN_CLAVE=... npm run loadtest -- 300 90
 ```
 
 `npm test` y la prueba de carga se niegan a correr si hay un evento real abierto.

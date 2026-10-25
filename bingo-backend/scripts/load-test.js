@@ -13,6 +13,7 @@
  */
 require("dotenv").config({ quiet: true });
 const http = require("node:http");
+const https = require("node:https");
 
 const API = new URL(process.env.API_URL || "http://localhost:3001");
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
@@ -21,7 +22,12 @@ const PLAYERS = Number(process.argv[2] || 300);
 const DURATION_S = Number(process.argv[3] || 90);
 const RUN = Date.now().toString(36).slice(-4);
 
-const agent = new http.Agent({ keepAlive: true, maxSockets: 2000 });
+// La prueba nacio para correr contra local, por HTTP. Contra el destino real
+// la direccion es https, asi que el modulo y el puerto salen de la URL: sin
+// esto, medir produccion era imposible, que es justo para lo que sirve.
+const red = API.protocol === "https:" ? https : http;
+const PORT = API.port || (API.protocol === "https:" ? 443 : 80);
+const agent = new red.Agent({ keepAlive: true, maxSockets: 2000 });
 const stats = new Map();
 let errors = 0;
 const errorSamples = new Map();
@@ -40,10 +46,10 @@ function request(method, path, body, cookie, name) {
   return new Promise((resolve) => {
     const payload = body ? JSON.stringify(body) : undefined;
     const started = performance.now();
-    const req = http.request(
+    const req = red.request(
       {
         host: API.hostname,
-        port: API.port,
+        port: PORT,
         path: `/api${path}`,
         method,
         agent,
@@ -83,9 +89,9 @@ function request(method, path, body, cookie, name) {
 }
 
 function openStream(cookie, counters) {
-  const req = http.request({
+  const req = red.request({
     host: API.hostname,
-    port: API.port,
+    port: PORT,
     path: "/api/stream",
     headers: { Accept: "text/event-stream", Cookie: cookie },
     agent: false,
