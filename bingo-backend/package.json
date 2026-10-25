@@ -12,6 +12,8 @@
     "seed:reset": "node prisma/seed.js --reset",
     "test": "node scripts/smoke-test.js",
     "flowtest": "node scripts/flow-test.js",
+    "pausa": "node scripts/event-toggle.js pausa",
+    "sigue": "node scripts/event-toggle.js sigue",
     "loadtest": "node scripts/load-test.js",
     "demo": "node scripts/demo-players.js",
     "db": "node scripts/db.js",

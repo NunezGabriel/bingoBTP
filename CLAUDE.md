@@ -69,8 +69,23 @@ npm test          # 88 verificaciones de punta a punta
 npm run flowtest  # 39 del flujo nuevo: roles, lobby y misiones
 ```
 
-Ambas crean sus datos y los borran. `npm test` se niega a correr si hay un
-evento real abierto. **Nunca correrlas contra la base de produccion.**
+Ambas crean sus datos y los borran. `npm test` y `npm run loadtest` se niegan
+a correr si hay un evento abierto. **Nunca correrlas contra la base de
+produccion.**
+
+Para desbloquearlas, **nunca cierres el evento desde el panel**: cerrar no
+tiene vuelta atras ("Ese evento ya se cerro; crea uno nuevo") y pierdes el
+evento de pruebas. Usa:
+
+```bash
+npm run pausa   # el evento abierto pasa a DRAFT
+npm run sigue   # y vuelve a LIVE cuando terminas
+```
+
+La prueba de carga en local no mide capacidad: la base de desarrollo va con
+una sola conexion (`DB_POOL_MAX=1`) y las latencias salen altas sin que
+signifique nada. Sirve para ver que el flujo no se rompe. Para capacidad real,
+correrla contra el destino de verdad.
 
 Si se cambian los ids de los personajes en `content/skins.js`, hay que
 actualizar los que usan las pruebas.
