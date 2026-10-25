@@ -154,6 +154,22 @@ function LiveBridge() {
     toast.points(e.amount, e.label);
     sfx.ok();
   });
+  /**
+   * Una mision validada avisa este donde este.
+   *
+   * Antes solo la escuchaba la pantalla de Misiones, asi que si el organizador
+   * te escaneaba mientras andabas por la plaza -que es donde esta todo el
+   * mundo- en tu celular no pasaba nada de nada.
+   */
+  useRealtime<{ title: string; done: number; total: number; completa: boolean }>(
+    "mission:done",
+    (e) => {
+      sfx.ok();
+      if (e.completa) toast.ok("Tarjeta completa!", "Reclama tu premio al final del evento");
+      else toast.ok(`Mision validada: ${e.title}`, `Llevas ${e.done} de ${e.total}`);
+    },
+  );
+
   useRealtime<{ for: Player }>("bingo:signed", (e) => {
     toast.info("Firmaste una cartilla", `Ayudaste a ${e.for.name}`);
   });

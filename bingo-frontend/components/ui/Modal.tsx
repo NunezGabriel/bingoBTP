@@ -26,12 +26,27 @@ export function Modal({
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    panel.current?.focus();
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
   }, [open, onClose, dismissible]);
+
+  /**
+   * El foco se pone UNA vez, al abrir.
+   *
+   * Estaba en el efecto de arriba, que depende de onClose. Como casi nadie
+   * memoriza esa funcion, cualquier render del padre la cambiaba y el efecto
+   * se repetia robandole el foco a lo que hubiera dentro. En el lobby, que se
+   * repinta seis veces por segundo, eso cerraba el teclado del celular a cada
+   * letra que escribias.
+   */
+  useEffect(() => {
+    if (!open || !panel.current) return;
+    // Si algo de dentro ya se llevo el foco (un input con autoFocus), se
+    // respeta: robarselo dejaria al teclado del celular sin abrir.
+    if (!panel.current.contains(document.activeElement)) panel.current.focus();
+  }, [open]);
 
   if (!open) return null;
 

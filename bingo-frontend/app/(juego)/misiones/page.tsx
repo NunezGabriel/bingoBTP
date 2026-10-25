@@ -42,7 +42,21 @@ export default function MisionesPage() {
   }, []);
 
   useEffect(() => load(), [load]);
-  useRealtime("mission:done", load);
+  // El evento ya trae el resultado, asi que la casilla se marca en el acto y
+  // no cuando vuelva el fetch. Igual se recarga despues, por si acaso.
+  useRealtime<{ missionId: string; done: number; completa: boolean }>("mission:done", (e) => {
+    setCard((prev) =>
+      prev
+        ? {
+            ...prev,
+            done: e.done,
+            completa: e.completa,
+            missions: prev.missions.map((m) => (m.id === e.missionId ? { ...m, done: true } : m)),
+          }
+        : prev,
+    );
+    load();
+  });
   useRealtime("resync", load);
 
   if (error) return <ErrorBox message={error} onRetry={load} />;
