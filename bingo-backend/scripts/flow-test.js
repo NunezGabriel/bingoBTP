@@ -213,8 +213,8 @@ async function main() {
   const completa = await phone.get("/me/misiones");
   check("completa las cuatro", completa.data?.done === 4 && completa.data?.completa === true);
 
-  const puntos = (await phone.get("/me")).data?.standing?.points ?? 0;
-  check("y cobro los puntos de las misiones mas el bono", puntos >= 200, `(${puntos} pts)`);
+  const sinMarcador = await phone.get("/me");
+  check("las misiones no reparten puntos", sinMarcador.data?.standing === undefined);
 
   const reporte = await admin.get("/admin/missions/report");
   check("el reporte lo lista como tarjeta completa", (reporte.data?.completas ?? []).some((p) => p.player.name === nuevo.data.player.name));

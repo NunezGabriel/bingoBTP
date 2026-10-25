@@ -3,7 +3,6 @@ const { withTx } = require("../lib/tx");
 const { conflict, notFound } = require("../lib/http");
 const hub = require("../realtime/hub");
 const { invalidateEvent, eventView, forgetJoined } = require("./events");
-const { leaderboardChanged } = require("./leaderboard");
 const { endOpenRound } = require("./rounds");
 
 /**
@@ -64,7 +63,6 @@ async function close(eventId) {
       onCommit(() => {
         invalidateEvent();
         hub.publish("all", "event:update", eventView(event));
-        leaderboardChanged(eventId);
       });
 
       return { ranked: standings.length };

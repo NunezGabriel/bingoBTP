@@ -1,9 +1,8 @@
 const { prisma, isUniqueViolation } = require("../lib/prisma");
 const { withTx } = require("../lib/tx");
-const { missions, bonusCompleta } = require("../content/missions");
+const { missions } = require("../content/missions");
 const { conflict, notFound } = require("../lib/http");
 const hub = require("../realtime/hub");
-const { grant, announceGrants } = require("./points");
 const { publicPlayer, findByCode, PUBLIC_SELECT } = require("./players");
 
 /**
@@ -13,6 +12,10 @@ const { publicPlayer, findByCode, PUBLIC_SELECT } = require("./players");
  * escribiendo su codigo de 6 letras). Cada mision se valida una sola vez por
  * persona y evento, y eso lo garantiza el indice unico de la tabla, no una
  * comprobacion previa: asi dos admins escaneando a la vez no la cuentan doble.
+ *
+ * No reparten puntos. Los unicos puntos del evento son los del bingo y viven
+ * dentro de su ronda; la tarjeta es un requisito para el premio del final, no
+ * una carrera paralela.
  */
 
 const BY_ID = new Map(missions.map((m) => [m.id, m]));
@@ -25,7 +28,6 @@ function missionView(mission, claim) {
     detail: mission.detail,
     hint: mission.hint,
     icon: mission.icon,
-    points: mission.points,
     done: Boolean(claim),
     doneAt: claim?.createdAt ?? null,
   };
@@ -35,7 +37,7 @@ function buildCard(claims) {
   const byMission = new Map(claims.map((c) => [c.missionId, c]));
   const list = missions.map((m) => missionView(m, byMission.get(m.id)));
   const done = list.filter((m) => m.done).length;
-  return { missions: list, done, total: TOTAL, bonus: bonusCompleta, completa: done === TOTAL };
+  return { missions: list, done, total: TOTAL, completa: done === TOTAL };
 }
 
 /** La tarjeta de una persona: las cuatro misiones y cuales ya tiene validadas. */
@@ -73,27 +75,7 @@ async function validate({ eventId, code, missionId, adminId }) {
     const claims = await tx.missionClaim.findMany({ where: { eventId, playerId: player.id } });
     const nueva = buildCard(claims);
 
-    const entries = [
-      {
-        playerId: player.id,
-        amount: mission.points,
-        refKey: `mision:${mission.id}`,
-        label: mission.title,
-      },
-    ];
-    // El bono por completar las cuatro se entrega solo, sin que nadie lo pida.
-    if (nueva.completa) {
-      entries.push({
-        playerId: player.id,
-        amount: bonusCompleta,
-        refKey: "mision:completa",
-        label: "Tarjeta completa",
-      });
-    }
-    const results = await grant(tx, eventId, entries);
-
     onCommit(() => {
-      announceGrants(eventId, results);
       hub.toPlayer(player.id, "mission:done", {
         missionId: mission.id,
         title: mission.title,

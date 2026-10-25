@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { ApiError, auth, me as meApi } from "./api";
-import type { MeResponse, PointsEvent, Round } from "./types";
+import type { MeResponse, Round } from "./types";
 
 type Status = "loading" | "guest" | "ready" | "offline";
 
@@ -21,7 +21,6 @@ type SessionValue = {
   /** Diferencia entre el reloj del servidor y el del celular, en ms. */
   clockOffset: number;
   refresh: () => Promise<MeResponse | null>;
-  applyPoints: (event: PointsEvent) => void;
   setRound: (round: Round | null) => void;
   logout: () => Promise<void>;
 };
@@ -67,12 +66,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
 
-  /** Actualiza los puntos al instante con el evento en vivo. */
-  const applyPoints = useCallback((event: PointsEvent) => {
-    setMe((prev) =>
-      prev?.standing ? { ...prev, standing: { ...prev.standing, points: event.points } } : prev,
-    );
-  }, []);
 
   /**
    * La ronda llega completa en el evento en vivo: se guarda sin pedir /me.
@@ -93,8 +86,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ status, me, clockOffset, refresh, applyPoints, setRound, logout }),
-    [status, me, clockOffset, refresh, applyPoints, setRound, logout],
+    () => ({ status, me, clockOffset, refresh, setRound, logout }),
+    [status, me, clockOffset, refresh, setRound, logout],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

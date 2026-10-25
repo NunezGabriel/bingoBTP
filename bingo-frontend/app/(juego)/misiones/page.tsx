@@ -76,8 +76,8 @@ export default function MisionesPage() {
         </h1>
         <p className="px-5 pb-4 text-[15px] font-semibold opacity-85">
           {card.completa
-            ? `Ganaste +${card.bonus} puntos. Reclama tu premio al final del evento.`
-            : `Al completarlos ganas +${card.bonus} puntos y tu premio del final.`}
+            ? "Ya estas dentro del premio grande. Reclamalo al final del evento."
+            : "Hay que completar las cuatro para entrar al premio grande del final."}
         </p>
 
         {/* Los cuatro retos, en cuadricula */}

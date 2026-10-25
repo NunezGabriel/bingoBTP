@@ -51,11 +51,6 @@ function TopBar() {
       <div className={`mx-auto flex ${anchoDe(pathname)} items-center gap-2 px-4 py-2.5`}>
         <GdgMark size={20} />
         <span className="min-w-0 flex-1 truncate font-extrabold">{me.player.name}</span>
-        {me.event && (
-          <span className="pill" style={{ background: "#fbbc04" }}>
-            {me.standing?.points ?? 0} pts
-          </span>
-        )}
       </div>
     </header>
   );
@@ -124,7 +119,7 @@ function RoundOverModal({ results, onClose }: { results: RoundResults | null; on
 
 /** Traduce los eventos en vivo del servidor en avisos, sonidos y estado. */
 function LiveBridge() {
-  const { me, clockOffset, refresh, applyPoints, setRound } = useSession();
+  const { me, clockOffset, refresh, setRound } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const toast = useToast();
@@ -153,11 +148,9 @@ function LiveBridge() {
     if (enRonda && round?.status === "ACTIVE" && pathname !== "/cartilla") router.push("/cartilla");
   }, [enRonda, round?.status, pathname, router]);
 
+  // Los puntos del bingo ya no se acumulan en ningun marcador, pero el aviso
+  // sigue siendo util mientras se juega: dice que la firma entro.
   useRealtime<PointsEvent>("points", (e) => {
-    applyPoints(e);
-    // El puesto depende de todos los demas: se recalcula tras una racha de puntos.
-    window.clearTimeout(rankTimer.current);
-    rankTimer.current = window.setTimeout(() => void refresh(), 4000);
     toast.points(e.amount, e.label);
     sfx.ok();
   });

@@ -4,7 +4,6 @@ import type {
   Card,
   EventView,
   HistoryEvent,
-  LeaderboardRow,
   MeResponse,
   Mission,
   MissionCard,
@@ -15,7 +14,6 @@ import type {
   RoundResults,
   SelfPlayer,
   Skin,
-  Standing,
 } from "./types";
 
 /** Ruta relativa: el navegador llama a /api y Next (o nginx) lo enruta al backend. */
@@ -104,7 +102,6 @@ export const game = {
 
 export type ScreenData = {
   event: EventView | null;
-  top: LeaderboardRow[];
   players: number;
   round: Round | null;
   progress: RoundResults | null;
@@ -112,8 +109,6 @@ export type ScreenData = {
 
 export const publicApi = {
   event: () => get<{ event: EventView | null; players: number }>("/public/event"),
-  leaderboard: (limit = 50) =>
-    get<{ event: EventView | null; top: LeaderboardRow[]; me: Standing | null }>(`/public/leaderboard?limit=${limit}`),
   screen: () => get<ScreenData>("/public/screen"),
 };
 

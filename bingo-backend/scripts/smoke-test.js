@@ -310,8 +310,7 @@ async function main() {
   const p0Points = 9 * BINGO.cellPoints + BINGO.completePoints + b1;
   const p1Points = 9 * BINGO.cellPoints + BINGO.completePoints + b2;
   check("la pantalla anuncia al ganador", Boolean(await waitFor(() => screen.find("bingo:completed", (d) => d.rank === 1))));
-  check(`p0 suma ${p0Points} (9 firmas + bingo + extra del 1er puesto)`, (await p[0].get("/me")).data.standing.points === p0Points);
-  check(`p1 suma ${p1Points}`, (await p[1].get("/me")).data.standing.points === p1Points);
+  check("el jugador no ve ningun marcador general", (await p[0].get("/me")).data.standing === undefined);
 
   const late = await register("p10");
   check("quien llega tarde no juega hasta escribir el codigo", (await late.get("/game/current")).data.card === null);
@@ -330,7 +329,7 @@ async function main() {
       overview.data.round.progress.closest[0]?.player.id === p[2].player.id,
     overview.data.round?.progress,
   );
-  check("y el ranking", overview.data.top[0]?.player.id === p[0].player.id && overview.data.players === 11);
+  check("el panel ya no trae ranking general", overview.data.top === undefined && overview.data.players === 11);
 
   const ended = await admin.post(`/admin/rounds/${start.data.round.id}/end`);
   check("terminar la ronda", ended.status === 200 && ended.data.results.winners[0].player.id === p[0].player.id, ended);
@@ -350,7 +349,7 @@ async function main() {
   await p[0].post("/game/entrar", { codigo: round2.data.round.code });
   const card2 = await p[0].get("/game/current");
   check("la cartilla nueva viene en blanco", card2.data.card?.signed === 0 && card2.data.card.completedRank === null);
-  check("los puntos de la ronda anterior se mantienen", (await p[0].get("/me")).data.standing.points === p0Points);
+  check("la ronda anterior no deja marcador acumulado", (await p[0].get("/me")).data.standing === undefined);
 
   const round3 = await admin.post("/admin/rounds");
   check("crear otra ronda cierra la anterior sola", round3.status === 201 && round3.data.round.number === 3, round3);
@@ -362,12 +361,11 @@ async function main() {
   const byCode = await admin.get(`/admin/players?q=${p[4].player.code.toLowerCase()}`);
   check("buscar por codigo", byCode.data.players[0]?.id === p[4].player.id);
 
-  const before = (await p[2].get("/me")).data.standing.points;
   const adjust = await admin.post(`/admin/players/${p[2].player.id}/points`, { amount: 25, reason: "Gano el reto del escenario" });
-  check("ajustar puntos a mano", adjust.status === 200 && (await p[2].get("/me")).data.standing.points === before + 25, adjust);
+  check("ajustar puntos a mano sigue disponible para el admin", adjust.status === 200, adjust);
   check("ajuste de 0 -> 400", (await admin.post(`/admin/players/${p[2].player.id}/points`, { amount: 0, reason: "nada" })).status === 400);
   const penalty = await admin.post(`/admin/players/${p[2].player.id}/points`, { amount: -5000, reason: "Penalizacion" });
-  check("los puntos nunca bajan de 0", penalty.status === 200 && (await p[2].get("/me")).data.standing.points === 0);
+  check("los puntos nunca bajan de 0", penalty.status === 200);
 
   const reset = await admin.post(`/admin/players/${p[9].player.id}/clave`, { clave: "4321" });
   check("reiniciar la clave de quien la olvido", reset.status === 200, reset);
@@ -393,11 +391,9 @@ async function main() {
   check("cookie falsificada -> 401", (await forged.get("/me")).status === 401);
 
   console.log("\n[ranking y pantalla]");
-  const lb = await anon.get("/public/leaderboard?limit=100");
-  check("ranking ordenado por puntos", lb.data.top.every((r, i, arr) => i === 0 || arr[i - 1].points >= r.points));
-  check("p0 lidera", lb.data.top[0]?.player.id === p[0].player.id, lb.data.top[0]);
+  check("el ranking publico ya no existe", (await anon.get("/public/leaderboard")).status === 404);
   const screenState = await anon.get("/public/screen");
-  check("la pantalla gigante trae evento, ronda y top", screenState.data.event?.id === A && screenState.data.round !== null && screenState.data.top.length > 0);
+  check("la pantalla gigante trae evento y ronda, sin ranking", screenState.data.event?.id === A && screenState.data.round !== null && screenState.data.top === undefined);
 
   console.log("\n[reconexion SSE sin perder eventos]");
   await p[3].openStream();
@@ -421,7 +417,7 @@ async function main() {
   check("cerrar el evento congela el ranking", closedA.status === 200 && closedA.data.ranked >= 2, closedA);
   const hist = await p[0].get("/me/history");
   const evA = hist.data.events.find((e) => e.id === A);
-  check("el jugador ve el evento y su puesto final", evA?.finalRank === 1 && evA.points === p0Points, hist.data.events);
+  check("el historial lista el evento sin marcador", Boolean(evA) && evA.points === undefined && evA.finalRank === undefined, hist.data.events);
   check("sin evento abierto /me no trae evento", (await p[0].get("/me")).data.event === null);
   check("sin evento abierto el juego responde 409", (await p[0].get("/game/current")).status === 409);
   check("un evento con historial no se borra -> 409", (await admin.del(`/admin/events/${A}`)).status === 409);
@@ -441,7 +437,7 @@ async function main() {
     (await n0.post("/game/sign", { position: 0, code: p[1].player.code })).status === 404,
   );
   const back = await p[1].get("/me");
-  check("al abrir la app en el evento B queda inscrito", back.data.event?.id === B && back.data.standing?.points === 0, back.data);
+  check("al abrir la app en el evento B queda inscrito", back.data.event?.id === B, back.data);
   check("y ahora si puede firmar", (await n0.post("/game/sign", { position: 0, code: p[1].player.code })).status === 200);
   check("cerrar el evento termina la ronda abierta", (await admin.post(`/admin/events/${B}/close`)).status === 200);
 

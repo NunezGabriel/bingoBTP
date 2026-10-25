@@ -6,7 +6,6 @@ const { badRequest, unauthorized } = require("../lib/http");
 const { requirePlayer, requireSession } = require("../middleware/auth");
 const { selfPlayer, invalidatePlayer } = require("../services/players");
 const { getLiveEvent, ensureJoined, eventView } = require("../services/events");
-const { rankOf } = require("../services/leaderboard");
 const { normalizeSkin, SKINS } = require("../content/skins");
 const missions = require("../services/missions");
 const rounds = require("../services/rounds");
@@ -24,10 +23,9 @@ router.get("/", requireSession, async (req, res) => {
   const event = await getLiveEvent();
 
   if (req.player.role === "ADMIN") {
-    return res.json({ player: me, event: eventView(event), standing: null, round: null, card: null });
+    return res.json({ player: me, event: eventView(event), round: null, card: null, enRonda: false });
   }
 
-  let standing = null;
   let round = null;
   let card = null;
   // Si ya entro a la ronda con el codigo. Es lo que decide si se le lleva a la
@@ -35,19 +33,17 @@ router.get("/", requireSession, async (req, res) => {
   let enRonda = false;
   if (event) {
     await ensureJoined(event.id, req.player.id);
-    const [rank, current, tarjeta] = await Promise.all([
-      rankOf(event.id, req.player.id),
+    const [current, tarjeta] = await Promise.all([
       rounds.currentRound(event.id),
       missions.cardOf(event.id, req.player.id),
     ]);
-    standing = rank;
     round = rounds.roundView(current);
     card = { done: tarjeta.done, total: tarjeta.total };
     if (current) {
       enRonda = Boolean(await cards.findCard(current.id, req.player.id));
     }
   }
-  res.json({ player: me, event: eventView(event), standing, round, card, enRonda });
+  res.json({ player: me, event: eventView(event), round, card, enRonda });
 });
 
 /** Los personajes que se pueden elegir. */
@@ -112,8 +108,8 @@ router.get("/history", requirePlayer, async (req, res) => {
       id: p.event.id,
       name: p.event.name,
       status: p.event.status,
-      points: p.points,
-      finalRank: p.finalRank,
+      // Sin puntos ni puesto: el unico marcador del evento es el podio de cada
+      // ronda de bingo, que vive en la ronda y no se acumula.
       joinedAt: p.joinedAt,
       closedAt: p.event.closedAt,
     })),

@@ -372,20 +372,6 @@ function RoundTab({ overview, reload }: { overview: Overview; reload: () => void
         </section>
       )}
 
-      {overview.top && overview.top.length > 0 && (
-        <section className="card p-5">
-          <h2 className="font-extrabold">Top del evento</h2>
-          <ol className="mt-3 flex flex-col gap-1.5">
-            {overview.top.map((r) => (
-              <li key={r.player.id} className="flex items-center gap-3">
-                <span className="w-6 text-center font-black text-muted">{r.rank}</span>
-                <span className="min-w-0 flex-1 truncate font-semibold">{r.player.name}</span>
-                <span className="font-black">{r.points}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
     </div>
   );
 }
@@ -422,7 +408,6 @@ function Panel({ onLogout }: { onLogout: () => void }) {
   useRealtime<RoundResults & { roundId: number }>("bingo:progress", (p) =>
     setOverview((o) => (o?.round && o.round.id === p.roundId ? { ...o, round: { ...o.round, progress: p } } : o)),
   );
-  useRealtime<{ top: Overview["top"] }>("leaderboard", (lb) => setOverview((o) => (o ? { ...o, top: lb.top } : o)));
 
   return (
     <div className="mx-auto w-full max-w-md px-4 pb-10 pt-3">

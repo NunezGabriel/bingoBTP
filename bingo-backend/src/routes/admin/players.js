@@ -8,7 +8,6 @@ const hub = require("../../realtime/hub");
 const { getLiveEvent, forgetJoined } = require("../../services/events");
 const { invalidatePlayer } = require("../../services/players");
 const { grant, announceGrants } = require("../../services/points");
-const { leaderboardChanged } = require("../../services/leaderboard");
 
 const router = express.Router();
 const PAGE_SIZE = 50;
@@ -104,7 +103,6 @@ router.delete("/", async (req, res) => {
   invalidatePlayer([]);
   forgetJoined();
   const event = await getLiveEvent();
-  if (event) leaderboardChanged(event.id);
   hub.publish(["all", "screen"], "session:update", { reason: "reset" });
   res.json({ ok: true, deleted: deleted.count });
 });
@@ -117,7 +115,6 @@ router.delete("/:id", async (req, res) => {
   invalidatePlayer(player.id);
   forgetJoined(player.id);
   const event = await getLiveEvent();
-  if (event) leaderboardChanged(event.id);
   hub.toPlayer(player.id, "session:update", { reason: "deleted" });
   res.json({ ok: true, name: player.name });
 });

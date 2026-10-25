@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { publicApi, type ScreenData } from "@/lib/api";
 import { RealtimeProvider, useRealtime, useRealtimeStatus } from "@/lib/realtime";
-import type { LeaderboardRow, Player, Round, RoundResults } from "@/lib/types";
+import type { Player, Round, RoundResults } from "@/lib/types";
 import { useOrigin } from "@/lib/useOrigin";
 import { BingoWordmark, GdgLogo } from "@/components/Brand";
 import { CountdownOverlay } from "@/components/Countdown";
@@ -132,7 +132,7 @@ function Screen() {
     publicApi
       .screen()
       .then((s) => {
-        setState({ ...s, top: s.top ?? [], players: s.players ?? 0, round: s.round ?? null, progress: s.progress ?? null });
+        setState({ ...s, players: s.players ?? 0, round: s.round ?? null, progress: s.progress ?? null });
         if (s.round) setOffset(s.round.serverNow - Date.now());
       })
       .catch(() => {
@@ -148,8 +148,6 @@ function Screen() {
       window.clearTimeout(hideWinners.current);
     };
   }, [load]);
-
-  useRealtime<{ top: LeaderboardRow[] }>("leaderboard", (lb) => setState((s) => (s ? { ...s, top: lb.top } : s)));
 
   const setRound = (round: Round | null, progress: RoundResults | null) => {
     if (round) setOffset(round.serverNow - Date.now());
@@ -202,30 +200,9 @@ function Screen() {
         </span>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[1.3fr_1fr] gap-[1.5vw]">
-        <section className="flex min-h-0 flex-col">
-          <h2 className="text-[1.3vw] font-black uppercase">Top 10</h2>
-          <ol className="mt-[1vh] grid min-h-0 flex-1 grid-rows-10 gap-[0.7vh]">
-            {(state?.top ?? []).slice(0, 10).map((r) => (
-              <li key={r.player.id} className="card flex min-h-0 items-center gap-[1.2vw] px-[1.2vw]">
-                <span
-                  className="flex h-[3vw] w-[3vw] items-center justify-center rounded-full border-2 border-ink text-[1.4vw] font-black"
-                  style={{ background: PODIUM[r.rank - 1] ?? "#f0f0f0" }}
-                >
-                  {r.rank}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[1.6vw] font-extrabold">{r.player.name}</span>
-                <span className="text-[2vw] font-black">{r.points}</span>
-              </li>
-            ))}
-            {state && state.top.length === 0 && (
-              <li className="card row-span-10 flex items-center justify-center text-[1.6vw] font-semibold text-muted">
-                El ranking aparece cuando alguien firme su primera casilla
-              </li>
-            )}
-          </ol>
-        </section>
-
+      {/* Una sola columna desde que se fue el Top 10: no hay marcador general
+          que mostrar, y la ronda y el QR se ven mejor grandes desde el fondo. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[1.5vw]">
         <section className="flex min-h-0 flex-col gap-[1.5vh]">
           {round && round.status === "ACTIVE" ? (
             <RoundLive round={round} progress={state?.progress ?? EMPTY} />

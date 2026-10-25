@@ -4,7 +4,6 @@ const hub = require("../../realtime/hub");
 const lobby = require("../../realtime/lobby");
 const { requireAdmin } = require("../../middleware/auth");
 const { getLiveEvent, eventView, countPlayers } = require("../../services/events");
-const leaderboard = require("../../services/leaderboard");
 const rounds = require("../../services/rounds");
 const cards = require("../../services/cards");
 const missions = require("../../services/missions");
@@ -22,10 +21,9 @@ router.get("/overview", async (req, res) => {
     return res.json({ event: null, players: 0, connected: hub.stats().connections, lobby: lobby.count() });
   }
 
-  const [players, round, top, tarjetas] = await Promise.all([
+  const [players, round, tarjetas] = await Promise.all([
     countPlayers(event.id),
     rounds.currentRound(event.id),
-    leaderboard.topPlayers(event.id, 10),
     missions.report(event.id),
   ]);
 
@@ -34,7 +32,6 @@ router.get("/overview", async (req, res) => {
     players,
     connected: hub.stats().connections,
     lobby: lobby.count(),
-    top,
     // Con codigo y con la cuenta de cuantos entraron: el admin necesita las
     // dos cosas para proyectar el codigo y saber cuando arrancar.
     round: round

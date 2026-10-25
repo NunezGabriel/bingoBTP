@@ -1,7 +1,6 @@
 const { Prisma } = require("../lib/prisma");
 const hub = require("../realtime/hub");
 const { invalidatePlayer } = require("./players");
-const { leaderboardChanged } = require("./leaderboard");
 
 /**
  * Entrega puntos dentro de una transaccion. Es la unica puerta de entrada de
@@ -94,7 +93,6 @@ function announceGrants(eventId, results) {
       });
     }
   }
-  leaderboardChanged(eventId);
 }
 
 module.exports = { grant, announceGrants };

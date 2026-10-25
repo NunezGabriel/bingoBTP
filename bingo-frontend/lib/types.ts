@@ -22,7 +22,6 @@ export type EventView = {
   closedAt: string | null;
 };
 
-export type Standing = { total: number; points: number; rank: number | null };
 
 export type RoundStatus = "COUNTDOWN" | "ACTIVE" | "ENDED";
 
@@ -42,7 +41,6 @@ export type Round = {
 export type MeResponse = {
   player: SelfPlayer;
   event: EventView | null;
-  standing: Standing | null;
   round: Round | null;
   /** Como va su tarjeta de misiones, para el aviso del lobby. */
   card: { done: number; total: number } | null;
@@ -65,7 +63,6 @@ export type MissionCard = {
   missions: Mission[];
   done: number;
   total: number;
-  bonus: number;
   completa: boolean;
   code: string;
   event: EventView | null;
@@ -97,14 +94,11 @@ export type RoundResults = {
   closest: { signed: number; player: Player }[];
 };
 
-export type LeaderboardRow = { rank: number; points: number; player: Player };
 
 export type HistoryEvent = {
   id: number;
   name: string;
   status: EventStatus;
-  points: number;
-  finalRank: number | null;
   joinedAt: string;
   closedAt: string | null;
 };
@@ -132,7 +126,6 @@ export type Overview = {
   connected: number;
   /** Cuantos estan ahora mismo en el lobby. */
   lobby: number;
-  top?: LeaderboardRow[];
   round?: (Round & { progress: RoundResults; code: string; entraron: number }) | null;
   lastRound?: { round: Round; results: RoundResults } | null;
   missions?: { completas: number; porMision: { id: string; title: string; count: number }[]; total: number };

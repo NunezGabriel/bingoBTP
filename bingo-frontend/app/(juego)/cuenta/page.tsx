@@ -75,12 +75,9 @@ export default function AccountPage() {
                   <span className="text-[13px] text-muted">{day(ev.joinedAt)}</span>
                 </span>
                 <span className="text-right">
-                  {ev.status === "LIVE" ? (
+                  {ev.status === "LIVE" && (
                     <Pill color="#34a853" text="#fff">En curso</Pill>
-                  ) : ev.finalRank ? (
-                    <span className="block font-extrabold">#{ev.finalRank}</span>
-                  ) : null}
-                  <span className="mt-1 block text-[13px] font-bold text-muted">{ev.points} pts</span>
+                  )}
                 </span>
               </li>
             ))}
