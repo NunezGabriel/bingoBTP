@@ -449,9 +449,13 @@ export default function LobbyPage() {
               puede decir "el boton de arriba" y ahi esta. Y como la interfaz
               no anuncia nada cuando empieza una ronda, el otro auditorio ni
               se entera de que hubo bingo. */}
+          {/* El color va en style y no en una clase: .pill fija su propio
+              background en el CSS y le gana a la utilidad de Tailwind. Con
+              bg-gblue el boton salia blanco y el texto tambien: invisible. */}
           <button
             type="button"
-            className="pill pointer-events-auto bg-gblue font-extrabold text-white"
+            className="pill pointer-events-auto"
+            style={{ background: "#4285f4", color: "#fff" }}
             onClick={() => setPidiendoCodigo(true)}
           >
             <Icon name="grid" size={16} /> Bingo
