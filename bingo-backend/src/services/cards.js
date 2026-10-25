@@ -149,7 +149,11 @@ async function signCell(event, round, player, position, signer) {
       EXISTS (SELECT 1 FROM "EventPlayer"
         WHERE "eventId" = ${event.id}::int AND "playerId" = ${signer.id}::int) AS "signerInEvent"`;
   if (!ctx.signerInEvent) throw notFound(`${signer.name} no esta en este evento`);
-  const cardId = ctx.cardId ?? (await getOrCreateCard(round, player.id)).id;
+  // Sin cartilla no se firma. Antes se creaba al vuelo aqui, lo que dejaba un
+  // agujero en el codigo de sala: bastaba llamar a /game/sign para colarse en
+  // la ronda del otro auditorio sin haber escrito nunca el codigo.
+  if (!ctx.cardId) throw conflict("Entra al bingo con el codigo antes de firmar");
+  const cardId = ctx.cardId;
 
   let outcome;
   try {

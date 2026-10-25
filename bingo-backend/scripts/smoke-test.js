@@ -454,7 +454,12 @@ async function main() {
   );
   const back = await p[1].get("/me");
   check("al abrir la app en el evento B queda inscrito", back.data.event?.id === B, back.data);
-  check("y ahora si puede firmar", (await n0.post("/game/sign", { position: 0, code: p[1].player.code })).status === 200);
+  check(
+    "sin entrar con el codigo no puede firmar -> 409",
+    (await n0.post("/game/sign", { position: 0, code: p[1].player.code })).status === 409,
+  );
+  await n0.post("/game/entrar", { codigo: startB.data.round.code });
+  check("y con el codigo ya firma", (await n0.post("/game/sign", { position: 0, code: p[1].player.code })).status === 200);
   check("cerrar el evento termina la ronda abierta", (await admin.post(`/admin/events/${B}/close`)).status === 200);
 
   const hist2 = await p[1].get("/me/history");

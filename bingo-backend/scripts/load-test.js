@@ -172,6 +172,12 @@ async function main() {
     // 3. El admin empieza la ronda: cartilla para todos + cuenta regresiva
     const t1 = performance.now();
     const round1 = await request("POST", "/admin/rounds", null, adminCookie, "nueva ronda");
+    // Desde que el bingo va por codigo de sala, nadie tiene cartilla hasta que
+    // lo escribe. Sin esto la prueba medía una ronda vacia.
+    const codigo1 = round1.data?.round?.code;
+    await inBatches(players, 100, (p) =>
+      request("POST", "/game/entrar", { codigo: codigo1 }, p.cookie, "entrar con codigo"),
+    );
     console.log(`Ronda 1: ${round1.data?.cards ?? 0} cartillas en ${(performance.now() - t1).toFixed(0)}ms`);
     await sleep(5500);
     await inBatches(players, 100, (p) => request("GET", "/game/current", null, p.cookie, "cargar cartilla"));
@@ -208,6 +214,10 @@ async function main() {
       await sleep((DURATION_S * 1000) / 2);
       const t = performance.now();
       const r = await request("POST", "/admin/rounds", null, adminCookie, "nueva ronda");
+      const codigo = r.data?.round?.code;
+      await inBatches(players, 100, (p) =>
+        request("POST", "/game/entrar", { codigo }, p.cookie, "entrar con codigo"),
+      );
       round2Ms = performance.now() - t;
       round2Cards = r.data?.cards ?? 0;
       await sleep(5500);
