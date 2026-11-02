@@ -14,6 +14,7 @@
 require("dotenv").config({ quiet: true });
 const http = require("node:http");
 const https = require("node:https");
+const WebSocket = require("ws");
 
 const API = new URL(process.env.API_URL || "http://localhost:3001");
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
@@ -28,6 +29,12 @@ const RUN = Date.now().toString(36).slice(-4);
 const red = API.protocol === "https:" ? https : http;
 const PORT = API.port || (API.protocol === "https:" ? 443 : 80);
 const agent = new red.Agent({ keepAlive: true, maxSockets: 2000 });
+
+/**
+ * El lobby no pasa por el proxy: va directo a la API, igual que en la app.
+ * Por eso se arma aqui a partir de API_URL y no del origen del frontend.
+ */
+const WS_BASE = `${API.protocol === "https:" ? "wss" : "ws"}://${API.hostname}${API.port ? `:${API.port}` : ""}/ws/lobby`;
 const stats = new Map();
 let errors = 0;
 const errorSamples = new Map();
@@ -163,11 +170,52 @@ async function main() {
 
   try {
     // 2. Todos abren su conexion en vivo y cargan la app
-    const counters = { opened: 0, events: 0, countdown: 0, started: 0, streamErrors: 0 };
+    const counters = {
+      opened: 0, events: 0, countdown: 0, started: 0, streamErrors: 0,
+      plazaAbiertos: 0, plazaErrores: 0, plazaCerrados: 0, fotos: 0, plazaBytes: 0, pasos: 0,
+    };
     const streams = players.map((p) => openStream(p.cookie, counters));
     await sleep(3000);
     console.log(`Streams en vivo abiertos: ${counters.opened}/${players.length}`);
     await inBatches(players, 100, (p) => request("GET", "/me", null, p.cookie, "GET /me"));
+
+    // 2b. Y todos entran a la plaza. Esto es lo que mas pesa el dia del evento
+    // y lo que esta prueba no medía: 500 WebSockets abiertos a la vez y el
+    // servidor repartiendoles una foto varias veces por segundo.
+    const tPlaza = performance.now();
+    await inBatches(players, 50, async (p) => {
+      const r = await request("POST", "/me/lobby-ticket", null, p.cookie, "ticket de plaza");
+      const ticket = r.data?.ticket;
+      if (!ticket) {
+        counters.plazaErrores += 1;
+        return;
+      }
+      await new Promise((resolve) => {
+        const ws = new WebSocket(`${WS_BASE}?ticket=${encodeURIComponent(ticket)}`);
+        const listo = setTimeout(resolve, 15_000);
+        ws.on("open", () => {
+          counters.plazaAbiertos += 1;
+          p.ws = ws;
+          clearTimeout(listo);
+          resolve();
+        });
+        ws.on("message", (buf) => {
+          counters.fotos += 1;
+          counters.plazaBytes += buf.length;
+        });
+        ws.on("error", () => {
+          counters.plazaErrores += 1;
+          clearTimeout(listo);
+          resolve();
+        });
+        ws.on("close", () => {
+          counters.plazaCerrados += 1;
+        });
+      });
+    });
+    console.log(
+      `Plaza: ${counters.plazaAbiertos}/${players.length} conectados en ${((performance.now() - tPlaza) / 1000).toFixed(1)}s`,
+    );
 
     // 3. El admin empieza la ronda: cartilla para todos + cuenta regresiva
     const t1 = performance.now();
@@ -201,7 +249,10 @@ async function main() {
         } else if (roll < 0.85) {
           await request("GET", "/me", null, p.cookie, "GET /me");
         } else {
-          await request("GET", "/public/leaderboard", null, p.cookie, "ranking");
+          // Antes pedia /public/leaderboard, que se elimino con el marcador
+          // general: media un 404. La tarjeta de misiones si es algo que la
+          // gente abre a cada rato y toca la base.
+          await request("GET", "/me/misiones", null, p.cookie, "ver misiones");
         }
         actions += 1;
       }
@@ -224,19 +275,53 @@ async function main() {
       await inBatches(players, 100, (p) => request("GET", "/game/current", null, p.cookie, "cargar cartilla"));
     })();
 
+    /**
+     * La gente camina. El cliente real manda una posicion cada 100 ms mientras
+     * se mueve, pero aqui va cada 200: lo que le cuesta al servidor es repartir
+     * la foto a los 500, no recibir los movimientos, y asi el generador de
+     * carga no se convierte en el cuello de botella.
+     *
+     * Un solo temporizador recorre a todos; 500 temporizadores propios harian
+     * sudar a la laptop antes que al servidor.
+     */
+    const posicion = new Map(players.map((p) => [p, { x: 900, y: 700, anda: true, hasta: 0 }]));
+    const caminata = setInterval(() => {
+      const ahora = Date.now();
+      for (const p of players) {
+        if (!p.ws || p.ws.readyState !== WebSocket.OPEN) continue;
+        const q = posicion.get(p);
+        // Nadie camina sin parar: anda un rato y se queda mirando el escenario.
+        if (ahora > q.hasta) {
+          q.anda = !q.anda;
+          q.hasta = ahora + (q.anda ? 2000 + Math.random() * 3000 : 1500 + Math.random() * 2500);
+        }
+        if (!q.anda) continue;
+        q.x = Math.max(60, Math.min(1740, q.x + (Math.random() - 0.5) * 40));
+        q.y = Math.max(360, Math.min(816, q.y + (Math.random() - 0.5) * 28));
+        p.ws.send(
+          JSON.stringify({ t: "m", x: Math.round(q.x), y: Math.round(q.y), d: Math.floor(Math.random() * 4), w: true }),
+        );
+        counters.pasos += 1;
+      }
+    }, 200);
+
     const progress = setInterval(() => {
       const left = Math.max(0, Math.round((end - Date.now()) / 1000));
       console.log(`  ... ${left}s restantes, ${actions} acciones, ${errors} errores, ${counters.events} eventos en vivo`);
     }, 15_000);
 
+    const tCarga = performance.now();
     await Promise.all([...players.map(actor), restart]);
     clearInterval(progress);
+    clearInterval(caminata);
+    const segundosPlaza = (performance.now() - tCarga) / 1000;
 
     const { data: overview } = await request("GET", "/admin/overview", null, adminCookie);
     if (overview?.round) {
       await request("POST", `/admin/rounds/${overview.round.id}/end`, null, adminCookie, "terminar ronda");
     }
     streams.forEach((s) => s.destroy());
+    for (const p of players) if (p.ws) p.ws.close();
 
     // 5. Reporte
     const totalRequests = [...stats.values()].reduce((a, v) => a + v.length, 0);
@@ -246,6 +331,19 @@ async function main() {
         `${name.padEnd(18)} ${String(values.length).padStart(6)} ${pct(values, 50).toFixed(0).padStart(5)}ms ${pct(values, 95).toFixed(0).padStart(5)}ms ${pct(values, 99).toFixed(0).padStart(5)}ms ${Math.max(...values).toFixed(0).padStart(5)}ms`,
       );
     }
+    const mb = counters.plazaBytes / 1024 / 1024;
+    const mbs = mb / Math.max(1, segundosPlaza);
+    console.log(
+      `
+Plaza: ${counters.plazaAbiertos} conectados, ${counters.plazaErrores} errores, ${counters.plazaCerrados} caidas`,
+    );
+    console.log(
+      `  fotos recibidas: ${counters.fotos} (${Math.round(counters.fotos / Math.max(1, counters.plazaAbiertos))} por persona) · pasos enviados: ${counters.pasos}`,
+    );
+    console.log(
+      `  trafico del lobby: ${mb.toFixed(1)} MB en ${segundosPlaza.toFixed(0)}s = ${mbs.toFixed(2)} MB/s -> ${((mbs * 3600) / 1024).toFixed(1)} GB por hora`,
+    );
+
     const rps = totalRequests / (DURATION_S + registerSeconds);
     console.log(`\nPeticiones: ${totalRequests} (${rps.toFixed(1)}/s promedio) · errores de servidor: ${errors}`);
     if (errorSamples.size) console.log("Errores:", Object.fromEntries(errorSamples));
