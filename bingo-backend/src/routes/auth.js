@@ -23,8 +23,75 @@ const RESERVED = new Set([
   "organizador",
 ]);
 
+/**
+ * Nombres que no se aceptan al crear una cuenta.
+ *
+ * El nombre se pasea sobre la cabeza de cada quien en la plaza y sale en la
+ * pantalla del auditorio, asi que uno ofensivo lo ve todo el evento. Esto no
+ * pretende ser exhaustivo -quien insista se las ingenia igual-: frena al que
+ * lo intenta de pasada, y al resto lo borra el staff desde el panel.
+ *
+ * Van en dos listas porque el riesgo no es el mismo. Una palabra corta buscada
+ * a ciegas dentro del nombre se lleva por delante a gente inocente: "computo"
+ * lleva "puto" dentro y "maricarmen" lleva "marica", y en un evento de
+ * programadores los dos son nombres perfectamente normales.
+ */
+/** Inequivocas: ninguna cabe dentro de un nombre real, se buscan como trozo. */
+const OFENSIVAS_TROZO = [
+  "mierda",
+  "pendejo",
+  "pendeja",
+  "cabron",
+  "maricon",
+  "conchatumadre",
+  "ctmr",
+  "culiao",
+  "chucha",
+  "pinche",
+  "chingada",
+  "chingar",
+  "huevon",
+  "webon",
+  "malparido",
+  "gonorrea",
+  "hijueputa",
+  "violador",
+  "hitler",
+  "nazi",
+  "fuck",
+  "bitch",
+  "nigg",
+  "faggot",
+  "whore",
+];
+/**
+ * Ambiguas: solo si son el nombre entero o una palabra suelta dentro de el.
+ * Las de ingles estan aqui por lo mismo que las de espanol: "shitake" lleva
+ * "shit" y "therapist" lleva "rapist".
+ */
+const OFENSIVAS_PALABRA = [
+  "puta",
+  "puto",
+  "marica",
+  "verga",
+  "zorra",
+  "hdp",
+  "shit",
+  "cunt",
+  "rapist",
+];
+
 function nameKeyOf(name) {
   return name.normalize("NFC").toLowerCase();
+}
+
+function esOfensivo(key) {
+  // Sin espacios ni puntos, asi "p.u.t.o" se mira igual que "puto".
+  const plano = key.replace(/[^\p{L}\p{N}]/gu, "");
+  if (OFENSIVAS_TROZO.some((mala) => plano.includes(mala))) return true;
+  if (OFENSIVAS_PALABRA.includes(plano)) return true;
+  const palabras = key.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  return palabras.some((p) => OFENSIVAS_PALABRA.includes(p));
 }
 
 function cleanName(raw) {
@@ -78,7 +145,14 @@ router.post("/entrar", async (req, res) => {
     if (!valid) {
       rateLimit.hit(`entrar:name:${key}`, 6, 10 * 60_000);
       rateLimit.hit(`entrar:ip:${req.ip}`, 3000, 10 * 60_000);
-      throw unauthorized("Usuario o clave incorrectos");
+      // Este mensaje le sale a dos personas muy distintas: a quien se equivoco
+      // de clave, y a quien se esta registrando por primera vez con un nombre
+      // que otro ya tomo. En un evento de cientos el segundo caso es el comun
+      // -"juan", "maria"- y con "clave incorrecta" a secas creia que la app
+      // estaba rota y lo reintentaba hasta quedar bloqueado diez minutos.
+      throw unauthorized(
+        "Clave incorrecta. Si es tu primera vez, ese usuario ya esta tomado: agrega tu apellido",
+      );
     }
     rateLimit.reset(`entrar:name:${key}`);
     invalidatePlayer(existing.id);
@@ -89,6 +163,7 @@ router.post("/entrar", async (req, res) => {
 
   // Cuenta nueva.
   if (RESERVED.has(key)) throw badRequest("Ese usuario esta reservado, usa otro");
+  if (esOfensivo(key)) throw badRequest("Ese usuario no se puede usar, elige otro");
   if (!isValidPin(clave)) throw badRequest("Tu clave debe ser de 4 a 8 numeros");
 
   const claveHash = await hashPin(clave);
