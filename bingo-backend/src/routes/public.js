@@ -27,7 +27,10 @@ router.get("/screen", async (req, res) => {
   res.json({
     event: eventView(event),
     players,
-    round: rounds.roundView(round),
+    // Con codigo: esta ruta la pide el proyector, que es justo donde la sala
+    // lee el codigo para entrar a la ronda. Sin esto, recargar la pantalla en
+    // mitad de una ronda la dejaba sin el dato mas importante.
+    round: rounds.roundAdminView(round),
     progress: round ? await cards.results(round.id) : null,
     realtime: hub.stats(),
   });

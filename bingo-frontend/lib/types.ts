@@ -36,6 +36,12 @@ export type Round = {
   podiumBonus: number[];
   /** Hora del servidor: corrige relojes de celulares desfasados. */
   serverNow: number;
+  /**
+   * El codigo de sala. Solo llega al panel y al proyector; en la copia que
+   * reciben los jugadores no viene, para que nadie se cuele desde el otro
+   * auditorio mirando la respuesta de la API.
+   */
+  code?: string;
 };
 
 export type MeResponse = {

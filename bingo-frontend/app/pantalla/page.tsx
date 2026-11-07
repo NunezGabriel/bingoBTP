@@ -64,10 +64,12 @@ function RoundLive({ round, progress }: { round: Round; progress: RoundResults }
 }
 
 function HowToPlay() {
+  // Pide nombre y apellido a proposito: con cientos de personas, "juan" a
+  // secas lo escribe mas de uno y el segundo se topa con la cuenta del primero.
   const steps = [
-    "Entra desde tu celular y crea tu cartilla",
-    "Busca a quien cumpla cada casilla",
-    "Pidele su codigo de 6 letras y firma",
+    "Entra desde tu celular con tu nombre y apellido",
+    "Cuando empiece la ronda, escribe el codigo que sale arriba",
+    "Busca a quien cumpla cada casilla y pidele su codigo de 6 letras",
   ];
   return (
     <div className="card flex min-h-0 flex-1 flex-col justify-center p-[1.4vw]">
@@ -159,7 +161,17 @@ function Screen() {
     setCountdownSeen(r.id);
     setRound(r, EMPTY);
   });
-  useRealtime<Round>("round:started", (r) => setRound(r, state?.progress ?? EMPTY));
+  useRealtime<Round>("round:started", (r) => {
+    setOffset(r.serverNow - Date.now());
+    // Se fusiona en vez de reemplazar: "round:started" viaja sin el codigo de
+    // sala, y asignar el objeto entero lo borraba de la pantalla justo cuando
+    // la gente lo necesita para entrar.
+    setState((s) =>
+      s
+        ? { ...s, round: s.round?.id === r.id ? { ...s.round, ...r } : r, progress: s.progress ?? EMPTY }
+        : s,
+    );
+  });
   useRealtime<RoundResults & { roundId: number }>("bingo:progress", (p) =>
     setState((s) => (s && s.round?.id === p.roundId ? { ...s, progress: p } : s)),
   );
@@ -204,6 +216,21 @@ function Screen() {
           que mostrar, y la ronda y el QR se ven mejor grandes desde el fondo. */}
       <div className="flex min-h-0 flex-1 flex-col gap-[1.5vw]">
         <section className="flex min-h-0 flex-col gap-[1.5vh]">
+          {/* El codigo de sala, lo mas grande de la pantalla mientras hay
+              ronda: es lo unico que la sala tiene que leer desde el fondo del
+              auditorio. Aparece ya en la cuenta regresiva, no al activarse,
+              para que a nadie le falte tiempo de escribirlo. */}
+          {round?.code && (
+            <div className="card flex items-center justify-center gap-[2.5vw] p-[1.2vw]">
+              <p className="text-[1.5vw] font-black uppercase leading-tight tracking-[0.12em] text-muted">
+                Codigo de
+                <br />
+                la ronda
+              </p>
+              <p className="text-[6.5vw] font-black leading-none tracking-[0.14em]">{round.code}</p>
+            </div>
+          )}
+
           {round && round.status === "ACTIVE" ? (
             <RoundLive round={round} progress={state?.progress ?? EMPTY} />
           ) : (
